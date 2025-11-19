@@ -39,14 +39,26 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "Enable verbose logging");
 
-        var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC metrics from .NET codebases")
+        var locOption = new Option<bool>(
+            aliases: new[] { "--loc" },
+            getDefaultValue: () => false,
+            description: "Calculate and export LOC (Lines of Code) metrics");
+
+        var ckOption = new Option<bool>(
+            aliases: new[] { "--ck" },
+            getDefaultValue: () => false,
+            description: "Calculate and export CK (Chidamber-Kemerer) object-oriented design metrics");
+
+        var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC and CK metrics from .NET codebases")
         {
             pathOption,
             solutionOption,
             projectOption,
             outputOption,
             noRecursiveOption,
-            verboseOption
+            verboseOption,
+            locOption,
+            ckOption
         };
 
         rootCommand.AddValidator(result =>
@@ -67,15 +79,15 @@ public class RootCommandHandler
             }
         });
 
-        rootCommand.SetHandler(async (path, solution, project, output, recursive, verbose) =>
+        rootCommand.SetHandler(async (path, solution, project, output, recursive, verbose, loc, ck) =>
         {
-            await ExecuteAsync(path, solution, project, output, recursive, verbose);
-        }, pathOption, solutionOption, projectOption, outputOption, noRecursiveOption, verboseOption);
+            await ExecuteAsync(path, solution, project, output, recursive, verbose, loc, ck);
+        }, pathOption, solutionOption, projectOption, outputOption, noRecursiveOption, verboseOption, locOption, ckOption);
 
         return rootCommand;
     }
 
-    private static async Task ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose)
+    private static async Task ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -124,35 +136,76 @@ public class RootCommandHandler
                 logger.LogInformation("Recursive: {Recursive}", !noRecursive);
             }
 
+            // Determine which metrics to calculate
+            // If neither --loc nor --ck is specified, calculate both (default behavior)
+            // If both are specified, calculate both
+            // If only one is specified, calculate only that one
+            var calculateLoc = !loc && !ck ? true : loc; // Calculate LOC if neither specified (default) or if --loc is specified
+            var calculateCk = !loc && !ck ? true : ck; // Calculate CK if neither specified (default) or if --ck is specified
+
             // Initialize services
             var fileDiscovery = new FileDiscoveryService();
             var roslynParser = new Parsers.RoslynParser();
-            var locCalculator = new LocCalculator();
             var csvExporter = new CsvExporter();
 
-            var analysisService = new MetricsAnalysisService(
-                fileDiscovery,
-                roslynParser,
-                locCalculator,
-                loggerFactory.CreateLogger<MetricsAnalysisService>());
-
-            // Analyze code
-            var metrics = await analysisService.AnalyzeAsync(inputPath, !noRecursive);
-
-            if (metrics.Count == 0)
+            // Analyze and export LOC metrics if requested
+            if (calculateLoc)
             {
-                logger.LogWarning("No metrics found. Check if the path contains valid .cs files.");
-                return;
+                logger.LogInformation("Calculating LOC metrics...");
+                
+                var locCalculator = new LocCalculator();
+                var analysisService = new MetricsAnalysisService(
+                    fileDiscovery,
+                    roslynParser,
+                    locCalculator,
+                    loggerFactory.CreateLogger<MetricsAnalysisService>());
+
+                var metrics = await analysisService.AnalyzeAsync(inputPath, !noRecursive);
+
+                if (metrics.Count == 0)
+                {
+                    logger.LogWarning("No LOC metrics found. Check if the path contains valid .cs files.");
+                }
+                else
+                {
+                    logger.LogInformation("LOC analysis complete. Found {Count} metric entries.", metrics.Count);
+
+                    // Export LOC metrics to CSV
+                    var outputPath = Path.Combine(output, "metrics_loc.csv");
+                    await csvExporter.ExportAsync(metrics, outputPath);
+
+                    logger.LogInformation("LOC metrics exported successfully to: {OutputPath}", outputPath);
+                    logger.LogInformation("Total LOC entries: {Count}", metrics.Count);
+                }
             }
 
-            logger.LogInformation("Analysis complete. Found {Count} metric entries.", metrics.Count);
+            // Calculate and export CK metrics if requested
+            if (calculateCk)
+            {
+                logger.LogInformation("Calculating CK metrics...");
+                
+                var relationshipBuilder = new ClassRelationshipBuilder();
+                var ckAnalysisService = new CkMetricsAnalysisService(
+                    fileDiscovery,
+                    roslynParser,
+                    relationshipBuilder,
+                    loggerFactory.CreateLogger<CkMetricsAnalysisService>());
 
-            // Export to CSV
-            var outputPath = Path.Combine(output, "metrics_loc.csv");
-            await csvExporter.ExportAsync(metrics, outputPath);
+                var ckMetricsResults = await ckAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 
-            logger.LogInformation("Metrics exported successfully to: {OutputPath}", outputPath);
-            logger.LogInformation("Total entries: {Count}", metrics.Count);
+                if (ckMetricsResults.Count > 0)
+                {
+                    var ckOutputPath = Path.Combine(output, "metrics_ck.csv");
+                    await csvExporter.ExportCkMetricsAsync(ckMetricsResults, ckOutputPath);
+
+                    logger.LogInformation("CK metrics exported successfully to: {OutputPath}", ckOutputPath);
+                    logger.LogInformation("Total CK entries: {Count}", ckMetricsResults.Count);
+                }
+                else
+                {
+                    logger.LogWarning("No CK metrics found.");
+                }
+            }
         }
         catch (DirectoryNotFoundException ex)
         {

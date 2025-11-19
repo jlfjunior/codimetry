@@ -34,6 +34,34 @@ public class CsvExporter
         await File.WriteAllTextAsync(outputPath, csv.ToString());
     }
 
+    /// <summary>
+    /// Exports CK metrics to a CSV file.
+    /// </summary>
+    public async Task ExportCkMetricsAsync(IEnumerable<CkMetric> metrics, string outputPath)
+    {
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+
+        var csv = new StringBuilder();
+        
+        // Write header
+        csv.AppendLine("FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM");
+
+        // Write data rows
+        foreach (var metric in metrics)
+        {
+            var filePath = EscapeCsvField(metric.FilePath);
+            var className = EscapeCsvField(metric.ClassName);
+            
+            csv.AppendLine($"{filePath},{className},{metric.WMC},{metric.DIT},{metric.NOC},{metric.CBO},{metric.RFC},{metric.LCOM}");
+        }
+
+        await File.WriteAllTextAsync(outputPath, csv.ToString());
+    }
+
     private static string EscapeCsvField(string field)
     {
         if (string.IsNullOrEmpty(field))
