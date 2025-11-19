@@ -1,6 +1,6 @@
 # MetricsExporter.Net
 
-A .NET command-line tool designed to extract software metrics from local .NET repositories. This tool calculates **Lines of Code (LOC)** metrics and **Chidamber-Kemerer (CK)** object-oriented design metrics to help analyze code quality and maintainability.
+A .NET command-line tool designed to extract software metrics from local .NET repositories. This tool calculates **Lines of Code (LOC)** metrics, **Chidamber-Kemerer (CK)** object-oriented design metrics, and **MISRA (Misra's Cognitive Complexity)** metrics to help analyze code quality and maintainability.
 
 ## Features
 
@@ -12,10 +12,16 @@ A .NET command-line tool designed to extract software metrics from local .NET re
   - **CBO** (Coupling Between Objects) - Class coupling measure
   - **RFC** (Response For a Class) - Methods invocable in response
   - **LCOM** (Lack of Cohesion of Methods) - Method cohesion measure
-- ✅ **Multi-level Analysis** - Calculates LOC at method, class, and file levels
+- ✅ **MISRA Metrics (Misra's Cognitive Complexity)** - Calculates five cognitive complexity metrics:
+  - **MC** (Method Complexity) - Cognitive complexity of methods based on Basic Control Structures
+  - **AC** (Attribute Complexity) - Complexity introduced by class attributes
+  - **CLC** (Class Complexity) - Overall complexity of classes
+  - **CWC** (Coupling Weight for a Class) - Complexity due to inter-class interactions
+  - **CC** (Code Complexity) - Overall complexity of the codebase
+- ✅ **Multi-level Analysis** - Calculates LOC at method, class, and file levels; MISRA at method, class, and codebase levels
 - ✅ **Recursive Directory Scanning** - Analyzes entire codebases recursively
 - ✅ **CSV Export** - Exports metrics to standardized CSV formats
-- ✅ **Flexible Metric Selection** - Choose to calculate LOC, CK, or both metrics
+- ✅ **Flexible Metric Selection** - Choose to calculate LOC, CK, MISRA, or any combination
 - ✅ **Cross-platform** - Runs on Windows, Linux, and macOS (.NET 9.0+)
 - ✅ **Performance Optimized** - Parallel processing for fast analysis
 
@@ -70,17 +76,19 @@ You can analyze code using one of three input options:
 | `--verbose` | `-v` | Enable verbose logging | `false` |
 | `--loc` | | Calculate and export LOC (Lines of Code) metrics | `false` |
 | `--ck` | | Calculate and export CK (Chidamber-Kemerer) object-oriented design metrics | `false` |
+| `--misra` | | Calculate and export MISRA (Misra's Cognitive Complexity) metrics | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
-- If neither `--loc` nor `--ck` is specified, **both metrics are calculated** (default behavior)
+- If no metric flags (`--loc`, `--ck`, `--misra`) are specified, **all metrics are calculated** (default behavior)
 - Use `--loc` to calculate only LOC metrics
 - Use `--ck` to calculate only CK metrics
-- Use `--loc --ck` to explicitly calculate both metrics
+- Use `--misra` to calculate only MISRA metrics
+- Combine flags to calculate specific metrics: `--loc --ck`, `--loc --misra`, `--ck --misra`, or `--loc --ck --misra`
 
 ### Examples
 
-**Analyze a directory (both LOC and CK metrics - default):**
+**Analyze a directory (all metrics - default):**
 ```bash
 dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src
 ```
@@ -95,9 +103,24 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --pat
 dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck
 ```
 
-**Explicitly calculate both metrics:**
+**Calculate only MISRA metrics:**
 ```bash
+dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --misra
+```
+
+**Calculate specific metric combinations:**
+```bash
+# LOC and CK metrics
 dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --ck
+
+# LOC and MISRA metrics
+dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --misra
+
+# CK and MISRA metrics
+dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck --misra
+
+# All metrics explicitly
+dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --ck --misra
 ```
 
 **Analyze a solution file:**
@@ -133,6 +156,7 @@ The tool generates CSV files in the specified output directory. The files genera
 
 - **`metrics_loc.csv`** - Generated when LOC metrics are calculated
 - **`metrics_ck.csv`** - Generated when CK metrics are calculated
+- **`metrics_misra.csv`** - Generated when MISRA metrics are calculated
 
 ### LOC Metrics Output (`metrics_loc.csv`)
 
@@ -197,6 +221,48 @@ src/Service.cs,UserService,8,0,0,5,25,12
 
 **Note:** CK metrics are calculated at the class level only (one row per class).
 
+### MISRA Metrics Output (`metrics_misra.csv`)
+
+#### CSV Format
+
+```csv
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
+```
+
+#### Columns
+
+- **FilePath**: Relative or absolute path to the source file
+- **ClassName**: Name of the class (empty for codebase-level entries)
+- **MethodName**: Name of the method (empty for class/codebase-level entries)
+- **MC**: Method Complexity - Cognitive complexity of the method
+- **AC**: Attribute Complexity - Complexity from class attributes (class-level only)
+- **CLC**: Class Complexity - Overall complexity of the class (class-level only)
+- **CWC**: Coupling Weight for a Class - Complexity from inter-class interactions (class-level only)
+- **CC**: Code Complexity - Overall complexity of the codebase (codebase-level only)
+
+#### Output Levels
+
+The CSV includes metrics at three levels:
+
+1. **Method Level**: Individual methods with their MC (Method Complexity)
+2. **Class Level**: Aggregated metrics for each class (AC, CLC, CWC)
+3. **Codebase Level**: Overall codebase complexity (CC)
+
+#### Example Output
+
+```csv
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
+src/Example.cs,ExampleClass,SimpleMethod,3,0,0,0,0
+src/Example.cs,ExampleClass,ComplexMethod,8,0,0,0,0
+src/Example.cs,ExampleClass,,0,6,25,15,0
+,,,0,0,0,0,45
+```
+
+**Note:** 
+- Method-level entries show MC values only
+- Class-level entries show AC, CLC, and CWC values (MC is 0)
+- Codebase-level entry shows CC value only (all other fields are empty)
+
 ## How Metrics are Calculated
 
 ### LOC (Lines of Code)
@@ -226,14 +292,47 @@ These metrics help identify:
 - Tightly coupled code (high CBO)
 - Classes with poor cohesion (high LCOM)
 
+### MISRA Metrics (Misra's Cognitive Complexity)
+
+MISRA metrics measure cognitive complexity based on Basic Control Structures (BCSs) with assigned weights:
+
+- **MC (Method Complexity)**: Calculated by summing cognitive weights of all BCSs in a method:
+  - **Sequence** (sequential statements): Weight = 1
+  - **Branch** (if, switch, ternary): Weight = 2
+  - **Iteration** (for, while, foreach): Weight = 3
+  - **Call** (method invocations): Weight = 2
+  
+  Example: A method with 2 sequences, 1 branch, and 1 iteration has MC = (2×1) + (1×2) + (1×3) = 7
+
+- **AC (Attribute Complexity)**: Counts and weights class attributes (fields and properties):
+  - Simple types (int, string, bool): Weight = 1
+  - Complex types (custom classes, collections): Weight = 2
+
+- **CLC (Class Complexity)**: Aggregates class complexity:
+  - CLC = AC + Σ(MC for all methods in the class)
+
+- **CWC (Coupling Weight for a Class)**: Measures complexity from external method calls:
+  - CWC = Σ(MC_called_method + 2) for all external method calls
+  - The "+2" represents the call weight
+
+- **CC (Code Complexity)**: Overall codebase complexity:
+  - CC = Σ(CLC for all classes) + Σ(CWC for all classes) / 2
+  - Division by 2 avoids double-counting coupling between classes
+
+These metrics help identify:
+- Methods with high cognitive complexity (high MC) that may be difficult to understand
+- Classes with high overall complexity (high CLC) that may need refactoring
+- Codebases with high coupling (high CWC) indicating tight dependencies
+- Overall codebase complexity (CC) for project-level assessment
+
 ## Architecture
 
 The project follows **Simple Layered Architecture** with the following structure:
 
-- **Core/Models**: Data models (LocMetric, CkMetric)
-- **Services**: Business logic (file discovery, metrics analysis, LOC calculation, CK metrics calculation)
-- **Parsers**: File parsing (Roslyn, Solution, Project parsers, CK syntax analysis)
-- **Exporters**: Output generation (CSV export for LOC and CK metrics)
+- **Core/Models**: Data models (LocMetric, CkMetric, MisraMetric)
+- **Services**: Business logic (file discovery, metrics analysis, LOC calculation, CK metrics calculation, MISRA metrics calculation)
+- **Parsers**: File parsing (Roslyn, Solution, Project parsers, CK syntax analysis, MISRA BCS detection)
+- **Exporters**: Output generation (CSV export for LOC, CK, and MISRA metrics)
 - **CLI**: Command-line interface
 
 ## Requirements
@@ -249,7 +348,7 @@ The tool is optimized for performance:
 - Memory-efficient processing
 - Two-phase CK metrics analysis (relationship graph building, then metric calculation)
 
-Target performance: Analyzes repositories up to 100k LOC in under 2 minutes (LOC metrics). CK metrics analysis may take additional time depending on codebase complexity.
+Target performance: Analyzes repositories up to 100k LOC in under 2 minutes (LOC metrics). CK and MISRA metrics analysis may take additional time depending on codebase complexity. MISRA metrics require detailed syntax analysis and may take 3-5 minutes for 100k LOC codebases.
 
 ## License
 

@@ -62,6 +62,35 @@ public class CsvExporter
         await File.WriteAllTextAsync(outputPath, csv.ToString());
     }
 
+    /// <summary>
+    /// Exports MISRA metrics to a CSV file.
+    /// </summary>
+    public async Task ExportMisraMetricsAsync(IEnumerable<MisraMetric> metrics, string outputPath)
+    {
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+
+        var csv = new StringBuilder();
+        
+        // Write header
+        csv.AppendLine("FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC");
+
+        // Write data rows
+        foreach (var metric in metrics)
+        {
+            var filePath = EscapeCsvField(metric.FilePath);
+            var className = EscapeCsvField(metric.ClassName);
+            var methodName = EscapeCsvField(metric.MethodName);
+            
+            csv.AppendLine($"{filePath},{className},{methodName},{metric.MC},{metric.AC},{metric.CLC},{metric.CWC},{metric.CC}");
+        }
+
+        await File.WriteAllTextAsync(outputPath, csv.ToString());
+    }
+
     private static string EscapeCsvField(string field)
     {
         if (string.IsNullOrEmpty(field))

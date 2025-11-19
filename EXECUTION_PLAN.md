@@ -874,3 +874,501 @@ The six CK metrics to be implemented:
 
 **Recommendation:** Implement in priority order, validate each metric before moving to the next.
 
+---
+
+# Execution Plan — MISRA Metrics Support
+
+## Overview
+This document outlines the step-by-step execution plan to add MISRA (Misra's Cognitive Complexity) metrics support to MetricsExporter.Net. MISRA metrics are cognitive complexity metrics that measure code complexity based on cognitive weights assigned to basic control structures (BCSs).
+
+## MISRA Metrics Overview
+
+The five MISRA metrics to be implemented:
+
+1. **MC (Method Complexity):** Cognitive complexity of a method calculated by summing the cognitive weights of all Basic Control Structures (BCSs) within the method. Weights:
+   - Sequence: 1
+   - Branch: 2
+   - Iteration: 3
+   - Call: 2
+
+2. **AC (Attribute Complexity):** Measures the complexity introduced by attributes (fields/properties) within a class. Considers the number and types of attributes.
+
+3. **CLC (Class Complexity):** Overall complexity of a class, aggregating complexities from all methods and attributes within the class.
+
+4. **CWC (Coupling Weight for a Class):** Evaluates the complexity due to inter-class interactions, calculated by summing the weights of calls to other classes' methods (including the call weight of 2).
+
+5. **CC (Code Complexity):** Overall complexity of the codebase, aggregating complexities from all classes and their interactions.
+
+---
+
+## Phase 17: Data Model Extension
+
+### 17.1 Create MISRA Metric Model
+**Objective:** Create data model to support MISRA metrics alongside LOC and CK metrics
+
+**Tasks:**
+- Create new `MisraMetric` class in `Core/Models/MisraMetric.cs`:
+  ```csharp
+  public class MisraMetric
+  {
+      public string FilePath { get; set; } = string.Empty;
+      public string ClassName { get; set; } = string.Empty;
+      public string MethodName { get; set; } = string.Empty; // Empty for class-level
+      public int MC { get; set; }  // Method Complexity (method-level only)
+      public int AC { get; set; }  // Attribute Complexity (class-level)
+      public int CLC { get; set; } // Class Complexity (class-level)
+      public int CWC { get; set; } // Coupling Weight for a Class (class-level)
+      public int CC { get; set; }  // Code Complexity (aggregated, optional)
+  }
+  ```
+- Consider creating a unified metric export that can include all metric types
+- Maintain backward compatibility with existing LOC and CK metrics
+
+**Deliverables:**
+- `MisraMetric` data model
+- Backward compatibility maintained
+
+---
+
+## Phase 18: Enhanced Syntax Analysis for MISRA
+
+### 18.1 Basic Control Structure (BCS) Detection
+**Objective:** Identify and classify Basic Control Structures in method bodies
+
+**Tasks:**
+- Create `MisraSyntaxVisitor` or extend existing visitor:
+  - Detect **Sequence** structures (sequential statements)
+  - Detect **Branch** structures:
+    - `if`, `else if`, `else`
+    - `switch`, `case`
+    - `?:` (ternary operator)
+    - `??` (null-coalescing operator)
+  - Detect **Iteration** structures:
+    - `for`, `foreach`, `while`, `do-while`
+  - Detect **Call** structures:
+    - Method invocations
+    - Constructor calls
+    - Property accessors (if considered)
+  - Track nesting levels (nested structures may have different weights)
+- Handle edge cases:
+  - Expression-bodied methods
+  - Lambda expressions
+  - LINQ queries
+  - Async/await patterns
+  - Null-conditional operators (`?.`)
+
+**Deliverables:**
+- BCS detection logic
+- Syntax visitor for MISRA metrics
+
+---
+
+### 18.2 Method Complexity Calculator
+**Objective:** Calculate MC (Method Complexity) for each method
+
+**Tasks:**
+- Create `McCalculator` class:
+  - Parse method body to identify BCSs
+  - Assign cognitive weights:
+    - Sequence: 1 (each sequential statement)
+    - Branch: 2 (each if, switch, ternary)
+    - Iteration: 3 (each for, while, foreach)
+    - Call: 2 (each method/constructor call)
+  - Sum all weights to get MC
+  - Handle nested structures:
+    - Nested branches/iterations may require additional complexity
+    - Consider nesting depth in calculation
+  - Handle edge cases:
+    - Empty methods (MC = 0)
+    - Methods with only declarations (MC = 1)
+    - Expression-bodied methods
+    - Abstract methods (MC = 0 or N/A)
+
+**Deliverables:**
+- MC calculation logic
+- Unit tests for various method structures
+
+---
+
+### 18.3 Attribute Complexity Calculator
+**Objective:** Calculate AC (Attribute Complexity) for each class
+
+**Tasks:**
+- Create `AcCalculator` class:
+  - Count all attributes (fields and properties) in a class
+  - Assign complexity weights based on:
+    - Simple types (int, string, bool): weight 1
+    - Complex types (custom classes): weight 2
+    - Collections/arrays: weight 2
+    - Generic types: weight 2
+  - Alternative approach: Simple count of attributes (AC = number of attributes)
+  - Consider accessibility modifiers (public vs private)
+  - Handle edge cases:
+    - Static fields (may be excluded or counted separately)
+    - Constants
+    - Auto-properties vs full properties
+
+**Deliverables:**
+- AC calculation logic
+- Type classification for attributes
+
+---
+
+### 18.4 Class Complexity Calculator
+**Objective:** Calculate CLC (Class Complexity) for each class
+
+**Tasks:**
+- Create `ClcCalculator` class:
+  - Aggregate method complexities:
+    - Sum all MC values for methods in the class
+  - Add attribute complexity:
+    - Add AC value
+  - Formula: `CLC = AC + Σ(MC for all methods)`
+  - Handle edge cases:
+    - Classes with no methods (CLC = AC)
+    - Classes with no attributes (CLC = Σ(MC))
+    - Abstract classes
+    - Static classes
+
+**Deliverables:**
+- CLC calculation logic
+- Integration with MC and AC calculators
+
+---
+
+### 18.5 Coupling Weight Calculator
+**Objective:** Calculate CWC (Coupling Weight for a Class)
+
+**Tasks:**
+- Create `CwcCalculator` class:
+  - Identify all external method calls made by the class:
+    - Calls to methods in other classes
+    - Constructor calls to other classes
+    - Property accessors in other classes (optional)
+  - For each external call:
+    - Get the MC (Method Complexity) of the called method
+    - Add call weight (2) to the method's MC
+    - Sum: `CWC = Σ(MC_called_method + 2) for all external calls`
+  - Handle edge cases:
+    - Calls to system/library methods (may exclude or count with default MC)
+    - Calls to methods in the same class (exclude)
+    - Calls to base class methods (may count or exclude)
+    - Virtual/override method calls
+    - Interface method calls
+  - Integration with class relationship graph (from CK metrics):
+    - Use existing dependency tracking
+    - Resolve method calls to their declaring classes
+
+**Deliverables:**
+- CWC calculation logic
+- External call detection and resolution
+
+---
+
+### 18.6 Code Complexity Calculator
+**Objective:** Calculate CC (Code Complexity) for the entire codebase
+
+**Tasks:**
+- Create `CcCalculator` class:
+  - Aggregate all class complexities:
+    - Sum all CLC values for all classes
+  - Add coupling complexities:
+    - Sum all CWC values (or a portion of them to avoid double-counting)
+  - Formula options:
+    - `CC = Σ(CLC for all classes) + Σ(CWC for all classes) / 2` (to avoid double-counting)
+    - `CC = Σ(CLC for all classes)` (simpler approach)
+    - `CC = Σ(CLC for all classes) + Σ(CWC for all classes)` (full complexity)
+  - Handle edge cases:
+    - Empty codebase
+    - Single class codebase
+    - Circular dependencies
+
+**Deliverables:**
+- CC calculation logic
+- Aggregation service for codebase-level metrics
+
+---
+
+## Phase 19: MISRA Metrics Orchestration
+
+### 19.1 MISRA Metrics Analysis Service
+**Objective:** Orchestrate MISRA metrics calculation across all classes and methods
+
+**Tasks:**
+- Create `MisraMetricsAnalysisService`:
+  - First pass: Calculate method-level metrics (MC) for all methods
+  - Second pass: Calculate class-level metrics:
+    - AC (Attribute Complexity) per class
+    - CLC (Class Complexity) per class
+    - CWC (Coupling Weight) per class
+  - Third pass: Calculate codebase-level metrics:
+    - CC (Code Complexity) for entire codebase
+  - Reuse existing infrastructure:
+    - `FileDiscoveryService` for file discovery
+    - `RoslynParser` for syntax parsing
+    - `ClassRelationshipBuilder` for class relationships (for CWC)
+  - Optimize performance:
+    - Cache method complexity calculations
+    - Parallel processing where possible
+    - Incremental updates if needed
+
+**Deliverables:**
+- MISRA metrics analysis service
+- Three-phase analysis approach
+
+---
+
+### 19.2 Integration with Existing Analysis
+**Objective:** Integrate MISRA metrics with existing LOC and CK metrics workflow
+
+**Tasks:**
+- Update `RootCommandHandler`:
+  - Add `--misra` flag (optional) to enable MISRA metrics
+  - Add `--misra-only` flag to calculate only MISRA metrics
+  - Calculate MISRA metrics when flag is set
+  - Export MISRA metrics to separate CSV file
+- Update orchestration logic:
+  - Maintain backward compatibility
+  - Allow combination of metrics (e.g., `--loc --ck --misra`)
+  - Handle performance implications of calculating all metrics
+- Update logging:
+  - Log MISRA metrics calculation progress
+  - Include MISRA metrics in summary output
+
+**Deliverables:**
+- Integrated analysis workflow
+- Optional MISRA metrics feature
+- CLI options for MISRA metrics
+
+---
+
+## Phase 20: CSV Export Extension
+
+### 20.1 Extended CSV Format for MISRA Metrics
+**Objective:** Export MISRA metrics to CSV format
+
+**Tasks:**
+- Create separate CSV file (`metrics_misra.csv`):
+  - Method-level entries: `FilePath,ClassName,MethodName,MC`
+  - Class-level entries: `FilePath,ClassName,,AC,CLC,CWC`
+  - Optional codebase-level entry: `,,,CC` (or separate file)
+- Alternative: Combined format with all metrics:
+  - `FilePath,ClassName,MethodName,MC,AC,CLC,CWC`
+  - Method rows: MC populated, AC/CLC/CWC empty
+  - Class rows: AC/CLC/CWC populated, MC empty
+- Update `CsvExporter`:
+  - Add `ExportMisraMetricsAsync` method
+  - Handle optional codebase-level CC metric
+  - Maintain backward compatibility with existing export methods
+
+**Deliverables:**
+- Extended CSV export functionality
+- Documentation of MISRA CSV format
+
+---
+
+## Phase 21: CLI Enhancement
+
+### 21.1 Add MISRA Metrics Options
+**Objective:** Allow users to enable MISRA metrics calculation
+
+**Tasks:**
+- Add CLI options:
+  - `--misra` (flag): Enable MISRA metrics calculation
+  - `--misra-only` (flag): Calculate only MISRA metrics (skip LOC and CK)
+- Update help text:
+  - Document MISRA metrics
+  - Explain what each metric measures
+  - Provide usage examples
+- Update validation logic:
+  - Ensure at least one metric type is selected
+  - Handle conflicting options appropriately
+- Update command handler:
+  - Process MISRA metrics flag
+  - Integrate with existing metric calculation flow
+
+**Deliverables:**
+- CLI options for MISRA metrics
+- Updated help documentation
+
+---
+
+## Phase 22: Testing & Validation
+
+### 22.1 Unit Tests for MISRA Calculators
+**Objective:** Validate correctness of each MISRA metric calculation
+
+**Tasks:**
+- Create test cases for each calculator:
+  - **MC:** Methods with varying BCS types and nesting levels
+  - **AC:** Classes with varying attribute counts and types
+  - **CLC:** Classes with different method and attribute combinations
+  - **CWC:** Classes with varying external call patterns
+  - **CC:** Codebases of different sizes and complexities
+- Test edge cases:
+  - Empty methods/classes
+  - Methods with only declarations
+  - Classes with no attributes
+  - Classes with no methods
+  - Nested control structures
+  - Complex LINQ queries
+  - Async/await patterns
+  - Expression-bodied members
+  - Abstract classes and interfaces
+
+**Deliverables:**
+- Comprehensive unit test suite
+- Test coverage report (>80% target)
+
+---
+
+### 22.2 Integration Tests
+**Objective:** Validate end-to-end MISRA metrics workflow
+
+**Tasks:**
+- Create test scenarios:
+  - Simple codebase with basic classes
+  - Complex codebase with inheritance and coupling
+  - Codebase with various control structures
+  - Multi-file projects
+  - Solution with multiple projects
+- Validate CSV output format
+- Compare results with known MISRA metrics tools (if available)
+- Performance testing:
+  - Ensure acceptable performance (< 5 minutes for 100k LOC)
+  - Memory usage validation
+
+**Deliverables:**
+- Integration test suite
+- Validation results
+- Performance benchmarks
+
+---
+
+## Phase 23: Documentation & Examples
+
+### 23.1 Update Documentation
+**Objective:** Document MISRA metrics feature
+
+**Tasks:**
+- Update `README.md`:
+  - Add MISRA metrics section
+  - Explain each metric and its significance
+  - Usage examples with `--misra` flag
+- Update `COLLECTING_METRICS.md`:
+  - Add MISRA metrics collection instructions
+  - Example CSV outputs
+  - Interpretation guidelines
+  - Threshold recommendations (if applicable)
+- Add XML documentation comments:
+  - Document each calculator class
+  - Explain metric formulas and weights
+  - Provide calculation examples
+- Update `EXECUTION_PLAN.md`:
+  - Document completed phases
+  - Update timeline estimates
+
+**Deliverables:**
+- Updated documentation
+- Code comments
+- Usage examples
+
+---
+
+### 23.2 Create Examples
+**Objective:** Provide example code demonstrating MISRA metrics
+
+**Tasks:**
+- Create example C# projects:
+  - Simple method (baseline MC)
+  - Method with branches (if/else)
+  - Method with iterations (for/while)
+  - Method with nested structures
+  - Class with various attribute types (AC examples)
+  - Class with method complexity aggregation (CLC examples)
+  - Classes with external dependencies (CWC examples)
+- Document expected metrics for each example
+- Include in documentation or separate examples folder
+- Create comparison examples:
+  - Low complexity vs high complexity methods
+  - Well-structured vs poorly-structured classes
+
+**Deliverables:**
+- Example projects
+- Expected metrics documentation
+- Comparison examples
+
+---
+
+## Estimated Timeline
+
+| Phase | Estimated Time |
+|-------|----------------|
+| Phase 17: Data Model Extension | 1-2 hours |
+| Phase 18: Enhanced Syntax Analysis & Calculators | 16-20 hours |
+| Phase 19: MISRA Metrics Orchestration | 4-6 hours |
+| Phase 20: CSV Export Extension | 2-3 hours |
+| Phase 21: CLI Enhancement | 1-2 hours |
+| Phase 22: Testing & Validation | 8-10 hours |
+| Phase 23: Documentation & Examples | 3-4 hours |
+| **Total** | **35-47 hours** |
+
+---
+
+## Risk Mitigation
+
+1. **BCS Detection Complexity:** Identifying all control structures accurately can be challenging. Start with basic structures, iterate to handle edge cases.
+2. **Nesting Depth Calculation:** Nested structures may require special handling. Consider using a simplified approach initially.
+3. **External Call Resolution:** Resolving method calls to their declaring classes requires semantic analysis. Leverage Roslyn semantic model.
+4. **Performance:** MISRA metrics require detailed syntax analysis. Optimize BCS detection and caching.
+5. **MC Calculation for External Methods:** When calculating CWC, we need MC for called methods. May need to analyze entire codebase first or use default values for external methods.
+6. **Weight Assignment:** The cognitive weights (1, 2, 3, 2) may need adjustment based on validation. Document rationale and allow for future configuration.
+
+---
+
+## Success Criteria
+
+- ✅ All five MISRA metrics (MC, AC, CLC, CWC, CC) calculated correctly
+- ✅ MISRA metrics exported to CSV format
+- ✅ Backward compatibility maintained with existing LOC and CK metrics
+- ✅ CLI option to enable/disable MISRA metrics
+- ✅ Comprehensive test coverage (>80%)
+- ✅ Documentation updated with MISRA metrics information
+- ✅ Performance acceptable (< 5 minutes for 100k LOC with MISRA metrics)
+- ✅ Handles edge cases (nested structures, async/await, LINQ, etc.)
+- ✅ BCS detection accurately identifies all control structures
+
+---
+
+## Implementation Priority
+
+**High Priority (MVP):**
+1. MC (Method Complexity) - Core metric, foundation for others
+2. AC (Attribute Complexity) - Relatively straightforward
+3. CLC (Class Complexity) - Aggregates MC and AC
+
+**Medium Priority:**
+4. CWC (Coupling Weight) - Requires external call resolution and MC for called methods
+
+**Lower Priority (Complex):**
+5. CC (Code Complexity) - Aggregates all class-level metrics, may be optional
+
+**Recommendation:** Implement in priority order, validate each metric before moving to the next. Start with MC as it's the foundation for CLC and CWC.
+
+---
+
+## Dependencies on Existing Infrastructure
+
+- **Reuse:** `FileDiscoveryService`, `RoslynParser`, `ClassRelationshipBuilder` (for CWC)
+- **Extend:** `CsvExporter` for MISRA metrics export
+- **Integrate:** `RootCommandHandler` for CLI options
+- **Leverage:** Existing syntax visitor patterns from CK metrics implementation
+
+---
+
+## References
+
+- Misra's Cognitive Complexity Paper: [users.exa.unicen.edu.ar](https://users.exa.unicen.edu.ar/~cmateos/files/journals/misra2012-iccsacognitive.pdf)
+- Cognitive weights: Sequence=1, Branch=2, Iteration=3, Call=2
+- BCS (Basic Control Structure) classification methodology
+

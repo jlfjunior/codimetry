@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Invocation;
 using Microsoft.Extensions.Logging;
 using MetricsExporter.Net.Exporters;
 using MetricsExporter.Net.Services;
@@ -49,7 +50,12 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "Calculate and export CK (Chidamber-Kemerer) object-oriented design metrics");
 
-        var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC and CK metrics from .NET codebases")
+        var misraOption = new Option<bool>(
+            aliases: new[] { "--misra" },
+            getDefaultValue: () => false,
+            description: "Calculate and export MISRA (Misra's Cognitive Complexity) metrics");
+
+        var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC, CK, and MISRA metrics from .NET codebases")
         {
             pathOption,
             solutionOption,
@@ -58,7 +64,8 @@ public class RootCommandHandler
             noRecursiveOption,
             verboseOption,
             locOption,
-            ckOption
+            ckOption,
+            misraOption
         };
 
         rootCommand.AddValidator(result =>
@@ -79,15 +86,25 @@ public class RootCommandHandler
             }
         });
 
-        rootCommand.SetHandler(async (path, solution, project, output, recursive, verbose, loc, ck) =>
+        rootCommand.SetHandler(async (InvocationContext context) =>
         {
-            await ExecuteAsync(path, solution, project, output, recursive, verbose, loc, ck);
-        }, pathOption, solutionOption, projectOption, outputOption, noRecursiveOption, verboseOption, locOption, ckOption);
+            var path = context.ParseResult.GetValueForOption(pathOption);
+            var solution = context.ParseResult.GetValueForOption(solutionOption);
+            var project = context.ParseResult.GetValueForOption(projectOption);
+            var output = context.ParseResult.GetValueForOption(outputOption);
+            var recursive = context.ParseResult.GetValueForOption(noRecursiveOption);
+            var verbose = context.ParseResult.GetValueForOption(verboseOption);
+            var loc = context.ParseResult.GetValueForOption(locOption);
+            var ck = context.ParseResult.GetValueForOption(ckOption);
+            var misra = context.ParseResult.GetValueForOption(misraOption);
+            
+            await ExecuteAsync(path, solution, project, output ?? "./metrics", recursive, verbose, loc, ck, misra);
+        });
 
         return rootCommand;
     }
 
-    private static async Task ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck)
+    private static async Task ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -137,11 +154,12 @@ public class RootCommandHandler
             }
 
             // Determine which metrics to calculate
-            // If neither --loc nor --ck is specified, calculate both (default behavior)
-            // If both are specified, calculate both
-            // If only one is specified, calculate only that one
-            var calculateLoc = !loc && !ck ? true : loc; // Calculate LOC if neither specified (default) or if --loc is specified
-            var calculateCk = !loc && !ck ? true : ck; // Calculate CK if neither specified (default) or if --ck is specified
+            // If no metric flags are specified, calculate all (default behavior)
+            // If specific flags are specified, calculate only those
+            var hasAnyFlag = loc || ck || misra;
+            var calculateLoc = !hasAnyFlag || loc; // Calculate LOC if no flags (default) or if --loc is specified
+            var calculateCk = !hasAnyFlag || ck; // Calculate CK if no flags (default) or if --ck is specified
+            var calculateMisra = !hasAnyFlag || misra; // Calculate MISRA if no flags (default) or if --misra is specified
 
             // Initialize services
             var fileDiscovery = new FileDiscoveryService();
@@ -204,6 +222,34 @@ public class RootCommandHandler
                 else
                 {
                     logger.LogWarning("No CK metrics found.");
+                }
+            }
+
+            // Calculate and export MISRA metrics if requested
+            if (calculateMisra)
+            {
+                logger.LogInformation("Calculating MISRA metrics...");
+                
+                var relationshipBuilder = new ClassRelationshipBuilder();
+                var misraAnalysisService = new MisraMetricsAnalysisService(
+                    fileDiscovery,
+                    roslynParser,
+                    relationshipBuilder,
+                    loggerFactory.CreateLogger<MisraMetricsAnalysisService>());
+
+                var misraMetricsResults = await misraAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
+
+                if (misraMetricsResults.Count > 0)
+                {
+                    var misraOutputPath = Path.Combine(output, "metrics_misra.csv");
+                    await csvExporter.ExportMisraMetricsAsync(misraMetricsResults, misraOutputPath);
+
+                    logger.LogInformation("MISRA metrics exported successfully to: {OutputPath}", misraOutputPath);
+                    logger.LogInformation("Total MISRA entries: {Count}", misraMetricsResults.Count);
+                }
+                else
+                {
+                    logger.LogWarning("No MISRA metrics found.");
                 }
             }
         }
