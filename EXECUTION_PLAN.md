@@ -1372,3 +1372,451 @@ The five MISRA metrics to be implemented:
 - Cognitive weights: Sequence=1, Branch=2, Iteration=3, Call=2
 - BCS (Basic Control Structure) classification methodology
 
+---
+
+# Execution Plan — Cyclomatic Complexity Metrics Support
+
+## Overview
+This document outlines the step-by-step execution plan to add Cyclomatic Complexity metrics support to MetricsExporter.Net. Cyclomatic Complexity is a software metric that measures the complexity of a program by counting the number of linearly independent paths through the program's source code.
+
+## Cyclomatic Complexity Overview
+
+Cyclomatic Complexity measures code complexity based on decision points in the control flow. The formula is:
+
+**CC = 1 + number of decision points**
+
+Decision points include:
+- **Conditional statements:** `if`, `else if`, `else`
+- **Switch statements:** `switch`, `case`, `default`
+- **Loop statements:** `for`, `foreach`, `while`, `do-while`
+- **Exception handling:** `catch` blocks
+- **Conditional operators:** `&&`, `||`, `?:` (ternary), `??` (null-coalescing)
+- **Goto statements:** `goto` (rare in modern C#)
+
+The metric will be calculated at:
+1. **Method level:** Cyclomatic complexity of individual methods
+2. **Class level:** Sum of cyclomatic complexities of all methods in a class
+3. **File level:** Sum of cyclomatic complexities of all methods in a file
+
+---
+
+## Phase 24: Data Model Extension
+
+### 24.1 Create Cyclomatic Complexity Metric Model
+**Objective:** Create data model to support Cyclomatic Complexity metrics alongside LOC, CK, and MISRA metrics
+
+**Tasks:**
+- Create new `CyclomaticComplexityMetric` class in `Core/Models/CyclomaticComplexityMetric.cs`:
+  ```csharp
+  public class CyclomaticComplexityMetric
+  {
+      public string FilePath { get; set; } = string.Empty;
+      public string ClassName { get; set; } = string.Empty;
+      public string MethodName { get; set; } = string.Empty; // Empty for class/file-level
+      public int Complexity { get; set; }  // Cyclomatic Complexity value
+  }
+  ```
+- Consider creating a unified metric export that can include all metric types
+- Maintain backward compatibility with existing LOC, CK, and MISRA metrics
+
+**Deliverables:**
+- `CyclomaticComplexityMetric` data model
+- Backward compatibility maintained
+
+---
+
+## Phase 25: Syntax Analysis for Cyclomatic Complexity
+
+### 25.1 Decision Point Detection Visitor
+**Objective:** Create a syntax visitor that identifies all decision points in method bodies
+
+**Tasks:**
+- Create `CyclomaticComplexityVisitor` class extending `CSharpSyntaxWalker`:
+  - Visit method bodies and expression bodies
+  - Detect and count decision points:
+    - **If statements:** `IfStatementSyntax` (+1 for each `if` and `else if`)
+    - **Switch statements:** `SwitchStatementSyntax` (+1 for each `case` label, +1 for `default`)
+    - **Loop statements:** 
+      - `ForStatementSyntax` (+1)
+      - `ForEachStatementSyntax` (+1)
+      - `WhileStatementSyntax` (+1)
+      - `DoStatementSyntax` (+1)
+    - **Catch clauses:** `CatchClauseSyntax` (+1 for each catch block)
+    - **Conditional expressions:** 
+      - `ConditionalExpressionSyntax` (ternary `?:`) (+1)
+      - `BinaryExpressionSyntax` with `&&` or `||` operators (+1 for each operator)
+    - **Null-coalescing:** `BinaryExpressionSyntax` with `??` operator (+1)
+  - Handle edge cases:
+    - Expression-bodied methods
+    - Lambda expressions (calculate complexity within lambda)
+    - Nested control structures (each adds to complexity)
+    - Switch expressions (C# 8.0+)
+    - Pattern matching (C# 7.0+)
+    - Null-conditional operators (`?.`, `?[]`)
+- Track complexity per method:
+  - Start with base complexity of 1
+  - Add 1 for each decision point encountered
+  - Return method name, containing class, and calculated complexity
+
+**Deliverables:**
+- Decision point detection logic
+- Syntax visitor for cyclomatic complexity calculation
+- Support for modern C# features
+
+---
+
+### 25.2 Cyclomatic Complexity Calculator
+**Objective:** Calculate cyclomatic complexity for methods, classes, and files
+
+**Tasks:**
+- Create `CyclomaticComplexityCalculator` class:
+  - Accept syntax tree or method syntax node
+  - Use `CyclomaticComplexityVisitor` to traverse method body
+  - Calculate complexity: `CC = 1 + decision_points`
+  - Handle special cases:
+    - Empty methods (CC = 1)
+    - Abstract methods (CC = 0 or N/A)
+    - Methods with only declarations (CC = 1)
+    - Expression-bodied methods (may have decision points)
+  - Aggregate complexities:
+    - **Class-level CC:** Sum of all method complexities in class
+    - **File-level CC:** Sum of all method complexities in file
+- Optimize performance:
+  - Cache visitor instances where possible
+  - Efficient syntax tree traversal
+  - Avoid redundant calculations
+
+**Deliverables:**
+- Cyclomatic complexity calculation logic
+- Method, class, and file-level aggregation
+- Unit tests for various code structures
+
+---
+
+## Phase 26: Cyclomatic Complexity Orchestration
+
+### 26.1 Cyclomatic Complexity Analysis Service
+**Objective:** Orchestrate cyclomatic complexity calculation across all methods, classes, and files
+
+**Tasks:**
+- Create `CyclomaticComplexityAnalysisService`:
+  - Use `FileDiscoveryService` to discover `.cs` files
+  - Use `RoslynParser` to parse files into syntax trees
+  - For each file:
+    - Extract all methods (including constructors, properties with accessors)
+    - Calculate method-level cyclomatic complexity
+    - Aggregate class-level complexity
+    - Aggregate file-level complexity
+  - Return list of `CyclomaticComplexityMetric` objects:
+    - One entry per method (with method name)
+    - One entry per class (with empty method name, sum of methods)
+    - One entry per file (with empty class and method names, sum of all methods)
+  - Reuse existing infrastructure:
+    - `FileDiscoveryService` for file discovery
+    - `RoslynParser` for syntax parsing
+  - Optimize performance:
+    - Parallel file processing where thread-safe
+    - Cache syntax trees
+    - Efficient visitor pattern usage
+
+**Deliverables:**
+- Cyclomatic complexity analysis service
+- Multi-level metric calculation (method/class/file)
+- Performance optimizations
+
+---
+
+### 26.2 Integration with Existing Analysis
+**Objective:** Integrate Cyclomatic Complexity metrics with existing LOC, CK, and MISRA metrics workflow
+
+**Tasks:**
+- Update `RootCommandHandler`:
+  - Add `--cyclomatic` or `--cc` flag (optional) to enable cyclomatic complexity metrics
+  - Add `--cc-only` flag to calculate only cyclomatic complexity (skip other metrics)
+  - Calculate cyclomatic complexity when flag is set
+  - Export cyclomatic complexity to separate CSV file
+- Update orchestration logic:
+  - Maintain backward compatibility
+  - Allow combination of metrics (e.g., `--loc --ck --misra --cc`)
+  - Handle performance implications of calculating all metrics
+- Update logging:
+  - Log cyclomatic complexity calculation progress
+  - Include cyclomatic complexity in summary output
+  - Log complexity thresholds (e.g., methods with CC > 10)
+
+**Deliverables:**
+- Integrated analysis workflow
+- Optional cyclomatic complexity feature
+- CLI options for cyclomatic complexity metrics
+
+---
+
+## Phase 27: CSV Export Extension
+
+### 27.1 Extended CSV Format for Cyclomatic Complexity
+**Objective:** Export Cyclomatic Complexity metrics to CSV format
+
+**Tasks:**
+- Create separate CSV file (`metrics_cyclomatic.csv`):
+  - Method-level entries: `FilePath,ClassName,MethodName,Complexity`
+  - Class-level entries: `FilePath,ClassName,,Complexity` (sum of methods)
+  - File-level entries: `FilePath,,,Complexity` (sum of all methods in file)
+- Alternative: Combined format with all metrics (future consideration)
+- Update `CsvExporter`:
+  - Add `ExportCyclomaticComplexityAsync` method
+  - Handle method, class, and file-level entries
+  - Maintain backward compatibility with existing export methods
+  - Use consistent CSV escaping and formatting
+
+**Deliverables:**
+- Extended CSV export functionality
+- Documentation of Cyclomatic Complexity CSV format
+- Consistent formatting with existing exports
+
+---
+
+## Phase 28: CLI Enhancement
+
+### 28.1 Add Cyclomatic Complexity Options
+**Objective:** Allow users to enable Cyclomatic Complexity metrics calculation
+
+**Tasks:**
+- Add CLI options:
+  - `--cyclomatic` or `--cc` (flag): Enable cyclomatic complexity metrics calculation
+  - `--cc-only` (flag): Calculate only cyclomatic complexity (skip LOC, CK, and MISRA)
+- Update help text:
+  - Document cyclomatic complexity metrics
+  - Explain what the metric measures
+  - Provide usage examples
+  - Include complexity threshold recommendations (e.g., CC > 10 is complex)
+- Update validation logic:
+  - Ensure at least one metric type is selected
+  - Handle conflicting options appropriately
+- Update command handler:
+  - Process cyclomatic complexity flag
+  - Integrate with existing metric calculation flow
+  - Add complexity threshold warnings (optional)
+
+**Deliverables:**
+- CLI options for cyclomatic complexity metrics
+- Updated help documentation
+- Optional complexity threshold warnings
+
+---
+
+## Phase 29: Testing & Validation
+
+### 29.1 Unit Tests for Cyclomatic Complexity Calculator
+**Objective:** Validate correctness of cyclomatic complexity calculation
+
+**Tasks:**
+- Create test cases for various code structures:
+  - **Simple methods:** No decision points (CC = 1)
+  - **If statements:** Single if (CC = 2), if-else (CC = 2), if-else if-else (CC = 3)
+  - **Switch statements:** Switch with multiple cases
+  - **Loops:** For, foreach, while, do-while loops
+  - **Nested structures:** Nested ifs, loops within loops
+  - **Conditional operators:** Ternary operators, null-coalescing
+  - **Logical operators:** &&, || in conditions
+  - **Exception handling:** Try-catch blocks
+- Test edge cases:
+  - Empty methods
+  - Methods with only declarations
+  - Expression-bodied methods
+  - Lambda expressions
+  - Switch expressions (C# 8.0+)
+  - Pattern matching
+  - Async/await methods
+  - Abstract methods
+  - Properties with getters/setters
+- Validate aggregation:
+  - Class-level complexity (sum of methods)
+  - File-level complexity (sum of all methods)
+- Compare results with known cyclomatic complexity tools (if available)
+
+**Deliverables:**
+- Comprehensive unit test suite
+- Test coverage report (>80% target)
+- Validation against reference implementations
+
+---
+
+### 29.2 Integration Tests
+**Objective:** Validate end-to-end cyclomatic complexity workflow
+
+**Tasks:**
+- Create test scenarios:
+  - Simple codebase with basic methods
+  - Complex codebase with nested control structures
+  - Codebase with various decision point types
+  - Multi-file projects
+  - Solution with multiple projects
+- Validate CSV output format:
+  - Method-level entries
+  - Class-level entries
+  - File-level entries
+  - Proper aggregation
+- Performance testing:
+  - Ensure acceptable performance (< 5 minutes for 100k LOC)
+  - Memory usage validation
+  - Compare performance with other metrics
+
+**Deliverables:**
+- Integration test suite
+- Validation results
+- Performance benchmarks
+
+---
+
+## Phase 30: Documentation & Examples
+
+### 30.1 Update Documentation
+**Objective:** Document Cyclomatic Complexity metrics feature
+
+**Tasks:**
+- Update `README.md`:
+  - Add Cyclomatic Complexity metrics section
+  - Explain what cyclomatic complexity measures
+  - Explain the calculation formula (CC = 1 + decision points)
+  - List all decision points counted
+  - Usage examples with `--cyclomatic` or `--cc` flag
+  - Complexity threshold recommendations:
+    - CC 1-10: Simple (low risk)
+    - CC 11-20: Moderate (medium risk)
+    - CC 21-50: Complex (high risk)
+    - CC > 50: Very complex (very high risk)
+- Update `COLLECTING_METRICS.md`:
+  - Add Cyclomatic Complexity metrics collection instructions
+  - Example CSV outputs
+  - Interpretation guidelines
+  - Best practices for managing complexity
+- Add XML documentation comments:
+  - Document calculator class
+  - Explain metric formula and decision points
+  - Provide calculation examples
+  - Document edge cases
+- Update `EXECUTION_PLAN.md`:
+  - Document completed phases
+  - Update timeline estimates
+
+**Deliverables:**
+- Updated documentation
+- Code comments
+- Usage examples
+- Complexity interpretation guidelines
+
+---
+
+### 30.2 Create Examples
+**Objective:** Provide example code demonstrating Cyclomatic Complexity metrics
+
+**Tasks:**
+- Create example C# projects:
+  - Simple method (CC = 1, baseline)
+  - Method with single if (CC = 2)
+  - Method with if-else (CC = 2)
+  - Method with multiple if-else if-else (CC = 3+)
+  - Method with switch statement (CC = number of cases + 1)
+  - Method with loops (CC = 2+)
+  - Method with nested structures (CC = sum of all decision points + 1)
+  - Method with conditional operators (CC = 2+)
+  - Class with multiple methods (class CC = sum of method CCs)
+- Document expected complexity for each example
+- Include in documentation or separate examples folder
+- Create comparison examples:
+  - Low complexity vs high complexity methods
+  - Refactored code showing complexity reduction
+  - Examples of when high complexity is acceptable
+
+**Deliverables:**
+- Example projects
+- Expected complexity documentation
+- Comparison examples
+- Refactoring examples
+
+---
+
+## Estimated Timeline
+
+| Phase | Estimated Time |
+|-------|----------------|
+| Phase 24: Data Model Extension | 1 hour |
+| Phase 25: Syntax Analysis & Calculator | 6-8 hours |
+| Phase 26: Orchestration | 3-4 hours |
+| Phase 27: CSV Export Extension | 1-2 hours |
+| Phase 28: CLI Enhancement | 1 hour |
+| Phase 29: Testing & Validation | 6-8 hours |
+| Phase 30: Documentation & Examples | 2-3 hours |
+| **Total** | **20-27 hours** |
+
+---
+
+## Risk Mitigation
+
+1. **Decision Point Detection Accuracy:** Some decision points (especially in complex expressions) may be difficult to detect. Start with basic structures, iterate to handle edge cases.
+2. **Logical Operators:** Counting `&&` and `||` operators can be tricky. Each operator in a condition adds complexity, but nested conditions need careful handling.
+3. **Modern C# Features:** Switch expressions, pattern matching, and other modern features may require special handling. Test thoroughly with various C# versions.
+4. **Performance:** Cyclomatic complexity calculation requires detailed syntax analysis. Optimize visitor pattern usage and consider caching.
+5. **Lambda Expressions:** Complexity within lambda expressions should be counted. Ensure proper traversal of lambda bodies.
+6. **Expression-Bodied Members:** Expression-bodied methods and properties may contain decision points. Ensure they are properly analyzed.
+
+---
+
+## Success Criteria
+
+- ✅ Cyclomatic Complexity calculated correctly for all methods
+- ✅ Class-level and file-level aggregation working correctly
+- ✅ Cyclomatic Complexity exported to CSV format
+- ✅ Backward compatibility maintained with existing LOC, CK, and MISRA metrics
+- ✅ CLI option to enable/disable cyclomatic complexity metrics
+- ✅ Comprehensive test coverage (>80%)
+- ✅ Documentation updated with cyclomatic complexity information
+- ✅ Performance acceptable (< 5 minutes for 100k LOC with cyclomatic complexity)
+- ✅ Handles edge cases (expression-bodied methods, lambdas, modern C# features, etc.)
+- ✅ Accurate detection of all decision point types
+- ✅ Complexity threshold warnings (optional feature)
+
+---
+
+## Implementation Priority
+
+**High Priority (MVP):**
+1. Basic decision point detection (if, switch, loops)
+2. Method-level complexity calculation
+3. Class-level aggregation
+
+**Medium Priority:**
+4. Advanced decision points (conditional operators, logical operators)
+5. File-level aggregation
+6. CSV export
+
+**Lower Priority (Enhancements):**
+7. Complexity threshold warnings
+8. Integration with WMC (use CC to weight methods)
+9. Complexity trend analysis (future)
+
+**Recommendation:** Implement in priority order, validate each component before moving to the next. Start with basic decision points and method-level calculation as the foundation.
+
+---
+
+## Dependencies on Existing Infrastructure
+
+- **Reuse:** `FileDiscoveryService`, `RoslynParser`
+- **Extend:** `CsvExporter` for cyclomatic complexity export
+- **Integrate:** `RootCommandHandler` for CLI options
+- **Leverage:** Existing syntax visitor patterns from CK and MISRA metrics implementation
+- **Consider:** Integration with WMC calculator to use cyclomatic complexity as method weight
+
+---
+
+## References
+
+- McCabe, T. J. (1976). "A Complexity Measure". IEEE Transactions on Software Engineering. SE-2 (4): 308–320.
+- Cyclomatic Complexity Formula: CC = E - N + 2P, where E = edges, N = nodes, P = connected components
+- Simplified Formula: CC = 1 + number of decision points
+- Common Complexity Thresholds:
+  - 1-10: Simple, low risk
+  - 11-20: Moderate, medium risk
+  - 21-50: Complex, high risk
+  - > 50: Very complex, very high risk
+

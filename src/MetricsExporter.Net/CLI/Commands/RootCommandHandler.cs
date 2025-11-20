@@ -55,7 +55,12 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "Calculate and export MISRA (Misra's Cognitive Complexity) metrics");
 
-        var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC, CK, and MISRA metrics from .NET codebases")
+        var cyclomaticOption = new Option<bool>(
+            aliases: new[] { "--cyclomatic", "--cc" },
+            getDefaultValue: () => false,
+            description: "Calculate and export Cyclomatic Complexity metrics");
+
+        var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC, CK, MISRA, and Cyclomatic Complexity metrics from .NET codebases")
         {
             pathOption,
             solutionOption,
@@ -65,7 +70,8 @@ public class RootCommandHandler
             verboseOption,
             locOption,
             ckOption,
-            misraOption
+            misraOption,
+            cyclomaticOption
         };
 
         rootCommand.AddValidator(result =>
@@ -97,14 +103,15 @@ public class RootCommandHandler
             var loc = context.ParseResult.GetValueForOption(locOption);
             var ck = context.ParseResult.GetValueForOption(ckOption);
             var misra = context.ParseResult.GetValueForOption(misraOption);
+            var cyclomatic = context.ParseResult.GetValueForOption(cyclomaticOption);
             
-            await ExecuteAsync(path, solution, project, output ?? "./metrics", recursive, verbose, loc, ck, misra);
+            await ExecuteAsync(path, solution, project, output ?? "./metrics", recursive, verbose, loc, ck, misra, cyclomatic);
         });
 
         return rootCommand;
     }
 
-    private static async Task ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra)
+    private static async Task ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -156,10 +163,12 @@ public class RootCommandHandler
             // Determine which metrics to calculate
             // If no metric flags are specified, calculate all (default behavior)
             // If specific flags are specified, calculate only those
-            var hasAnyFlag = loc || ck || misra;
+            var hasAnyFlag = loc || ck || misra || cyclomatic;
+            
             var calculateLoc = !hasAnyFlag || loc; // Calculate LOC if no flags (default) or if --loc is specified
             var calculateCk = !hasAnyFlag || ck; // Calculate CK if no flags (default) or if --ck is specified
             var calculateMisra = !hasAnyFlag || misra; // Calculate MISRA if no flags (default) or if --misra is specified
+            var calculateCyclomatic = !hasAnyFlag || cyclomatic; // Calculate Cyclomatic Complexity if no flags (default) or if --cyclomatic/--cc is specified
 
             // Initialize services
             var fileDiscovery = new FileDiscoveryService();
@@ -250,6 +259,48 @@ public class RootCommandHandler
                 else
                 {
                     logger.LogWarning("No MISRA metrics found.");
+                }
+            }
+
+            // Calculate and export Cyclomatic Complexity metrics if requested
+            if (calculateCyclomatic)
+            {
+                logger.LogInformation("Calculating Cyclomatic Complexity metrics...");
+                
+                var ccAnalysisService = new CyclomaticComplexityAnalysisService(
+                    fileDiscovery,
+                    roslynParser,
+                    loggerFactory.CreateLogger<CyclomaticComplexityAnalysisService>());
+
+                var ccMetricsResults = await ccAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
+
+                if (ccMetricsResults.Count > 0)
+                {
+                    var ccOutputPath = Path.Combine(output, "metrics_cyclomatic.csv");
+                    await csvExporter.ExportCyclomaticComplexityAsync(ccMetricsResults, ccOutputPath);
+
+                    logger.LogInformation("Cyclomatic Complexity metrics exported successfully to: {OutputPath}", ccOutputPath);
+                    logger.LogInformation("Total Cyclomatic Complexity entries: {Count}", ccMetricsResults.Count);
+                    
+                    // Log complexity statistics
+                    var methodMetrics = ccMetricsResults.Where(m => !string.IsNullOrEmpty(m.MethodName)).ToList();
+                    if (methodMetrics.Any())
+                    {
+                        var maxComplexity = methodMetrics.Max(m => m.Complexity);
+                        var avgComplexity = methodMetrics.Average(m => m.Complexity);
+                        var highComplexity = methodMetrics.Count(m => m.Complexity > 10);
+                        var veryHighComplexity = methodMetrics.Count(m => m.Complexity > 20);
+                        
+                        logger.LogInformation("Complexity Statistics:");
+                        logger.LogInformation("  Maximum complexity: {Max}", maxComplexity);
+                        logger.LogInformation("  Average complexity: {Avg:F2}", avgComplexity);
+                        logger.LogInformation("  Methods with complexity > 10: {High}", highComplexity);
+                        logger.LogInformation("  Methods with complexity > 20: {VeryHigh}", veryHighComplexity);
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("No Cyclomatic Complexity metrics found.");
                 }
             }
         }

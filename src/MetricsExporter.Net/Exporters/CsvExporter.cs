@@ -91,6 +91,35 @@ public class CsvExporter
         await File.WriteAllTextAsync(outputPath, csv.ToString());
     }
 
+    /// <summary>
+    /// Exports Cyclomatic Complexity metrics to a CSV file.
+    /// </summary>
+    public async Task ExportCyclomaticComplexityAsync(IEnumerable<CyclomaticComplexityMetric> metrics, string outputPath)
+    {
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+
+        var csv = new StringBuilder();
+        
+        // Write header
+        csv.AppendLine("FilePath,ClassName,MethodName,Complexity");
+
+        // Write data rows
+        foreach (var metric in metrics)
+        {
+            var filePath = EscapeCsvField(metric.FilePath);
+            var className = EscapeCsvField(metric.ClassName);
+            var methodName = EscapeCsvField(metric.MethodName);
+            
+            csv.AppendLine($"{filePath},{className},{methodName},{metric.Complexity}");
+        }
+
+        await File.WriteAllTextAsync(outputPath, csv.ToString());
+    }
+
     private static string EscapeCsvField(string field)
     {
         if (string.IsNullOrEmpty(field))
