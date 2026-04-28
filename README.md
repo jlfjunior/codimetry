@@ -45,7 +45,7 @@ dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj
 
 ## Documentation
 
-📖 **For detailed instructions on collecting metrics, see [COLLECTING_METRICS.md](COLLECTING_METRICS.md)**
+📖 **For detailed instructions on collecting metrics, see [COLLECTING_METRICS.md](docs/COLLECTING_METRICS.md)**
 
 ## Usage
 
@@ -75,7 +75,7 @@ You can analyze code using one of three input options:
 
 | Option | Short | Description | Default |
 |--------|-------|-------------|---------|
-| `--out` | `-o` | Output directory for the CSV files | `./metrics` |
+| `--out` | `-o` | Output directory for the CSV files | `./.metrics` |
 | `--no-recursive` | | Disable recursive directory scanning (only applies to `--path`) | `false` |
 | `--verbose` | `-v` | Enable verbose logging | `false` |
 | `--loc` | | Calculate and export LOC (Lines of Code) metrics | `false` |

@@ -9,6 +9,12 @@
 # Ignore Mac OS files
 *.DS_Store
 
+# Internal planning artifacts
+.planning/
+
+# Metrics output
+.metrics/
+
 # User-specific files
 *.rsuser
 *.suo

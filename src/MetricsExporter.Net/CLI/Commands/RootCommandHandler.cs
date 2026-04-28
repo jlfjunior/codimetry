@@ -27,8 +27,8 @@ public class RootCommandHandler
 
         var outputOption = new Option<string>(
             aliases: new[] { "--out", "-o" },
-            getDefaultValue: () => "./metrics",
-            description: "Output directory for the CSV file (default: ./metrics)");
+            getDefaultValue: () => "./.metrics",
+            description: "Output directory for the CSV file (default: ./.metrics)");
 
         var noRecursiveOption = new Option<bool>(
             aliases: new[] { "--no-recursive" },
@@ -105,7 +105,7 @@ public class RootCommandHandler
             var misra = context.ParseResult.GetValueForOption(misraOption);
             var cyclomatic = context.ParseResult.GetValueForOption(cyclomaticOption);
             
-            await ExecuteAsync(path, solution, project, output ?? "./metrics", recursive, verbose, loc, ck, misra, cyclomatic);
+            await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic);
         });
 
         return rootCommand;

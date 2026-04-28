@@ -5,6 +5,13 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetricsExporter.Net", "src\MetricsExporter.Net\MetricsExporter.Net.csproj", "{171F6FC1-8558-427E-96A1-FD36B2644DFC}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1370C9E3-721E-4818-AB8B-FA3E505B2E07}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{9EBAE586-A621-4B73-B837-E2F1B3073DA9}"
+	ProjectSection(SolutionItems) = preProject
+		docs\COLLECTING_METRICS.md = docs\COLLECTING_METRICS.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +25,8 @@ Global
 		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC} = {1370C9E3-721E-4818-AB8B-FA3E505B2E07}
 	EndGlobalSection
 EndGlobal
