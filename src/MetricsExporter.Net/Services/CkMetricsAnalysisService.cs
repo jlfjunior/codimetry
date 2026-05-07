@@ -56,16 +56,30 @@ public class CkMetricsAnalysisService
         var allMethods = new List<CkMethodInfo>();
         var allDependencies = new List<ClassDependency>();
 
+        // Parse all syntax trees first so we can build a full compilation for cross-file resolution
+        var syntaxTrees = new List<(string FilePath, Microsoft.CodeAnalysis.SyntaxTree Tree)>();
         foreach (var filePath in files)
         {
-            var fileData = AnalyzeFileForRelationships(filePath);
+            var tree = _roslynParser.ParseFile(filePath);
+            if (tree != null)
+                syntaxTrees.Add((filePath, tree));
+        }
+
+        // Build a single compilation with all files so that cross-file base class types resolve correctly
+        var fullCompilation = CSharpCompilation.Create("FullAnalysis")
+            .AddSyntaxTrees(syntaxTrees.Select(t => t.Tree))
+            .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+
+        foreach (var (filePath, syntaxTree) in syntaxTrees)
+        {
+            var semanticModel = fullCompilation.GetSemanticModel(syntaxTree);
+            var fileData = AnalyzeFileWithModel(syntaxTree, semanticModel);
             if (fileData != null)
             {
                 allClasses.AddRange(fileData.Classes);
                 allMethods.AddRange(fileData.Methods);
                 allDependencies.AddRange(fileData.Dependencies);
 
-                // Add classes to relationship builder
                 foreach (var classElement in fileData.Classes)
                 {
                     _relationshipBuilder.AddClass(classElement, filePath);
@@ -84,12 +98,13 @@ public class CkMetricsAnalysisService
             try
             {
                 var className = classElement.Name;
+                var lookupKey = classElement.FullyQualifiedName ?? classElement.Name;
                 var filePath = allClassesMap.Values
                     .FirstOrDefault(c => c.Name == className)?.FilePath ?? string.Empty;
 
                 var wmc = _wmcCalculator.CalculateWmc(className, allMethods);
-                var dit = _ditCalculator.CalculateDit(className);
-                var noc = _nocCalculator.CalculateNoc(className);
+                var dit = _ditCalculator.CalculateDit(lookupKey);
+                var noc = _nocCalculator.CalculateNoc(lookupKey);
 
                 // Find dependency for this class
                 var dependency = allDependencies.FirstOrDefault(d => d.ClassName == className);
@@ -125,23 +140,10 @@ public class CkMetricsAnalysisService
         return allMetrics;
     }
 
-    private FileAnalysisData? AnalyzeFileForRelationships(string filePath)
+    private FileAnalysisData? AnalyzeFileWithModel(Microsoft.CodeAnalysis.SyntaxTree syntaxTree, Microsoft.CodeAnalysis.SemanticModel semanticModel)
     {
         try
         {
-            var syntaxTree = _roslynParser.ParseFile(filePath);
-            if (syntaxTree == null)
-            {
-                return null;
-            }
-
-            // Create compilation to get semantic model
-            var compilation = CSharpCompilation.Create("Temp")
-                .AddSyntaxTrees(syntaxTree)
-                .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
-
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
-
             var visitor = new CkSyntaxVisitor(semanticModel);
             visitor.Visit(syntaxTree.GetRoot());
 
@@ -154,7 +156,7 @@ public class CkMetricsAnalysisService
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Error analyzing file for relationships: {FilePath}", filePath);
+            _logger?.LogError(ex, "Error analyzing syntax tree for relationships");
             return null;
         }
     }

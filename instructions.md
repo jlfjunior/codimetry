@@ -46,60 +46,21 @@ Each participant folder will contain:
 
 ## Step 3 — Regenerate index.md
 
-After collecting metrics, run the following script to rebuild `results/index.md`:
+After collecting metrics, run the Python script to rebuild `results/index.md`:
 
 ```bash
-OUTPUT_BASE="$(pwd)/results"
-
-{
-  echo "# Metrics Summary — Artefatos Mestrado"
-  echo ""
-  echo "> Generated: $(date +%Y-%m-%d)"
-  echo "> Tool: net-metrics-collector"
-  echo "> Participants: $(ls -d $OUTPUT_BASE/p*/ | wc -l | tr -d ' ')"
-  echo ""
-  echo "---"
-  echo ""
-  echo "## Overview Table"
-  echo ""
-  echo "| Participant | Position | Level | LOC | Classes | Avg WMC | Avg CBO | Avg LCOM | MISRA CC | Cyclomatic |"
-  echo "|-------------|----------|-------|----:|--------:|--------:|--------:|---------:|---------:|-----------:|"
-
-  for attended in $(ls "$OUTPUT_BASE" | grep -E "^p[0-9]+-" | sort -V); do
-    dir="$OUTPUT_BASE/$attended"
-    num=$(echo $attended | grep -oE "^p[0-9]+" | tr -d 'p')
-    position=$(echo $attended | cut -d'-' -f2)
-    level=$(echo $attended | cut -d'-' -f3)
-
-    loc=$(awk -F',' 'NR>1 && $2=="" && $3=="" {sum+=$4} END {print sum+0}' "$dir/metrics_loc.csv" 2>/dev/null)
-    classes=$(awk -F',' 'NR>1 {c++} END {print c+0}' "$dir/metrics_ck.csv" 2>/dev/null)
-    avg_wmc=$(awk -F',' 'NR>1 {c++; s+=$3} END {if(c>0) printf "%.1f", s/c; else print "0"}' "$dir/metrics_ck.csv" 2>/dev/null)
-    avg_cbo=$(awk -F',' 'NR>1 {c++; s+=$6} END {if(c>0) printf "%.1f", s/c; else print "0"}' "$dir/metrics_ck.csv" 2>/dev/null)
-    avg_lcom=$(awk -F',' 'NR>1 {c++; s+=$8} END {if(c>0) printf "%.1f", s/c; else print "0"}' "$dir/metrics_ck.csv" 2>/dev/null)
-    misra_cc=$(awk -F',' 'NR>1 && $8!="" && $8!="0" {cc=$8} END {print cc+0}' "$dir/metrics_misra.csv" 2>/dev/null)
-    cyclomatic=$(awk -F',' 'NR>1 && $2=="" && $3=="" {sum+=$4} END {print sum+0}' "$dir/metrics_cyclomatic.csv" 2>/dev/null)
-
-    echo "| p$num | $position | $level | $loc | $classes | $avg_wmc | $avg_cbo | $avg_lcom | $misra_cc | $cyclomatic |"
-  done
-
-  echo ""
-  echo "---"
-  echo ""
-  echo "## Metric Definitions"
-  echo ""
-  echo "| Metric | Description |"
-  echo "|--------|-------------|"
-  echo "| **LOC** | Effective lines of code (excludes comments and blank lines) |"
-  echo "| **WMC** | Weighted Methods per Class — method count per class |"
-  echo "| **CBO** | Coupling Between Objects — number of coupled classes (lower = better) |"
-  echo "| **LCOM** | Lack of Cohesion of Methods — lower = better cohesion |"
-  echo "| **MISRA CC** | Overall codebase cognitive complexity |"
-  echo "| **Cyclomatic** | Total cyclomatic complexity (1 + decision points per method, summed) |"
-
-} > "$OUTPUT_BASE/index.md"
-
-echo "index.md generated at $OUTPUT_BASE/index.md"
+python3 scripts/generate_index.py
 ```
+
+The script is at `scripts/generate_index.py` and produces all sections:
+- Overview Table
+- Summary by Level and by Position
+- LOC Distribution
+- Complexity Highlights (top MISRA CC, Cyclomatic, LCOM)
+- Metric Correlation Matrix (Pearson, n=participants)
+- CK Metrics table (avg/min/max per class per participant)
+- MISRA Metrics table (all metrics: MC, AC, CLC, CWC, CC with min/max)
+- Metric Definitions
 
 ## Running Everything at Once
 
@@ -128,52 +89,7 @@ for attended_dir in "$ARTEFATOS"/p*/; do
 done
 
 # Generate index.md
-{
-  echo "# Metrics Summary — Artefatos Mestrado"
-  echo ""
-  echo "> Generated: $(date +%Y-%m-%d)"
-  echo "> Tool: net-metrics-collector"
-  echo "> Participants: $(ls -d $OUTPUT_BASE/p*/ | wc -l | tr -d ' ')"
-  echo ""
-  echo "---"
-  echo ""
-  echo "## Overview Table"
-  echo ""
-  echo "| Participant | Position | Level | LOC | Classes | Avg WMC | Avg CBO | Avg LCOM | MISRA CC | Cyclomatic |"
-  echo "|-------------|----------|-------|----:|--------:|--------:|--------:|---------:|---------:|-----------:|"
-
-  for attended in $(ls "$OUTPUT_BASE" | grep -E "^p[0-9]+-" | sort -V); do
-    dir="$OUTPUT_BASE/$attended"
-    num=$(echo $attended | grep -oE "^p[0-9]+" | tr -d 'p')
-    position=$(echo $attended | cut -d'-' -f2)
-    level=$(echo $attended | cut -d'-' -f3)
-
-    loc=$(awk -F',' 'NR>1 && $2=="" && $3=="" {sum+=$4} END {print sum+0}' "$dir/metrics_loc.csv" 2>/dev/null)
-    classes=$(awk -F',' 'NR>1 {c++} END {print c+0}' "$dir/metrics_ck.csv" 2>/dev/null)
-    avg_wmc=$(awk -F',' 'NR>1 {c++; s+=$3} END {if(c>0) printf "%.1f", s/c; else print "0"}' "$dir/metrics_ck.csv" 2>/dev/null)
-    avg_cbo=$(awk -F',' 'NR>1 {c++; s+=$6} END {if(c>0) printf "%.1f", s/c; else print "0"}' "$dir/metrics_ck.csv" 2>/dev/null)
-    avg_lcom=$(awk -F',' 'NR>1 {c++; s+=$8} END {if(c>0) printf "%.1f", s/c; else print "0"}' "$dir/metrics_ck.csv" 2>/dev/null)
-    misra_cc=$(awk -F',' 'NR>1 && $8!="" && $8!="0" {cc=$8} END {print cc+0}' "$dir/metrics_misra.csv" 2>/dev/null)
-    cyclomatic=$(awk -F',' 'NR>1 && $2=="" && $3=="" {sum+=$4} END {print sum+0}' "$dir/metrics_cyclomatic.csv" 2>/dev/null)
-
-    echo "| p$num | $position | $level | $loc | $classes | $avg_wmc | $avg_cbo | $avg_lcom | $misra_cc | $cyclomatic |"
-  done
-
-  echo ""
-  echo "---"
-  echo ""
-  echo "## Metric Definitions"
-  echo ""
-  echo "| Metric | Description |"
-  echo "|--------|-------------|"
-  echo "| **LOC** | Effective lines of code (excludes comments and blank lines) |"
-  echo "| **WMC** | Weighted Methods per Class — method count per class |"
-  echo "| **CBO** | Coupling Between Objects — number of coupled classes (lower = better) |"
-  echo "| **LCOM** | Lack of Cohesion of Methods — lower = better cohesion |"
-  echo "| **MISRA CC** | Overall codebase cognitive complexity |"
-  echo "| **Cyclomatic** | Total cyclomatic complexity (1 + decision points per method, summed) |"
-
-} > "$OUTPUT_BASE/index.md"
+python3 scripts/generate_index.py
 
 echo "All done. Results at $OUTPUT_BASE"
 ```
