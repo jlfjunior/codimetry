@@ -49,6 +49,7 @@ public class ClassDependency
     public HashSet<string> DependentTypes { get; set; } = new();
     public List<string> FieldTypes { get; set; } = new();
     public List<string> PropertyTypes { get; set; } = new();
+    public HashSet<string> InstanceMemberNames { get; set; } = new();
 }
 
 /// <summary>
@@ -143,6 +144,14 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             var fieldType = field.Declaration.Type.ToString();
             dependency.FieldTypes.Add(fieldType);
             dependency.DependentTypes.Add(fieldType);
+
+            if (!IsStaticMember(field.Modifiers))
+            {
+                foreach (var variable in field.Declaration.Variables)
+                {
+                    dependency.InstanceMemberNames.Add(variable.Identifier.Text);
+                }
+            }
         }
 
         // Collect property types
@@ -151,6 +160,11 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             var propertyType = property.Type.ToString();
             dependency.PropertyTypes.Add(propertyType);
             dependency.DependentTypes.Add(propertyType);
+
+            if (!IsStaticMember(property.Modifiers))
+            {
+                dependency.InstanceMemberNames.Add(property.Identifier.Text);
+            }
         }
 
         // Collect method parameter and return types
@@ -247,10 +261,11 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         }
 
         // Collect method calls and field accesses
-        if (node.Body != null)
+        SyntaxNode? body = (SyntaxNode?)node.Body ?? node.ExpressionBody;
+        if (body != null)
         {
             var methodCallCollector = new MethodCallCollector();
-            methodCallCollector.Visit(node.Body);
+            methodCallCollector.Visit(body);
             methodInfo.CalledMethods = methodCallCollector.GetMethodCalls();
             methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
         }
@@ -259,6 +274,9 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
 
         base.VisitConstructorDeclaration(node);
     }
+
+    private static bool IsStaticMember(SyntaxTokenList modifiers) =>
+        modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword));
 }
 
 /// <summary>
@@ -290,13 +308,12 @@ internal class MethodCallCollector : CSharpSyntaxWalker
 
     public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
-        // Check if this is a field/property access (not a method call)
-        if (node.Parent is not InvocationExpressionSyntax)
+        // Only this.Member refers to the current instance; other.Member belongs to another object
+        if (node.Parent is not InvocationExpressionSyntax &&
+            node.Expression is ThisExpressionSyntax &&
+            node.Name is IdentifierNameSyntax identifier)
         {
-            if (node.Name is IdentifierNameSyntax identifier)
-            {
-                _fieldAccesses.Add(identifier.Identifier.Text);
-            }
+            _fieldAccesses.Add(identifier.Identifier.Text);
         }
 
         base.VisitMemberAccessExpression(node);
@@ -305,9 +322,11 @@ internal class MethodCallCollector : CSharpSyntaxWalker
     public override void VisitIdentifierName(IdentifierNameSyntax node)
     {
         // Simple identifier access (could be field or local variable)
-        // We'll be conservative and include it
-        if (node.Parent is not InvocationExpressionSyntax && 
-            node.Parent is not MemberAccessExpressionSyntax)
+        // We'll be conservative and include it. The receiver of a member access
+        // (e.g. _logger in _logger.Log()) is also an access to that identifier.
+        var isReceiver = node.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Expression == node;
+        if (node.Parent is not InvocationExpressionSyntax &&
+            (node.Parent is not MemberAccessExpressionSyntax || isReceiver))
         {
             _fieldAccesses.Add(node.Identifier.Text);
         }

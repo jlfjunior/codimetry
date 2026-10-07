@@ -193,20 +193,9 @@ public class LcomCalculator
             return 0; // LCOM is 0 for 0 or 1 method
         }
 
-        // Get all instance fields/properties for this class
+        // Get the names of all instance fields/properties for this class
         var classDependency = dependencies.FirstOrDefault(d => d.ClassName == className);
-        var instanceFields = new HashSet<string>();
-        if (classDependency != null)
-        {
-            foreach (var field in classDependency.FieldTypes)
-            {
-                instanceFields.Add(field);
-            }
-            foreach (var prop in classDependency.PropertyTypes)
-            {
-                instanceFields.Add(prop);
-            }
-        }
+        var instanceFields = classDependency?.InstanceMemberNames ?? new HashSet<string>();
 
         // For each method, get the fields it accesses
         var methodFieldSets = new List<HashSet<string>>();
