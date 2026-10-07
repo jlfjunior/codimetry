@@ -175,6 +175,12 @@ public class CwcCalculator
             // Get all methods called by this method
             foreach (var calledMethodName in method.CalledMethods)
             {
+                // Calls to the class's own methods are not coupling
+                if (allMethods.Any(m => m.Name == calledMethodName && m.ContainingClass == className))
+                {
+                    continue;
+                }
+
                 // Find the method that was called
                 var calledMethod = allMethods.FirstOrDefault(m => 
                     m.Name == calledMethodName && 

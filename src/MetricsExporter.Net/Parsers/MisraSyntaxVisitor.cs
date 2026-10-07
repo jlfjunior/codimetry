@@ -135,44 +135,26 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
         {
             VisitMethodBody(node.Body, bcsInfo);
         }
+        else if (node.ExpressionBody != null)
+        {
+            bcsInfo.SequenceCount = 1;
+            VisitExpressionBody(node.ExpressionBody, bcsInfo);
+        }
 
         base.VisitConstructorDeclaration(node);
     }
 
     private void VisitMethodBody(BlockSyntax body, BcsInfo bcsInfo)
     {
-        // Count statements as sequences (but don't double-count control structures)
-        var statements = body.Statements;
-        
-        // Visit statements to detect branches, iterations, and calls
-        // Control structures (if, for, while, etc.) are counted separately, not as sequences
-        foreach (var statement in statements)
-        {
-            // Check if this is a control structure
-            if (IsControlStructure(statement))
-            {
-                // Control structures are counted as branches/iterations, not sequences
-                VisitStatement(statement, bcsInfo);
-            }
-            else
-            {
-                // Regular statement - count as sequence
-                bcsInfo.SequenceCount++;
-                VisitStatement(statement, bcsInfo);
-            }
-        }
+        VisitStatement(body, bcsInfo);
     }
 
-    private static bool IsControlStructure(StatementSyntax statement)
-    {
-        return statement.Kind() == SyntaxKind.IfStatement ||
-               statement.Kind() == SyntaxKind.SwitchStatement ||
-               statement.Kind() == SyntaxKind.ForStatement ||
-               statement.Kind() == SyntaxKind.ForEachStatement ||
-               statement.Kind() == SyntaxKind.ForEachVariableStatement ||
-               statement.Kind() == SyntaxKind.WhileStatement ||
-               statement.Kind() == SyntaxKind.DoStatement;
-    }
+    /// <summary>
+    /// Statements that only wrap other statements (blocks, try, using, lock...).
+    /// They are not sequences themselves; their inner statements are counted instead.
+    /// </summary>
+    private static bool ContainsStatements(StatementSyntax statement) =>
+        statement.ChildNodes().Any(child => child is StatementSyntax or CatchClauseSyntax or FinallyClauseSyntax);
 
     private void VisitExpressionBody(ArrowExpressionClauseSyntax expressionBody, BcsInfo bcsInfo)
     {
@@ -210,10 +192,46 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
                 bcsInfo.IterationCount++;
                 VisitDoStatement((DoStatementSyntax)statement, bcsInfo);
                 break;
-            default:
-                // Visit nested structures
-                VisitNode(statement, bcsInfo);
+            case SyntaxKind.Block:
+                VisitStatementChildren(statement, bcsInfo);
                 break;
+            case SyntaxKind.BreakStatement:
+            case SyntaxKind.EmptyStatement:
+                // Syntactic terminators, not sequences
+                break;
+            default:
+                if (ContainsStatements(statement))
+                {
+                    // Block, try/catch/finally, using, lock, checked, unsafe, fixed, labeled...
+                    VisitStatementChildren(statement, bcsInfo);
+                }
+                else
+                {
+                    // Regular statement - count as sequence and look for calls/ternaries in it
+                    bcsInfo.SequenceCount++;
+                    VisitNode(statement, bcsInfo);
+                }
+                break;
+        }
+    }
+
+    private void VisitStatementChildren(SyntaxNode node, BcsInfo bcsInfo)
+    {
+        foreach (var child in node.ChildNodes())
+        {
+            switch (child)
+            {
+                case StatementSyntax childStatement:
+                    VisitStatement(childStatement, bcsInfo);
+                    break;
+                case CatchClauseSyntax or FinallyClauseSyntax:
+                    VisitStatementChildren(child, bcsInfo);
+                    break;
+                default:
+                    // Expressions and declarations (using/lock resources, catch filters...)
+                    VisitNode(child, bcsInfo);
+                    break;
+            }
         }
     }
 
@@ -232,7 +250,16 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
         if (ifStatement.Else != null)
         {
             bcsInfo.BranchCount++; // Each else/else if is an additional branch
-            VisitNode(ifStatement.Else.Statement, bcsInfo);
+
+            // An else if is already counted by the line above, so visit it without counting it again
+            if (ifStatement.Else.Statement is IfStatementSyntax elseIf)
+            {
+                VisitIfStatement(elseIf, bcsInfo);
+            }
+            else
+            {
+                VisitStatement(ifStatement.Else.Statement, bcsInfo);
+            }
         }
     }
 
