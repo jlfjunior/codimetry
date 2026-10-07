@@ -1,0 +1,164 @@
+# Cyclomatic Complexity
+
+**Cyclomatic complexity** was proposed by Thomas J. McCabe in 1976. It measures the logical complexity of a method from the structure of its **control flow**. It is the number of linearly independent paths through the method, and therefore the minimum number of test cases needed to exercise every decision at least once (*basis path testing*).
+
+This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **MetricsExporter.Net** computes the values in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.4.
+
+## Collecting the metric
+
+```bash
+dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --cyclomatic   # or --cc
+```
+
+This produces `metrics_cyclomatic.csv`, which has rows at three levels:
+
+```csv
+FilePath,ClassName,MethodName,Complexity
+src/Discount.cs,DiscountService,CalculateDiscount,4   <- method
+src/Discount.cs,DiscountService,,4                    <- class (sum of its methods)
+src/Discount.cs,,,4                                   <- file (sum of its classes)
+```
+
+See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options.
+
+---
+
+## Definition
+
+The method's code is represented as a **control-flow graph** $G$. Nodes are blocks of sequential code, and edges are transfers of control between them caused by conditions, loops, and branches. The cyclomatic complexity is:
+
+$$
+V(G) = E - N + 2P
+$$
+
+where $E$ is the number of edges, $N$ the number of nodes, and $P$ the number of connected components ($P = 1$ for a single method).
+
+Building the graph explicitly is expensive. McCabe showed that, for a structured program with one entry and one exit point, the formula is equivalent to counting **decision points** directly in the source code:
+
+$$
+V(G) = D + 1
+$$
+
+A decision point is any construct that can branch the linear flow. In C# these are:
+
+- `if` and `else if`;
+- each `case` of a `switch`;
+- the loops `for`, `foreach`, `while`, and `do-while`;
+- `catch` clauses;
+- the ternary operator `?:`;
+- each short-circuit logical operator `&&` and `||`.
+
+A plain `else` is **not** a decision point: it has no condition of its own, and it only represents the complementary path of its `if`.
+
+## Interpretation
+
+McCabe proposed $V(G) \le 10$ per method as the reference for a testable, manageable module. Above that, each additional independent path increases the testing effort and the risk that a change introduces an undetected defect. A commonly used banding is the one popularised by the Software Engineering Institute (SEI, 1997):
+
+| $V(G)$ | Risk |
+|--------|------|
+| 1–10 | Simple, low risk |
+| 11–20 | Moderately complex, moderate risk |
+| 21–50 | Complex, high risk |
+| > 50 | Untestable in practice, very high risk |
+
+Like all thresholds, these are a starting point. Compare methods within the same codebase rather than treating the bands as absolute rules.
+
+## Example
+
+```csharp
+namespace Samples.Cyclomatic;
+
+public class DiscountService
+{
+    public decimal CalculateDiscount(decimal value, bool isVip, bool isFirstPurchase)
+    {
+        if (value > 500)
+        {
+            if (isVip)
+            {
+                if (isFirstPurchase)
+                {
+                    return value * 0.20m;
+                }
+                return value * 0.15m;
+            }
+            else
+            {
+                return value * 0.10m;
+            }
+        }
+
+        return 0;
+    }
+}
+```
+
+- `if (value > 500)` → 1 decision
+- `if (isVip)` → 1 decision
+- `if (isFirstPurchase)` → 1 decision
+- The `else` is not counted.
+- **$V(G)$ = 1 + 3 = 4**
+
+Cyclomatic complexity gives every decision the same weight, however deeply it is nested. The [cognitive complexity](misra.md#background-cognitive-complexity) of the same method is higher, because it penalises the three levels of nesting.
+
+## How this tool computes it
+
+The tool starts each method at **1** and adds **1** for each of the following:
+
+| Construct | Counted |
+|-----------|---------|
+| `if`, `else if` | each one |
+| `switch` statement | each `case` label **and** the `default` label |
+| `switch` expression | each arm, including the discard arm `_` |
+| `for`, `foreach`, `while`, `do-while` | each loop |
+| `catch` | each clause |
+| `?:` | each ternary |
+| `&&`, `\|\|` | each operator |
+| `??` | each null-coalescing operator |
+| `goto` | each jump |
+
+Compared with the definition above, the tool **also counts** `default` labels, `switch`-expression discard arms, `??`, and `goto`. All of these add an execution path in C#, but the dissertation's definition (Section 2.4) does not list them. If you compare values with other tools, check how each of these constructs is treated.
+
+An example using these modern C# constructs:
+
+```csharp
+public decimal Fee(Region region, decimal weight, string? coupon) =>
+    region switch
+    {
+        Region.North => 10m,
+        Region.South => 15m,
+        _ => weight > 5 && coupon is null ? 80m : 50m
+    } - Discount(coupon ?? "");
+```
+
+- base 1
+- 3 switch arms (+3)
+- `&&` (+1)
+- `?:` (+1)
+- `??` (+1)
+- **Complexity = 7**, which is what the tool reports
+
+What gets measured:
+
+- **Methods, constructors, and property accessors** each get a row. Accessors appear as `Name.get` and `Name.set`.
+- Expression-bodied properties (`=> ...`), `init` accessors, and abstract methods are not measured.
+- Lambdas and local functions declared inside a method are added to that method's complexity.
+- **Class rows** sum all the measured members of the class. **File rows** sum all the classes in the file.
+
+The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods-per-class). It differs from the `WMC` column of `metrics_ck.csv`, which counts methods ($c_i = 1$) and does not include property accessors.
+
+## Limitations
+
+- **Nesting is ignored.** Two methods with the same number of decisions get the same value, whether the code is flat or deeply nested (Shepperd, 1988). Use [MC](misra.md#mc--method-complexity) for a nesting-aware view.
+- **Data complexity is ignored.** Only control flow is measured.
+- **Correlation with size.** $V(G)$ tends to grow with LOC, but Landman et al. (2016) show that the correlation is only moderate at the **method** level, so the two metrics are not redundant there. The correlation gets stronger when values are aggregated to classes or systems.
+- **Weak predictor of understandability on its own.** Esposito et al. (2024) found only a moderate correlation with the understandability perceived by early-career developers. Use it together with the [CK](ck.md) and [Misra](misra.md) metrics.
+
+## References
+
+- McCABE, T. J. *A complexity measure*. IEEE Transactions on Software Engineering, SE-2, n. 4, p. 308–320, 1976.
+- SHEPPERD, M. *A critique of cyclomatic complexity as a software metric*. Software Engineering Journal, v. 3, n. 2, p. 30–36, 1988.
+- LANDMAN, D. et al. *Empirical analysis of the relationship between CC and SLOC in a large corpus of Java methods and C functions*. Journal of Software: Evolution and Process, v. 28, n. 7, p. 589–618, 2016.
+- ESPOSITO, M. et al. *Early career developers' perceptions of code understandability: A study of complexity metrics*. Information and Software Technology, v. 170, 107492, 2024.
+- SOFTWARE ENGINEERING INSTITUTE. *C4 Software Technology Reference Guide — A Prototype*. CMU/SEI-97-HB-001, Carnegie Mellon University, 1997.
+- SILVA JUNIOR, J. L. F. *Avaliação da Experiência do Desenvolvedor de Software Por Meio de Métricas Orientadas a Objetos*. Master's dissertation, Universidade Federal de Sergipe, 2026.

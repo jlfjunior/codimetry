@@ -1,6 +1,6 @@
 # MetricsExporter.Net
 
-A .NET command-line tool designed to extract software metrics from local .NET repositories. This tool calculates **Lines of Code (LOC)** metrics, **Chidamber-Kemerer (CK)** object-oriented design metrics, **MISRA (Misra's Cognitive Complexity)** metrics, and **Cyclomatic Complexity** metrics to help analyze code quality and maintainability.
+A .NET command-line tool designed to extract software metrics from local .NET repositories. This tool calculates **Lines of Code (LOC)** metrics, **Chidamber-Kemerer (CK)** object-oriented design metrics, **Misra's cognitive complexity** metrics (not related to the MISRA C/C++ guidelines), and **Cyclomatic Complexity** metrics to help analyze code quality and maintainability.
 
 ## Features
 
@@ -17,7 +17,7 @@ A .NET command-line tool designed to extract software metrics from local .NET re
   - **AC** (Attribute Complexity) - Complexity introduced by class attributes
   - **CLC** (Class Complexity) - Overall complexity of classes
   - **CWC** (Coupling Weight for a Class) - Complexity due to inter-class interactions
-  - **CC** (Code Complexity) - Overall complexity of the codebase
+  - **CC** (Code Complexity, *CoC* in the docs) - Overall complexity of the codebase
 - ✅ **Cyclomatic Complexity Metrics** - Measures code complexity by counting decision points:
   - Calculates complexity for methods, classes, and files
   - Formula: CC = 1 + number of decision points (if, switch, loops, catch, operators)
@@ -26,26 +26,34 @@ A .NET command-line tool designed to extract software metrics from local .NET re
 - ✅ **Recursive Directory Scanning** - Analyzes entire codebases recursively
 - ✅ **CSV Export** - Exports metrics to standardized CSV formats
 - ✅ **Flexible Metric Selection** - Choose to calculate LOC, CK, MISRA, Cyclomatic Complexity, or any combination
-- ✅ **Cross-platform** - Runs on Windows, Linux, and macOS (.NET 9.0+)
+- ✅ **Cross-platform** - Runs on Windows, Linux, and macOS (.NET 10+)
 - ✅ **Performance Optimized** - Parallel processing for fast analysis
 
 ## Installation
 
 ### Prerequisites
 
-- .NET 9.0 SDK or later
+- .NET 10 SDK or later
 
 ### Build from Source
 
 ```bash
-git clone <repository-url>
-cd metrics-exporter-net
+git clone https://github.com/jlfjunior/net-metrics-collector.git
+cd net-metrics-collector
 dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj
 ```
 
 ## Documentation
 
-📖 **For detailed instructions on collecting metrics, see [COLLECTING_METRICS.md](docs/COLLECTING_METRICS.md)**
+| Document | Contents |
+|----------|----------|
+| [COLLECTING_METRICS.md](docs/COLLECTING_METRICS.md) | Building and running the tool, advanced scenarios, CI, troubleshooting |
+| [loc.md](docs/loc.md) | Lines of Code: definition and how lines are counted |
+| [cyclomatic.md](docs/cyclomatic.md) | Cyclomatic Complexity: definition, decision points, thresholds |
+| [ck.md](docs/ck.md) | CK metrics (WMC, RFC, LCOM, CBO, DIT, NOC): definitions, formulas, C# examples |
+| [misra.md](docs/misra.md) | Misra's cognitive complexity metrics (MC, AC, CLC, CWC, CoC): definitions, formulas, C# examples |
+
+Each metric page also has a **"How this tool computes it"** section that describes exactly what the values in the CSV files mean. See [docs/README.md](docs/README.md) for the full documentation index.
 
 ## Usage
 
@@ -222,7 +230,7 @@ FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM
 - **FilePath**: Relative or absolute path to the source file
 - **ClassName**: Name of the class
 - **WMC**: Weighted Methods per Class (method count)
-- **DIT**: Depth of Inheritance Tree (inheritance depth, 0 = directly inherits from Object)
+- **DIT**: Depth of Inheritance Tree (inheritance depth; `System.Object` counts as one level, so a class with no explicit base has DIT = 1)
 - **NOC**: Number of Children (immediate subclasses count)
 - **CBO**: Coupling Between Objects (number of classes coupled to)
 - **RFC**: Response For a Class (methods in class + methods called)
@@ -314,122 +322,20 @@ src/Example.cs,ExampleClass,,10
 src/Example.cs,,,10
 ```
 
-#### Complexity Threshold Recommendations
+#### Complexity Thresholds
 
-- **CC 1-10**: Simple (low risk) - Generally acceptable
-- **CC 11-20**: Moderate (medium risk) - Consider reviewing
-- **CC 21-50**: Complex (high risk) - Should be refactored
-- **CC > 50**: Very complex (very high risk) - Requires immediate refactoring
-
-The tool logs complexity statistics including maximum complexity, average complexity, and counts of methods exceeding thresholds.
+See [cyclomatic.md](docs/cyclomatic.md#interpretation) for reference thresholds and their sources. The tool logs complexity statistics, including the maximum and average complexity and the number of methods above each threshold.
 
 ## How Metrics are Calculated
 
-### LOC (Lines of Code)
+| Metric | In one line | Details |
+|--------|-------------|---------|
+| LOC | Non-blank, non-comment lines of each method and constructor. Classes and files sum their methods | [loc.md](docs/loc.md) |
+| Cyclomatic Complexity | 1 + number of decision points (`if`, `case`, loops, `catch`, `?:`, `&&`, `\|\|`, `??`…) | [cyclomatic.md](docs/cyclomatic.md) |
+| WMC, RFC, LCOM, CBO, DIT, NOC | Chidamber & Kemerer object-oriented design metrics | [ck.md](docs/ck.md) |
+| MC, AC, CLC, CWC, CC | Misra et al. cognitive complexity metrics, using Basic Control Structure weights | [misra.md](docs/misra.md) |
 
-The tool counts **effective lines of code** by:
-
-- ✅ Including executable statements
-- ❌ Excluding single-line comments (`//`)
-- ❌ Excluding multi-line comments (`/* */`)
-- ❌ Excluding XML documentation comments (`///`)
-- ❌ Excluding empty lines (whitespace only)
-
-### CK Metrics (Chidamber-Kemerer)
-
-The six CK metrics provide insights into object-oriented design quality:
-
-- **WMC (Weighted Methods per Class)**: Counts the number of methods in a class. Higher values may indicate increased complexity.
-- **DIT (Depth of Inheritance Tree)**: Measures how deep a class is in the inheritance hierarchy. Higher values indicate deeper inheritance chains.
-- **NOC (Number of Children)**: Counts immediate subclasses. Higher values indicate more specialization.
-- **CBO (Coupling Between Objects)**: Measures how many classes a class is coupled to. Lower values indicate better encapsulation.
-- **RFC (Response For a Class)**: Counts methods that can be invoked in response to a message (class methods + methods they call). Higher values may indicate more complex interactions.
-- **LCOM (Lack of Cohesion of Methods)**: Measures how dissimilar methods are based on instance variable usage. Lower values indicate better cohesion.
-
-These metrics help identify:
-- Classes that may need refactoring (high WMC, CBO, or LCOM)
-- Complex inheritance hierarchies (high DIT)
-- Tightly coupled code (high CBO)
-- Classes with poor cohesion (high LCOM)
-
-### MISRA Metrics (Misra's Cognitive Complexity)
-
-MISRA metrics measure cognitive complexity based on Basic Control Structures (BCSs) with assigned weights:
-
-- **MC (Method Complexity)**: Calculated by summing cognitive weights of all BCSs in a method:
-  - **Sequence** (sequential statements): Weight = 1
-  - **Branch** (if, switch, ternary): Weight = 2
-  - **Iteration** (for, while, foreach): Weight = 3
-  - **Call** (method invocations): Weight = 2
-  
-  Example: A method with 2 sequences, 1 branch, and 1 iteration has MC = (2×1) + (1×2) + (1×3) = 7
-
-- **AC (Attribute Complexity)**: Counts and weights class attributes (fields and properties):
-  - Simple types (int, string, bool): Weight = 1
-  - Complex types (custom classes, collections): Weight = 2
-
-- **CLC (Class Complexity)**: Aggregates class complexity:
-  - CLC = AC + Σ(MC for all methods in the class)
-
-- **CWC (Coupling Weight for a Class)**: Measures complexity from external method calls:
-  - CWC = Σ(MC_called_method + 2) for all external method calls
-  - The "+2" represents the call weight
-
-- **CC (Code Complexity)**: Overall codebase complexity:
-  - CC = Σ(CLC for all classes) + Σ(CWC for all classes) / 2
-  - Division by 2 avoids double-counting coupling between classes
-
-These metrics help identify:
-- Methods with high cognitive complexity (high MC) that may be difficult to understand
-- Classes with high overall complexity (high CLC) that may need refactoring
-- Codebases with high coupling (high CWC) indicating tight dependencies
-- Overall codebase complexity (CC) for project-level assessment
-
-### Cyclomatic Complexity
-
-Cyclomatic Complexity measures code complexity by counting the number of linearly independent paths through a program's source code. The formula is:
-
-**CC = 1 + number of decision points**
-
-Decision points include:
-- **Conditional statements**: `if`, `else if`, `else`
-- **Switch statements**: `switch`, each `case` label, `default`
-- **Loop statements**: `for`, `foreach`, `while`, `do-while`
-- **Exception handling**: `catch` clauses
-- **Conditional operators**: Ternary operator (`?:`), null-coalescing (`??`)
-- **Logical operators**: `&&` (logical AND), `||` (logical OR)
-
-**Calculation:**
-- Each method starts with a base complexity of 1
-- Each decision point adds 1 to the complexity
-- Class-level complexity = sum of all method complexities in the class
-- File-level complexity = sum of all method complexities in the file
-
-**Example:**
-```csharp
-public void Example(int x)  // Base: 1
-{
-    if (x > 0)              // +1 = 2
-    {
-        if (x < 10)          // +1 = 3
-        {
-            // ...
-        }
-    }
-    
-    for (int i = 0; i < x; i++)  // +1 = 4
-    {
-        // ...
-    }
-}
-// Total complexity = 4
-```
-
-This metric helps identify:
-- Methods with high complexity that may be difficult to test and maintain
-- Classes with accumulated complexity that may need refactoring
-- Files with high overall complexity indicating potential design issues
-- Code that may benefit from simplification or decomposition
+The tool's implementation differs from the textbook definitions in some places, for example in how WMC weights methods or how MC treats nesting. Each page documents these differences, so read the "How this tool computes it" section before comparing values with other tools or with published studies.
 
 ## Architecture
 
@@ -443,7 +349,7 @@ The project follows **Simple Layered Architecture** with the following structure
 
 ## Requirements
 
-- .NET 9.0 or later
+- .NET 10 or later
 - Windows, Linux, or macOS
 
 ## Performance
@@ -458,7 +364,7 @@ Target performance: Analyzes repositories up to 100k LOC in under 2 minutes (LOC
 
 ## License
 
-[Add your license here]
+This project is licensed under the [MIT License](LICENSE).
 
 ## Contributing
 

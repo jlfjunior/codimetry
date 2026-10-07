@@ -15,7 +15,7 @@ A practical guide for building and running MetricsExporter.Net, with examples, a
 
 ## Prerequisites
 
-- **.NET 9.0 SDK** or later — verify with `dotnet --version`
+- **.NET 10 SDK** or later — verify with `dotnet --version`
 - Read access to the source code directory you want to analyze
 
 ---
@@ -35,8 +35,8 @@ dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj --configuration 
 ```
 
 Compiled binaries:
-- Debug: `src/MetricsExporter.Net/bin/Debug/net9.0/MetricsExporter.Net`
-- Release: `src/MetricsExporter.Net/bin/Release/net9.0/MetricsExporter.Net`
+- Debug: `src/MetricsExporter.Net/bin/Debug/net10.0/MetricsExporter.Net`
+- Release: `src/MetricsExporter.Net/bin/Release/net10.0/MetricsExporter.Net`
 
 ---
 
@@ -91,7 +91,7 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
 ### Using the compiled executable
 
 ```bash
-./src/MetricsExporter.Net/bin/Release/net9.0/MetricsExporter.Net --path ./src --out ./results
+./src/MetricsExporter.Net/bin/Release/net10.0/MetricsExporter.Net --path ./src --out ./results
 ```
 
 ---
@@ -150,7 +150,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Collect Metrics
         run: |
