@@ -81,7 +81,7 @@ public class CyclomaticComplexityCalculatorTests
         Assert.Equal(2, Complexity("System.Func<int> f = () => a ? 1 : 0; return f();"));
     }
 
-    [Fact(Skip = "Known bug: else-if is counted twice (CyclomaticComplexityVisitor.cs:37-44). Expected 3, the tool returns 4.")]
+    [Fact]
     public void ElseIf_CountsOnce()
     {
         Assert.Equal(3, Complexity("if (x > 1) return 1; else if (x > 0) return 2; else return 3;"));

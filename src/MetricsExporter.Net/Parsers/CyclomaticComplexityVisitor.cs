@@ -33,12 +33,8 @@ public class CyclomaticComplexityVisitor : CSharpSyntaxWalker
     {
         _complexity++; // Each if statement is a decision point
 
-        // Visit else clause - each else if is an additional decision point
-        if (node.Else != null && node.Else.Statement is IfStatementSyntax)
-        {
-            _complexity++; // else if adds another decision point
-        }
-        // else by itself doesn't add complexity (it's part of the if-else pair)
+        // An else if is the nested if statement of the else clause: it is counted when the base
+        // class visits it, so it must not be counted here too. A plain else adds no decision.
 
         // Let base class visit children recursively
         base.VisitIfStatement(node);
