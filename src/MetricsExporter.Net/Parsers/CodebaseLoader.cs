@@ -51,7 +51,8 @@ public sealed class Codebase
 /// <summary>
 /// Groups source files by the nearest .csproj above them, builds one compilation per project and
 /// links projects through their &lt;ProjectReference&gt; items. Files outside any project form one
-/// extra compilation. MSBuild is not run: only the project files themselves are read.
+/// extra compilation. MSBuild is not run: only the project files themselves are read, including
+/// the implicit global usings the SDK would generate (see <see cref="ImplicitUsings"/>).
 /// </summary>
 public class CodebaseLoader
 {
@@ -63,10 +64,13 @@ public class CodebaseLoader
     public CodebaseLoader(RoslynParser parser, IReadOnlyList<MetadataReference>? references = null)
     {
         _parser = parser;
-        _references = references ?? [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
+        _references = references ?? FrameworkReferences.References;
     }
 
-    public Codebase Load(IEnumerable<string> files)
+    /// <param name="files">Source files to analyse.</param>
+    /// <param name="rootDirectory">The analysed path: projects are looked up from each file up to it.
+    /// Defaults to the common directory of the files.</param>
+    public Codebase Load(IEnumerable<string> files, string? rootDirectory = null)
     {
         var parsed = new List<(string Path, SyntaxTree Tree)>();
         foreach (var file in files)
@@ -78,7 +82,9 @@ public class CodebaseLoader
             }
         }
 
-        var root = CommonDirectory(parsed.Select(p => Path.GetFullPath(p.Path)));
+        var root = rootDirectory != null
+            ? Path.GetFullPath(rootDirectory).TrimEnd(Path.DirectorySeparatorChar)
+            : CommonDirectory(parsed.Select(p => Path.GetFullPath(p.Path)));
         var projectOf = new Dictionary<string, string>();
         foreach (var (path, _) in parsed)
         {
@@ -131,9 +137,22 @@ public class CodebaseLoader
             }
         }
 
+        var trees = treesByProject[project].Select(t => t.Tree).ToList();
+        if (project != NoProject)
+        {
+            var globalUsings = ImplicitUsings.For(project);
+            if (globalUsings.Count > 0)
+            {
+                trees.Add(CSharpSyntaxTree.ParseText(
+                    string.Concat(globalUsings.Select(u => $"global using {u};\n")),
+                    (CSharpParseOptions)trees[0].Options,
+                    Path.Combine(Path.GetDirectoryName(project)!, "ImplicitUsings.g.cs")));
+            }
+        }
+
         var compilation = CSharpCompilation.Create(
             AssemblyName(project, root),
-            treesByProject[project].Select(t => t.Tree),
+            trees,
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 

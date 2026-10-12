@@ -61,7 +61,7 @@ public class MisraMetricsAnalysisService
         var allClassAttributeTypes = new Dictionary<string, List<string>>();
 
         // One compilation per project, so that class keys match across files
-        var codebase = _codebaseLoader.Load(files);
+        var codebase = _codebaseLoader.Load(files, Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path)));
 
         foreach (var document in codebase.Documents)
         {

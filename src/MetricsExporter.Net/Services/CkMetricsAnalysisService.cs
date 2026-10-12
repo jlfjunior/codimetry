@@ -60,7 +60,8 @@ public class CkMetricsAnalysisService
         var allDependencies = new List<ClassDependency>();
 
         // One compilation per project, so that cross-file (and cross-project) types resolve
-        var codebase = _codebaseLoader.Load(files);
+        var codebase = _codebaseLoader.Load(files, Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path)));
+        _logger?.LogInformation("References: {References}", FrameworkReferences.Description);
         var (resolved, total) = codebase.InvocationResolution();
         _logger?.LogInformation("Invocation resolution: {Resolved} of {Total} invocations bound to a method ({Percent:F1}%)",
             resolved, total, total == 0 ? 100.0 : 100.0 * resolved / total);
