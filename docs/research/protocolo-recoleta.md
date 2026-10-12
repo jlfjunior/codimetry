@@ -13,6 +13,19 @@
 - Estado do repositório: `tests/` está **untracked** e `src/MetricsExporter.Net/CLI/Commands/RootCommandHandler.cs` tem alterações locais.
 - Versões: artefatos `artefatos-mestrado@40a6044`, .NET SDK 10.0.101.
 
+## 1.1 Linha de base congelada (Fase 0, 12/10/2026)
+
+| Item | Valor |
+|---|---|
+| Ferramenta | tag `coleta-v1-dissertacao` → `0bc0f89` (código idêntico a `a8564cf`, que só altera docs) |
+| Artefatos | `artefatos-mestrado@40a6044` |
+| SDK | .NET 10.0.101 (macOS arm64) |
+| Dados | `results-v1/` (48 participantes × 4 CSVs, `index.md`, `index.pdf`) |
+| Comando | `dotnet <build Release de 0bc0f89>/MetricsExporter.Net.dll --path ../artefatos-mestrado/<p>/ --out <saída>/<p>`, executado na raiz deste repositório |
+| **G0** | **Aprovado.** Os 192 CSVs gerados são idênticos byte a byte aos de `results-v1/`, inclusive a coluna `FilePath` e a ordem das linhas |
+
+A tag `defesa-2026-11-27` em `master-thesis` fica para o dia da defesa, já que o texto ainda está em revisão.
+
 ## 2. Achados que o plano original não cobria
 
 | # | Achado | Evidência | Impacto |
@@ -25,7 +38,7 @@
 | F | Membros que não são método não são medidos | Propriedades com lógica, accessors, funções locais e lambdas ficam fora de WMC, MC e LOC; `record`, `struct` e `interface` não são visitados | Decisão de escopo (seção 4) |
 | G | CBO ignora **todos** os parâmetros de construtor, não só os do construtor primário, e também a classe base | `CkSyntaxVisitor.VisitClassDeclaration` só olha campos, propriedades e `MethodDeclarationSyntax` | Reforça a linha CBO da tabela 2.1 do plano |
 | H | Detalhes da MC | `else` pesa 2; `switch` pesa 2 independentemente do nº de `case`; chamadas dentro de lambdas contam | Tratar junto com a implementação da eq. 23 |
-| I | O estado do repositório impede congelar a linha de base | `tests/` untracked; `RootCommandHandler.cs` modificado | Versionar antes de criar qualquer tag |
+| I | O estado do repositório impedia congelar a linha de base | `tests/` untracked; `RootCommandHandler.cs` modificado; projeto de testes duplicado no `.sln` | **Resolvido na Fase 0** (`2ffc580`) |
 
 A tabela 2.1 de `docs/PLANO_RECOLETA.md` continua valendo para as divergências de definição (LOC, WMC, RFC, LCOM, CBO, DIT, NOC, MC, AC, CLC, CWC, CoC, V(G)).
 
@@ -121,7 +134,7 @@ Igual à Etapa 7 de `docs/PLANO_RECOLETA.md`. Acrescentar ao protocolo do estudo
 
 | Gate | Critério | Fase |
 |---|---|---|
-| G0 | Coleta com `0bc0f89` idêntica a `results/` (sem a coluna de caminho) | 0 |
+| G0 | Coleta com `0bc0f89` idêntica a `results-v1/` — **aprovado em 12/10/2026** | 0 |
 | G1 | `cbtam_analysis.py` sobre `results-v1/` reproduz os números da versão defendida | 1 |
 | G2 | `dotnet test` sem falhas e sem testes pulados, cobrindo os exemplos do Cap. 2 e de Misra (CoC = 536) | 4 |
 | G3 | LCOM1 e CBO à mão em 5 classes batem com a ferramenta | 4 |

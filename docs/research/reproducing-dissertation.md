@@ -2,7 +2,7 @@
 
 > **Scope.** This guide is specific to the case study in the master's dissertation *Avaliação da Experiência do Desenvolvedor de Software Por Meio de Métricas Orientadas a Objetos* (Silva Junior, UFS, 2026). It depends on the private `artefatos-mestrado` repository of participant artefacts. To use the tool on your own code, see [COLLECTING_METRICS.md](../COLLECTING_METRICS.md).
 >
-> **Versions.** The values reported in the dissertation were collected with a version older than the LCOM fix (commit `054fc08`) and the Misra MC/CWC fixes that followed it. Re-running with the current version produces different **LCOM**, **MC**, **CLC**, **CWC** and **CC** values. To reproduce the published numbers exactly, check out a commit from before those fixes.
+> **Versions.** The values reported in the dissertation were collected with a version older than the LCOM fix (commit `054fc08`) and the Misra MC/CWC fixes that followed it. Re-running with the current version produces different **LCOM**, **MC**, **CLC**, **CWC** and **CC** values. To reproduce the published numbers exactly, build the tag `coleta-v1-dissertacao` (`0bc0f89`) and run it against `artefatos-mestrado@40a6044`: the output is byte-identical to the archived data in [`results-v1/`](../../results-v1/). See [protocolo-recoleta.md](protocolo-recoleta.md) for the re-collection plan.
 
 All commands below are run from the root of this repository.
 
