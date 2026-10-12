@@ -61,6 +61,9 @@ public class CkMetricsAnalysisService
 
         // One compilation per project, so that cross-file (and cross-project) types resolve
         var codebase = _codebaseLoader.Load(files);
+        var (resolved, total) = codebase.InvocationResolution();
+        _logger?.LogInformation("Invocation resolution: {Resolved} of {Total} invocations bound to a method ({Percent:F1}%)",
+            resolved, total, total == 0 ? 100.0 : 100.0 * resolved / total);
 
         foreach (var document in codebase.Documents)
         {

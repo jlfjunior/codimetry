@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace MetricsExporter.Net.Parsers;
 
@@ -18,6 +19,33 @@ public sealed class Codebase
     public Codebase(IReadOnlyList<SourceDocument> documents) => Documents = documents;
 
     public IReadOnlyList<SourceDocument> Documents { get; }
+
+    /// <summary>
+    /// How many method invocations inside classes the semantic model binds to a method symbol.
+    /// A low rate means missing references, and then calls cannot be told apart by their target.
+    /// </summary>
+    public (int Resolved, int Total) InvocationResolution()
+    {
+        int resolved = 0, total = 0;
+        foreach (var document in Documents)
+        {
+            foreach (var invocation in document.Tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                if (TypeKeys.ContainingClass(invocation) == null)
+                {
+                    continue;
+                }
+
+                total++;
+                if (document.SemanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol)
+                {
+                    resolved++;
+                }
+            }
+        }
+
+        return (resolved, total);
+    }
 }
 
 /// <summary>
