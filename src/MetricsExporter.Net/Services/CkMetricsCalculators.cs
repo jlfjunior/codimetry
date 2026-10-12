@@ -11,10 +11,10 @@ public class WmcCalculator
     /// <summary>
     /// Calculates WMC as the count of methods in a class.
     /// </summary>
-    public int CalculateWmc(string className, IReadOnlyList<CkMethodInfo> allMethods)
+    public int CalculateWmc(string classKey, IReadOnlyList<CkMethodInfo> allMethods)
     {
         return allMethods.Count(m => 
-            m.ContainingClass == className && 
+            m.ContainingClassKey == classKey && 
             !m.IsStatic); // Typically exclude static methods, but can be configurable
     }
 }
@@ -83,6 +83,7 @@ public class CboCalculator
     /// </summary>
     public int CalculateCbo(ClassDependency dependency, IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses)
     {
+        // Keys of the coupled classes in the relationship graph
         var coupledClasses = new HashSet<string>();
 
         // Get all types referenced by this class
@@ -98,19 +99,19 @@ public class CboCalculator
             else
             {
                 // Check if it's a fully qualified name
-                var matchingClass = allClasses.Values.FirstOrDefault(c => 
-                    c.FullyQualifiedName?.EndsWith(normalizedType) == true ||
-                    c.Name == normalizedType);
+                var matchingClass = allClasses.FirstOrDefault(c => 
+                    c.Value.FullyQualifiedName?.EndsWith(normalizedType) == true ||
+                    c.Value.Name == normalizedType);
                 
-                if (matchingClass != null)
+                if (matchingClass.Value != null)
                 {
-                    coupledClasses.Add(matchingClass.Name);
+                    coupledClasses.Add(matchingClass.Key);
                 }
             }
         }
 
         // Exclude self
-        coupledClasses.Remove(dependency.ClassName);
+        coupledClasses.Remove(dependency.ClassKey);
 
         return coupledClasses.Count;
     }
@@ -150,9 +151,9 @@ public class RfcCalculator
     /// Calculates RFC as the number of methods that can be invoked in response to a message.
     /// RFC = M + R, where M is methods in class, R is methods called by those methods.
     /// </summary>
-    public int CalculateRfc(string className, IReadOnlyList<CkMethodInfo> allMethods)
+    public int CalculateRfc(string classKey, IReadOnlyList<CkMethodInfo> allMethods)
     {
-        var classMethods = allMethods.Where(m => m.ContainingClass == className).ToList();
+        var classMethods = allMethods.Where(m => m.ContainingClassKey == classKey).ToList();
         var m = classMethods.Count;
 
         // Collect all methods called by class methods
@@ -182,10 +183,10 @@ public class LcomCalculator
     /// P = number of method pairs that don't share instance variables
     /// Q = number of method pairs that share instance variables
     /// </summary>
-    public int CalculateLcom(string className, IReadOnlyList<CkMethodInfo> allMethods, IReadOnlyList<ClassDependency> dependencies)
+    public int CalculateLcom(string classKey, IReadOnlyList<CkMethodInfo> allMethods, IReadOnlyList<ClassDependency> dependencies)
     {
         var classMethods = allMethods
-            .Where(m => m.ContainingClass == className && !m.IsStatic)
+            .Where(m => m.ContainingClassKey == classKey && !m.IsStatic)
             .ToList();
 
         if (classMethods.Count <= 1)
@@ -194,7 +195,7 @@ public class LcomCalculator
         }
 
         // Get the names of all instance fields/properties for this class
-        var classDependency = dependencies.FirstOrDefault(d => d.ClassName == className);
+        var classDependency = dependencies.FirstOrDefault(d => d.ClassKey == classKey);
         var instanceFields = classDependency?.InstanceMemberNames ?? new HashSet<string>();
 
         // For each method, get the fields it accesses

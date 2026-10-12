@@ -20,7 +20,8 @@ public class CkSyntaxVisitorTests
         Assert.True(classes["Base"].IsAbstract);
         Assert.True(classes["Derived"].IsSealed);
         Assert.Equal("N", classes["Derived"].Namespace);
-        Assert.Equal("global::N.Base", classes["Derived"].BaseClass);
+        Assert.Equal("Test|N.Base", classes["Derived"].BaseClass);   // key of the base class
+        Assert.Equal("Test|N.Derived", classes["Derived"].ClassKey);
         Assert.Equal("global::N.Derived", classes["Derived"].FullyQualifiedName);
         Assert.Contains("System.IDisposable", classes["Derived"].ImplementedInterfaces);
     }

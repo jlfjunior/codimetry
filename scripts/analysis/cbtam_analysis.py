@@ -359,6 +359,27 @@ def write_outputs(result, participants, out_dir, label):
     with open(os.path.join(out_dir, "report.md"), "w") as f:
         f.write(render_report(result, label))
 
+    with open(os.path.join(out_dir, "summary.json"), "w") as f:
+        json.dump(summary(result, label), f, indent=1, ensure_ascii=False)
+
+
+def summary(r, label):
+    """Headline numbers, used by compare.py."""
+    a = r["accuracy"]
+    return {
+        "label": label,
+        **r["counts"],
+        "lcom_equals_max_pairs_pct": r["lcom_equals_max_pairs_pct"],
+        "accuracy_pct": 100 * a["correct"] / a["evaluated"],
+        "baseline_pct": 100 * a["baseline_correct"] / a["evaluated"],
+        "spearman_staged": r["spearman_staged"],
+        "spearman_mean_pct": r["spearman_mean_pct"],
+        "errors": r["errors"],
+        "thresholds": {m: [t["p50"], t["p90"]] for m, t in r["thresholds"].items()},
+        "by_level": {lvl: {k: v[0] for k, v in g.items() if k != "n"} for lvl, g in r["by_level"].items()},
+        "confusion": r["confusion"],
+    }
+
 
 def render_report(r, label):
     L = []

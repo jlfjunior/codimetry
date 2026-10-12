@@ -10,7 +10,14 @@ namespace MetricsExporter.Net.Parsers;
 public class CkCodeElement
 {
     public string Name { get; set; } = string.Empty;
+    /// <summary>
+    /// Identity of the class (see <see cref="TypeKeys"/>); the declarations of a partial class share it.
+    /// </summary>
+    public string? ClassKey { get; set; }
     public string? ContainingClass { get; set; }
+    /// <summary>
+    /// Key of the base class when the semantic model resolves it, otherwise the base type as written.
+    /// </summary>
     public string? BaseClass { get; set; }
     public List<string> ImplementedInterfaces { get; set; } = new();
     public int StartLine { get; set; }
@@ -28,7 +35,15 @@ public class CkCodeElement
 public class CkMethodInfo
 {
     public string Name { get; set; } = string.Empty;
+    /// <summary>
+    /// Identifies the method within its class (see <see cref="TypeKeys.MethodKey"/>).
+    /// </summary>
+    public string Key { get; set; } = string.Empty;
     public string? ContainingClass { get; set; }
+    /// <summary>
+    /// Key of the class that declares the method; null for members of interfaces, structs and records.
+    /// </summary>
+    public string? ContainingClassKey { get; set; }
     public int StartLine { get; set; }
     public int EndLine { get; set; }
     public bool IsStatic { get; set; }
@@ -45,11 +60,30 @@ public class CkMethodInfo
 public class ClassDependency
 {
     public string ClassName { get; set; } = string.Empty;
+    public string ClassKey { get; set; } = string.Empty;
     public string? Namespace { get; set; }
     public HashSet<string> DependentTypes { get; set; } = new();
     public List<string> FieldTypes { get; set; } = new();
     public List<string> PropertyTypes { get; set; } = new();
     public HashSet<string> InstanceMemberNames { get; set; } = new();
+
+    /// <summary>
+    /// One dependency per class key, joining the declarations of partial classes.
+    /// </summary>
+    public static List<ClassDependency> MergeByClass(IEnumerable<ClassDependency> dependencies) =>
+        dependencies
+            .GroupBy(d => d.ClassKey)
+            .Select(g => new ClassDependency
+            {
+                ClassName = g.First().ClassName,
+                ClassKey = g.Key,
+                Namespace = g.First().Namespace,
+                DependentTypes = g.SelectMany(d => d.DependentTypes).ToHashSet(),
+                FieldTypes = g.SelectMany(d => d.FieldTypes).ToList(),
+                PropertyTypes = g.SelectMany(d => d.PropertyTypes).ToList(),
+                InstanceMemberNames = g.SelectMany(d => d.InstanceMemberNames).ToHashSet()
+            })
+            .ToList();
 }
 
 /// <summary>
@@ -74,6 +108,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     public override void VisitClassDeclaration(ClassDeclarationSyntax node)
     {
         var className = node.Identifier.Text;
+        var classKey = TypeKeys.Of(node, _semanticModel);
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
 
@@ -113,13 +148,14 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             if (symbol != null)
             {
                 fullyQualifiedName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                baseClass = symbol.BaseType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                baseClass = symbol.BaseType != null ? TypeKeys.Of(symbol.BaseType) : null;
             }
         }
 
         _classes.Add(new CkCodeElement
         {
             Name = className,
+            ClassKey = classKey,
             BaseClass = baseClass,
             ImplementedInterfaces = interfaces,
             StartLine = startLine,
@@ -135,6 +171,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var dependency = new ClassDependency
         {
             ClassName = className,
+            ClassKey = classKey,
             Namespace = namespaceName
         };
 
@@ -188,13 +225,15 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
 
-        var containingClass = node.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+        var containingClass = TypeKeys.ContainingClass(node);
         var className = containingClass?.Identifier.Text;
 
         var methodInfo = new CkMethodInfo
         {
             Name = methodName,
+            Key = TypeKeys.MethodKey(node),
             ContainingClass = className,
+            ContainingClassKey = containingClass != null ? TypeKeys.Of(containingClass, _semanticModel) : null,
             StartLine = startLine,
             EndLine = endLine,
             IsStatic = node.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)),
@@ -238,13 +277,15 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
 
-        var containingClass = node.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+        var containingClass = TypeKeys.ContainingClass(node);
         var className = containingClass?.Identifier.Text;
 
         var methodInfo = new CkMethodInfo
         {
             Name = constructorName,
+            Key = TypeKeys.MethodKey(node),
             ContainingClass = className,
+            ContainingClassKey = containingClass != null ? TypeKeys.Of(containingClass, _semanticModel) : null,
             StartLine = startLine,
             EndLine = endLine,
             IsStatic = false,

@@ -42,6 +42,12 @@ public class ClassRelationshipBuilder
             IsSealed = classElement.IsSealed
         };
 
+        // A partial class is added once per declaration: keep the file of the first one
+        if (_classMap.TryGetValue(key, out var existing))
+        {
+            classInfo.FilePath = existing.FilePath;
+        }
+
         _classMap[key] = classInfo;
 
         // Build inheritance tree
@@ -136,6 +142,10 @@ public class ClassRelationshipBuilder
 
     private string GetClassKey(CkCodeElement classElement)
     {
+        if (!string.IsNullOrEmpty(classElement.ClassKey))
+        {
+            return NormalizeClassName(classElement.ClassKey);
+        }
         if (!string.IsNullOrEmpty(classElement.FullyQualifiedName))
         {
             return NormalizeClassName(classElement.FullyQualifiedName);

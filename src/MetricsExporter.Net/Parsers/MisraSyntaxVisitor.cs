@@ -47,11 +47,15 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     private readonly Dictionary<string, BcsInfo> _methodBcsInfo = new();
     private readonly Dictionary<string, List<string>> _classAttributes = new();
     private readonly Dictionary<string, List<string>> _classAttributeTypes = new();
-    private string? _currentMethodName;
-    private string? _currentClassName;
+    private readonly SemanticModel? _semanticModel;
 
-    public MisraSyntaxVisitor() : base(SyntaxWalkerDepth.Node)
+    /// <summary>
+    /// Keys follow <see cref="TypeKeys"/>: "{classKey}::{methodKey}" for methods and the class key for
+    /// attributes. Without a semantic model the class key is derived from the syntax alone.
+    /// </summary>
+    public MisraSyntaxVisitor(SemanticModel? semanticModel = null) : base(SyntaxWalkerDepth.Node)
     {
+        _semanticModel = semanticModel;
     }
 
     public IReadOnlyDictionary<string, BcsInfo> GetMethodBcsInfo() => _methodBcsInfo;
@@ -60,8 +64,7 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
 
     public override void VisitClassDeclaration(ClassDeclarationSyntax node)
     {
-        var previousClassName = _currentClassName;
-        _currentClassName = node.Identifier.Text;
+        var classKey = TypeKeys.Of(node, _semanticModel);
         var attributes = new List<string>();
         var attributeTypes = new List<string>();
 
@@ -85,22 +88,30 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
 
         if (attributes.Count > 0)
         {
-            _classAttributes[_currentClassName] = attributes;
-            _classAttributeTypes[_currentClassName] = attributeTypes;
+            // A partial class is declared more than once: accumulate the attributes of every declaration
+            if (!_classAttributes.TryGetValue(classKey, out var existing))
+            {
+                _classAttributes[classKey] = existing = new List<string>();
+                _classAttributeTypes[classKey] = new List<string>();
+            }
+
+            existing.AddRange(attributes);
+            _classAttributeTypes[classKey].AddRange(attributeTypes);
         }
 
         base.VisitClassDeclaration(node);
-        
-        // Restore previous class name (for nested classes)
-        _currentClassName = previousClassName;
     }
 
     public override void VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        _currentMethodName = node.Identifier.Text;
-        var key = $"{_currentClassName}::{_currentMethodName}";
-        var bcsInfo = new BcsInfo();
+        var key = MethodBcsKey(node);
+        if (key == null)
+        {
+            base.VisitMethodDeclaration(node);
+            return;
+        }
 
+        var bcsInfo = new BcsInfo();
         _methodBcsInfo[key] = bcsInfo;
 
         // Visit method body to count BCSs
@@ -125,10 +136,14 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
 
     public override void VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
     {
-        _currentMethodName = node.Identifier.Text;
-        var key = $"{_currentClassName}::{_currentMethodName}";
-        var bcsInfo = new BcsInfo();
+        var key = MethodBcsKey(node);
+        if (key == null)
+        {
+            base.VisitConstructorDeclaration(node);
+            return;
+        }
 
+        var bcsInfo = new BcsInfo();
         _methodBcsInfo[key] = bcsInfo;
 
         if (node.Body != null)
@@ -142,6 +157,17 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
         }
 
         base.VisitConstructorDeclaration(node);
+    }
+
+    /// <summary>
+    /// Key of a method in <see cref="GetMethodBcsInfo"/>, or null when it does not belong to a class.
+    /// </summary>
+    private string? MethodBcsKey(BaseMethodDeclarationSyntax method)
+    {
+        var containingClass = TypeKeys.ContainingClass(method);
+        return containingClass == null
+            ? null
+            : $"{TypeKeys.Of(containingClass, _semanticModel)}::{TypeKeys.MethodKey(method)}";
     }
 
     private void VisitMethodBody(BlockSyntax body, BcsInfo bcsInfo)

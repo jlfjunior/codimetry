@@ -19,13 +19,15 @@ public class MisraMetricsAnalysisService
     private readonly ClcCalculator _clcCalculator;
     private readonly CwcCalculator _cwcCalculator;
     private readonly CcCalculator _ccCalculator;
+    private readonly CodebaseLoader _codebaseLoader;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
         FileDiscoveryService fileDiscoveryService,
         RoslynParser roslynParser,
         ClassRelationshipBuilder relationshipBuilder,
-        ILogger<MisraMetricsAnalysisService>? logger = null)
+        ILogger<MisraMetricsAnalysisService>? logger = null,
+        CodebaseLoader? codebaseLoader = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -35,6 +37,7 @@ public class MisraMetricsAnalysisService
         _clcCalculator = new ClcCalculator();
         _cwcCalculator = new CwcCalculator();
         _ccCalculator = new CcCalculator();
+        _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _logger = logger;
     }
 
@@ -57,9 +60,13 @@ public class MisraMetricsAnalysisService
         var allClassAttributes = new Dictionary<string, List<string>>();
         var allClassAttributeTypes = new Dictionary<string, List<string>>();
 
-        foreach (var filePath in files)
+        // One compilation per project, so that class keys match across files
+        var codebase = _codebaseLoader.Load(files);
+
+        foreach (var document in codebase.Documents)
         {
-            var fileData = AnalyzeFileForMisraMetrics(filePath);
+            var filePath = document.FilePath;
+            var fileData = AnalyzeFileForMisraMetrics(document);
             if (fileData != null)
             {
                 allClasses.AddRange(fileData.Classes);
@@ -72,15 +79,19 @@ public class MisraMetricsAnalysisService
                     allBcsInfo[kvp.Key] = kvp.Value;
                 }
 
-                // Merge class attributes
+                // Merge class attributes (a partial class contributes from several files)
                 foreach (var kvp in fileData.ClassAttributes)
                 {
-                    allClassAttributes[kvp.Key] = kvp.Value;
-                }
-
-                foreach (var kvp in fileData.ClassAttributeTypes)
-                {
-                    allClassAttributeTypes[kvp.Key] = kvp.Value;
+                    if (allClassAttributes.TryGetValue(kvp.Key, out var attributes))
+                    {
+                        attributes.AddRange(kvp.Value);
+                        allClassAttributeTypes[kvp.Key].AddRange(fileData.ClassAttributeTypes[kvp.Key]);
+                    }
+                    else
+                    {
+                        allClassAttributes[kvp.Key] = new List<string>(kvp.Value);
+                        allClassAttributeTypes[kvp.Key] = new List<string>(fileData.ClassAttributeTypes[kvp.Key]);
+                    }
                 }
 
                 // Add classes to relationship builder
@@ -101,23 +112,21 @@ public class MisraMetricsAnalysisService
 
         foreach (var method in allMethods)
         {
-            if (string.IsNullOrEmpty(method.ContainingClass))
+            if (string.IsNullOrEmpty(method.ContainingClassKey))
                 continue;
 
             try
             {
-                var className = method.ContainingClass;
-                var methodName = method.Name;
-                var filePath = allClassesMap.Values
-                    .FirstOrDefault(c => c.Name == className)?.FilePath ?? string.Empty;
+                var classKey = method.ContainingClassKey;
+                var filePath = allClassesMap.TryGetValue(classKey, out var classInfo) ? classInfo.FilePath : string.Empty;
 
-                var mc = _mcCalculator.CalculateMc(className, methodName, allBcsInfo);
+                var mc = _mcCalculator.CalculateMc(classKey, method.Key, allBcsInfo);
 
                 var metric = new MisraMetric
                 {
                     FilePath = filePath,
-                    ClassName = className,
-                    MethodName = methodName,
+                    ClassName = method.ContainingClass ?? string.Empty,
+                    MethodName = method.Name,
                     MC = mc
                 };
 
@@ -136,22 +145,24 @@ public class MisraMetricsAnalysisService
         _logger?.LogInformation("Phase 3: Calculating class-level metrics (AC, CLC, CWC)...");
         var classMetrics = new List<MisraMetric>();
 
-        foreach (var classElement in allClasses)
+        // One row per class, joining partial declarations
+        var distinctClasses = allClasses.GroupBy(c => c.ClassKey!).Select(g => g.First()).ToList();
+
+        foreach (var classElement in distinctClasses)
         {
             try
             {
-                var className = classElement.Name;
-                var filePath = allClassesMap.Values
-                    .FirstOrDefault(c => c.Name == className)?.FilePath ?? string.Empty;
+                var classKey = classElement.ClassKey!;
+                var filePath = allClassesMap.TryGetValue(classKey, out var classInfo) ? classInfo.FilePath : string.Empty;
 
-                var ac = _acCalculator.CalculateAc(className, allClassAttributes, allClassAttributeTypes);
-                var clc = _clcCalculator.CalculateClc(className, allBcsInfo, allClassAttributes, allClassAttributeTypes);
-                var cwc = _cwcCalculator.CalculateCwc(className, allMethods, allBcsInfo, allClassesMap);
+                var ac = _acCalculator.CalculateAc(classKey, allClassAttributes, allClassAttributeTypes);
+                var clc = _clcCalculator.CalculateClc(classKey, allBcsInfo, allClassAttributes, allClassAttributeTypes);
+                var cwc = _cwcCalculator.CalculateCwc(classKey, allMethods, allBcsInfo, allClassesMap);
 
                 var metric = new MisraMetric
                 {
                     FilePath = filePath,
-                    ClassName = className,
+                    ClassName = classElement.Name,
                     MethodName = string.Empty, // Class-level
                     AC = ac,
                     CLC = clc,
@@ -171,9 +182,9 @@ public class MisraMetricsAnalysisService
 
         // Phase 4: Calculate codebase-level metric (CC)
         _logger?.LogInformation("Phase 4: Calculating codebase-level metric (CC)...");
-        var allClassNames = allClasses.Select(c => c.Name).ToList();
+        var allClassKeys = distinctClasses.Select(c => c.ClassKey!).ToList();
         var cc = _ccCalculator.CalculateCc(
-            allClassNames,
+            allClassKeys,
             allBcsInfo,
             allClassAttributes,
             allClassAttributeTypes,
@@ -197,29 +208,20 @@ public class MisraMetricsAnalysisService
         return allMetrics;
     }
 
-    private FileMisraAnalysisData? AnalyzeFileForMisraMetrics(string filePath)
+    private FileMisraAnalysisData? AnalyzeFileForMisraMetrics(SourceDocument document)
     {
+        var filePath = document.FilePath;
         try
         {
-            var syntaxTree = _roslynParser.ParseFile(filePath);
-            if (syntaxTree == null)
-            {
-                return null;
-            }
-
-            // Create compilation to get semantic model
-            var compilation = CSharpCompilation.Create("Temp")
-                .AddSyntaxTrees(syntaxTree)
-                .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
-
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var syntaxTree = document.Tree;
+            var semanticModel = document.SemanticModel;
 
             // Use CK visitor for class/method/dependency info
             var ckVisitor = new CkSyntaxVisitor(semanticModel);
             ckVisitor.Visit(syntaxTree.GetRoot());
 
             // Use MISRA visitor for BCS info and attributes
-            var misraVisitor = new MisraSyntaxVisitor();
+            var misraVisitor = new MisraSyntaxVisitor(semanticModel);
             misraVisitor.Visit(syntaxTree.GetRoot());
 
             return new FileMisraAnalysisData

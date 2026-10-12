@@ -10,9 +10,9 @@ public class McCalculator
     /// <summary>
     /// Calculates MC (Method Complexity) for a method using BCS information.
     /// </summary>
-    public int CalculateMc(string className, string methodName, IReadOnlyDictionary<string, BcsInfo> methodBcsInfo)
+    public int CalculateMc(string classKey, string methodKey, IReadOnlyDictionary<string, BcsInfo> methodBcsInfo)
     {
-        var key = $"{className}::{methodName}";
+        var key = $"{classKey}::{methodKey}";
         if (methodBcsInfo.TryGetValue(key, out var bcsInfo))
         {
             return bcsInfo.CalculateMc();
@@ -24,10 +24,10 @@ public class McCalculator
     /// <summary>
     /// Gets all method complexities for a class.
     /// </summary>
-    public Dictionary<string, int> GetMethodComplexities(string className, IReadOnlyDictionary<string, BcsInfo> methodBcsInfo)
+    public Dictionary<string, int> GetMethodComplexities(string classKey, IReadOnlyDictionary<string, BcsInfo> methodBcsInfo)
     {
         var result = new Dictionary<string, int>();
-        var prefix = $"{className}::";
+        var prefix = $"{classKey}::";
 
         foreach (var kvp in methodBcsInfo)
         {
@@ -52,15 +52,15 @@ public class AcCalculator
     /// Simple approach: Count all attributes (fields and properties).
     /// Complex approach: Weight by type complexity (simple=1, complex=2).
     /// </summary>
-    public int CalculateAc(string className, IReadOnlyDictionary<string, List<string>> classAttributes, 
+    public int CalculateAc(string classKey, IReadOnlyDictionary<string, List<string>> classAttributes, 
         IReadOnlyDictionary<string, List<string>> classAttributeTypes)
     {
-        if (!classAttributes.TryGetValue(className, out var attributes))
+        if (!classAttributes.TryGetValue(classKey, out var attributes))
         {
             return 0; // No attributes
         }
 
-        if (!classAttributeTypes.TryGetValue(className, out var attributeTypes))
+        if (!classAttributeTypes.TryGetValue(classKey, out var attributeTypes))
         {
             return attributes.Count; // Fallback to simple count
         }
@@ -128,16 +128,16 @@ public class ClcCalculator
     /// Calculates CLC (Class Complexity) for a class.
     /// CLC = AC + Σ(MC for all methods in the class)
     /// </summary>
-    public int CalculateClc(string className, 
+    public int CalculateClc(string classKey, 
         IReadOnlyDictionary<string, BcsInfo> methodBcsInfo,
         IReadOnlyDictionary<string, List<string>> classAttributes,
         IReadOnlyDictionary<string, List<string>> classAttributeTypes)
     {
         // Calculate AC
-        var ac = _acCalculator.CalculateAc(className, classAttributes, classAttributeTypes);
+        var ac = _acCalculator.CalculateAc(classKey, classAttributes, classAttributeTypes);
 
         // Calculate sum of all MC values for methods in the class
-        var methodComplexities = _mcCalculator.GetMethodComplexities(className, methodBcsInfo);
+        var methodComplexities = _mcCalculator.GetMethodComplexities(classKey, methodBcsInfo);
         var sumMc = methodComplexities.Values.Sum();
 
         return ac + sumMc;
@@ -160,13 +160,13 @@ public class CwcCalculator
     /// Calculates CWC (Coupling Weight for a Class).
     /// CWC = Σ(MC_called_method + 2) for all external method calls
     /// </summary>
-    public int CalculateCwc(string className, 
+    public int CalculateCwc(string classKey, 
         IReadOnlyList<CkMethodInfo> allMethods,
         IReadOnlyDictionary<string, BcsInfo> methodBcsInfo,
         IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses)
     {
         // Get all methods in this class
-        var classMethods = allMethods.Where(m => m.ContainingClass == className).ToList();
+        var classMethods = allMethods.Where(m => m.ContainingClassKey == classKey).ToList();
 
         var totalCwc = 0;
 
@@ -176,7 +176,7 @@ public class CwcCalculator
             foreach (var calledMethodName in method.CalledMethods)
             {
                 // Calls to the class's own methods are not coupling
-                if (allMethods.Any(m => m.Name == calledMethodName && m.ContainingClass == className))
+                if (allMethods.Any(m => m.Name == calledMethodName && m.ContainingClassKey == classKey))
                 {
                     continue;
                 }
@@ -184,14 +184,14 @@ public class CwcCalculator
                 // Find the method that was called
                 var calledMethod = allMethods.FirstOrDefault(m => 
                     m.Name == calledMethodName && 
-                    m.ContainingClass != className); // External call only
+                    m.ContainingClassKey != classKey); // External call only
 
                 if (calledMethod != null)
                 {
                     // Get MC of the called method
                     var calledMc = _mcCalculator.CalculateMc(
-                        calledMethod.ContainingClass ?? string.Empty,
-                        calledMethod.Name,
+                        calledMethod.ContainingClassKey ?? string.Empty,
+                        calledMethod.Key,
                         methodBcsInfo);
 
                     // CWC contribution = MC of called method + call weight (2)
@@ -240,14 +240,14 @@ public class CcCalculator
         int totalClc = 0;
         int totalCwc = 0;
 
-        foreach (var className in allClassNames)
+        foreach (var classKey in allClassNames)
         {
             // Calculate CLC for each class
-            var clc = _clcCalculator.CalculateClc(className, methodBcsInfo, classAttributes, classAttributeTypes);
+            var clc = _clcCalculator.CalculateClc(classKey, methodBcsInfo, classAttributes, classAttributeTypes);
             totalClc += clc;
 
             // Calculate CWC for each class
-            var cwc = _cwcCalculator.CalculateCwc(className, allMethods, methodBcsInfo, allClasses);
+            var cwc = _cwcCalculator.CalculateCwc(classKey, allMethods, methodBcsInfo, allClasses);
             totalCwc += cwc;
         }
 

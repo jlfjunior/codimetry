@@ -199,7 +199,7 @@ public class MisraSyntaxVisitorTests
             }
             """);
 
-        Assert.True(visitor.GetMethodBcsInfo().ContainsKey("Inner::M"));
+        Assert.True(visitor.GetMethodBcsInfo().ContainsKey("Outer.Inner::M"));
         Assert.True(visitor.GetMethodBcsInfo().ContainsKey("Outer::N"));
     }
 }

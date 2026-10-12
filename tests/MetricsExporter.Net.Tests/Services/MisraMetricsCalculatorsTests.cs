@@ -26,7 +26,7 @@ public class MisraMetricsCalculatorsTests
     };
 
     private static CkMethodInfo Method(string name, string @class, params string[] calls) =>
-        new() { Name = name, ContainingClass = @class, CalledMethods = [.. calls] };
+        new() { Name = name, Key = name, ContainingClass = @class, ContainingClassKey = @class, CalledMethods = [.. calls] };
 
     // ---------- MC ----------
 

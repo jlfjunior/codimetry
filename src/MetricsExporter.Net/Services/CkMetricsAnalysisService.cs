@@ -20,13 +20,15 @@ public class CkMetricsAnalysisService
     private readonly CboCalculator _cboCalculator;
     private readonly RfcCalculator _rfcCalculator;
     private readonly LcomCalculator _lcomCalculator;
+    private readonly CodebaseLoader _codebaseLoader;
     private readonly ILogger<CkMetricsAnalysisService>? _logger;
 
     public CkMetricsAnalysisService(
         FileDiscoveryService fileDiscoveryService,
         RoslynParser roslynParser,
         ClassRelationshipBuilder relationshipBuilder,
-        ILogger<CkMetricsAnalysisService>? logger = null)
+        ILogger<CkMetricsAnalysisService>? logger = null,
+        CodebaseLoader? codebaseLoader = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -37,6 +39,7 @@ public class CkMetricsAnalysisService
         _cboCalculator = new CboCalculator();
         _rfcCalculator = new RfcCalculator();
         _lcomCalculator = new LcomCalculator();
+        _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _logger = logger;
     }
 
@@ -56,24 +59,12 @@ public class CkMetricsAnalysisService
         var allMethods = new List<CkMethodInfo>();
         var allDependencies = new List<ClassDependency>();
 
-        // Parse all syntax trees first so we can build a full compilation for cross-file resolution
-        var syntaxTrees = new List<(string FilePath, Microsoft.CodeAnalysis.SyntaxTree Tree)>();
-        foreach (var filePath in files)
-        {
-            var tree = _roslynParser.ParseFile(filePath);
-            if (tree != null)
-                syntaxTrees.Add((filePath, tree));
-        }
+        // One compilation per project, so that cross-file (and cross-project) types resolve
+        var codebase = _codebaseLoader.Load(files);
 
-        // Build a single compilation with all files so that cross-file base class types resolve correctly
-        var fullCompilation = CSharpCompilation.Create("FullAnalysis")
-            .AddSyntaxTrees(syntaxTrees.Select(t => t.Tree))
-            .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
-
-        foreach (var (filePath, syntaxTree) in syntaxTrees)
+        foreach (var document in codebase.Documents)
         {
-            var semanticModel = fullCompilation.GetSemanticModel(syntaxTree);
-            var fileData = AnalyzeFileWithModel(syntaxTree, semanticModel);
+            var fileData = AnalyzeFileWithModel(document.Tree, document.SemanticModel);
             if (fileData != null)
             {
                 allClasses.AddRange(fileData.Classes);
@@ -82,43 +73,41 @@ public class CkMetricsAnalysisService
 
                 foreach (var classElement in fileData.Classes)
                 {
-                    _relationshipBuilder.AddClass(classElement, filePath);
+                    _relationshipBuilder.AddClass(classElement, document.FilePath);
                 }
             }
         }
 
-        _logger?.LogInformation("Built relationship graph with {Count} classes", allClasses.Count);
+        _logger?.LogInformation("Built relationship graph with {Count} class declarations", allClasses.Count);
 
-        // Phase 2: Calculate CK metrics for each class
+        // Phase 2: Calculate CK metrics for each class (one row per class, joining partial declarations)
         _logger?.LogInformation("Phase 2: Calculating CK metrics...");
         var allClassesMap = _relationshipBuilder.GetAllClasses();
+        var dependencies = ClassDependency.MergeByClass(allDependencies);
 
-        foreach (var classElement in allClasses)
+        foreach (var classElement in allClasses.GroupBy(c => c.ClassKey!).Select(g => g.First()))
         {
             try
             {
-                var className = classElement.Name;
-                var lookupKey = classElement.FullyQualifiedName ?? classElement.Name;
-                var filePath = allClassesMap.Values
-                    .FirstOrDefault(c => c.Name == className)?.FilePath ?? string.Empty;
+                var classKey = classElement.ClassKey!;
+                var filePath = allClassesMap.TryGetValue(classKey, out var classInfo) ? classInfo.FilePath : string.Empty;
 
-                var wmc = _wmcCalculator.CalculateWmc(className, allMethods);
-                var dit = _ditCalculator.CalculateDit(lookupKey);
-                var noc = _nocCalculator.CalculateNoc(lookupKey);
+                var wmc = _wmcCalculator.CalculateWmc(classKey, allMethods);
+                var dit = _ditCalculator.CalculateDit(classKey);
+                var noc = _nocCalculator.CalculateNoc(classKey);
 
-                // Find dependency for this class
-                var dependency = allDependencies.FirstOrDefault(d => d.ClassName == className);
+                var dependency = dependencies.FirstOrDefault(d => d.ClassKey == classKey);
                 var cbo = dependency != null 
                     ? _cboCalculator.CalculateCbo(dependency, allClassesMap) 
                     : 0;
 
-                var rfc = _rfcCalculator.CalculateRfc(className, allMethods);
-                var lcom = _lcomCalculator.CalculateLcom(className, allMethods, allDependencies);
+                var rfc = _rfcCalculator.CalculateRfc(classKey, allMethods);
+                var lcom = _lcomCalculator.CalculateLcom(classKey, allMethods, dependencies);
 
                 var metric = new CkMetric
                 {
                     FilePath = filePath,
-                    ClassName = className,
+                    ClassName = classElement.Name,
                     WMC = wmc,
                     DIT = dit,
                     NOC = noc,

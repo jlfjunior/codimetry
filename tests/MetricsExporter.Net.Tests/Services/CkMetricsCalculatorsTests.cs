@@ -9,7 +9,9 @@ public class CkMetricsCalculatorsTests
         string[]? calls = null, string[]? fields = null) => new()
     {
         Name = name,
+        Key = name,
         ContainingClass = @class,
+        ContainingClassKey = @class,
         IsStatic = isStatic,
         CalledMethods = [.. calls ?? []],
         AccessedFields = [.. fields ?? []]
@@ -18,6 +20,7 @@ public class CkMetricsCalculatorsTests
     private static ClassDependency Dependency(string @class, params string[] instanceMembers) => new()
     {
         ClassName = @class,
+        ClassKey = @class,
         InstanceMemberNames = [.. instanceMembers]
     };
 
@@ -110,6 +113,7 @@ public class CkMetricsCalculatorsTests
         var dependency = new ClassDependency
         {
             ClassName = "C",
+            ClassKey = "N.C",
             DependentTypes = ["Repo<Item>", "N.Logger", "Item[]", "Logger?", "string", "List<int>", "C", "void"]
         };
 
