@@ -62,6 +62,7 @@ public class MisraMetricsAnalysisService
 
         // One compilation per project, so that class keys match across files
         var codebase = _codebaseLoader.Load(files, Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path)));
+        var implementations = codebase.AbstractImplementations();
 
         foreach (var document in codebase.Documents)
         {
@@ -157,7 +158,7 @@ public class MisraMetricsAnalysisService
 
                 var ac = _acCalculator.CalculateAc(classKey, allClassAttributes, allClassAttributeTypes);
                 var clc = _clcCalculator.CalculateClc(classKey, allBcsInfo, allClassAttributes, allClassAttributeTypes);
-                var cwc = _cwcCalculator.CalculateCwc(classKey, allMethods, allBcsInfo, allClassesMap);
+                var cwc = _cwcCalculator.CalculateCwc(classKey, allMethods, allBcsInfo, allClassesMap, implementations);
 
                 var metric = new MisraMetric
                 {

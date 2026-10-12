@@ -158,12 +158,18 @@ public class CwcCalculator
 
     /// <summary>
     /// Calculates CWC (Coupling Weight for a Class).
-    /// CWC = Σ(MC_called_method + 2) for all external method calls
+    /// CWC = Σ(MC_called_method + 2) for all external method calls.
+    /// A resolved call to another class of the analysed code adds that method's MC + 2; through an
+    /// interface or abstract method, the MC of its implementation when there is exactly one.
+    /// Calls to referenced libraries, and to abstract members with no or several implementations,
+    /// add 3 (MC 1 + 2). Unresolved calls fall back to the first method with the same name.
     /// </summary>
+    /// <param name="implementations">Abstract or interface method key → keys of its implementations.</param>
     public int CalculateCwc(string classKey, 
         IReadOnlyList<CkMethodInfo> allMethods,
         IReadOnlyDictionary<string, BcsInfo> methodBcsInfo,
-        IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses)
+        IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? implementations = null)
     {
         // Get all methods in this class
         var classMethods = allMethods.Where(m => m.ContainingClassKey == classKey).ToList();
@@ -172,8 +178,28 @@ public class CwcCalculator
 
         foreach (var method in classMethods)
         {
-            // Get all methods called by this method
-            foreach (var calledMethodName in method.CalledMethods)
+            foreach (var call in method.Calls.Where(c => c.IsResolved))
+            {
+                if (call.TargetClassKey == classKey)
+                {
+                    continue; // own method or local function: not coupling
+                }
+
+                var targetKey = call.TargetKey;
+                if (call.IsAbstract && targetKey != null)
+                {
+                    targetKey = implementations != null && implementations.TryGetValue(targetKey, out var impls) && impls.Count == 1
+                        ? impls[0]
+                        : null;
+                }
+
+                totalCwc += targetKey != null && methodBcsInfo.TryGetValue(targetKey, out var bcs)
+                    ? bcs.CalculateMc() + 2
+                    : 3;
+            }
+
+            // Unresolved calls: matched by simple name
+            foreach (var calledMethodName in method.Calls.Where(c => !c.IsResolved).Select(c => c.Name))
             {
                 // Calls to the class's own methods are not coupling
                 if (allMethods.Any(m => m.Name == calledMethodName && m.ContainingClassKey == classKey))

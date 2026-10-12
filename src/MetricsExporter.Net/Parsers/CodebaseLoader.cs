@@ -21,6 +21,57 @@ public sealed class Codebase
     public IReadOnlyList<SourceDocument> Documents { get; }
 
     /// <summary>
+    /// For every interface or abstract method declared in the analysed code, the class methods that
+    /// implement or override it ("{classKey}::{methodKey}" on both sides).
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> AbstractImplementations()
+    {
+        var result = new Dictionary<string, HashSet<string>>();
+        void Add(IMethodSymbol abstractMethod, IMethodSymbol implementation)
+        {
+            var from = TypeKeys.SourceMethodKey(abstractMethod);
+            var to = TypeKeys.SourceMethodKey(implementation);
+            if (from != null && to != null && !implementation.IsAbstract)
+            {
+                (result.TryGetValue(from, out var set) ? set : result[from] = new HashSet<string>()).Add(to);
+            }
+        }
+
+        foreach (var document in Documents)
+        {
+            foreach (var declaration in document.Tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())
+            {
+                if (document.SemanticModel.GetDeclaredSymbol(declaration) is not INamedTypeSymbol type)
+                {
+                    continue;
+                }
+
+                foreach (var member in type.AllInterfaces.SelectMany(i => i.GetMembers().OfType<IMethodSymbol>()))
+                {
+                    // The implementation may be inherited from a base class that does not declare the interface
+                    if (type.FindImplementationForInterfaceMember(member) is IMethodSymbol implementation)
+                    {
+                        Add(member, implementation);
+                    }
+                }
+
+                foreach (var method in type.GetMembers().OfType<IMethodSymbol>().Where(m => m.IsOverride))
+                {
+                    for (var overridden = method.OverriddenMethod; overridden != null; overridden = overridden.OverriddenMethod)
+                    {
+                        if (overridden.IsAbstract)
+                        {
+                            Add(overridden, method);
+                        }
+                    }
+                }
+            }
+        }
+
+        return result.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value.OrderBy(v => v, StringComparer.Ordinal).ToList());
+    }
+
+    /// <summary>
     /// How many method invocations inside classes the semantic model binds to a method symbol.
     /// A low rate means missing references, and then calls cannot be told apart by their target.
     /// </summary>

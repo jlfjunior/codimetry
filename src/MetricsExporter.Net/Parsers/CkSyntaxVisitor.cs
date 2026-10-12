@@ -30,6 +30,25 @@ public class CkCodeElement
 }
 
 /// <summary>
+/// A method invocation. When the semantic model binds it, the target is identified by symbol;
+/// otherwise only the simple name is known.
+/// </summary>
+/// <param name="Name">Simple name of the called method, as written.</param>
+/// <param name="TargetId">Unique identity of the called method, or null when unresolved.</param>
+/// <param name="TargetClassKey">Key of the type that declares the called method, or null when unresolved.</param>
+/// <param name="TargetKey">"{classKey}::{methodKey}" when the called method is declared in the analysed code.</param>
+/// <param name="IsAbstract">The called method has no body of its own (interface or abstract member).</param>
+public sealed record CallInfo(
+    string Name,
+    string? TargetId = null,
+    string? TargetClassKey = null,
+    string? TargetKey = null,
+    bool IsAbstract = false)
+{
+    public bool IsResolved => TargetId != null;
+}
+
+/// <summary>
 /// Extended method information for CK metrics calculation.
 /// </summary>
 public class CkMethodInfo
@@ -48,7 +67,16 @@ public class CkMethodInfo
     public int EndLine { get; set; }
     public bool IsStatic { get; set; }
     public bool IsAbstract { get; set; }
-    public List<string> CalledMethods { get; set; } = new();
+    public List<CallInfo> Calls { get; set; } = new();
+
+    /// <summary>
+    /// Simple names of the called methods. Setting it records unresolved calls.
+    /// </summary>
+    public List<string> CalledMethods
+    {
+        get => Calls.Select(c => c.Name).ToList();
+        set => Calls = value.Select(name => new CallInfo(name)).ToList();
+    }
     public List<string> AccessedFields { get; set; } = new();
     public List<string> ParameterTypes { get; set; } = new();
     public string? ReturnType { get; set; }
@@ -253,16 +281,16 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         // Collect method calls and field accesses from method body
         if (node.Body != null)
         {
-            var methodCallCollector = new MethodCallCollector();
+            var methodCallCollector = new MethodCallCollector(_semanticModel);
             methodCallCollector.Visit(node.Body);
-            methodInfo.CalledMethods = methodCallCollector.GetMethodCalls();
+            methodInfo.Calls = methodCallCollector.GetCalls();
             methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
         }
         else if (node.ExpressionBody != null)
         {
-            var methodCallCollector = new MethodCallCollector();
+            var methodCallCollector = new MethodCallCollector(_semanticModel);
             methodCallCollector.Visit(node.ExpressionBody);
-            methodInfo.CalledMethods = methodCallCollector.GetMethodCalls();
+            methodInfo.Calls = methodCallCollector.GetCalls();
             methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
         }
 
@@ -305,9 +333,9 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         SyntaxNode? body = (SyntaxNode?)node.Body ?? node.ExpressionBody;
         if (body != null)
         {
-            var methodCallCollector = new MethodCallCollector();
+            var methodCallCollector = new MethodCallCollector(_semanticModel);
             methodCallCollector.Visit(body);
-            methodInfo.CalledMethods = methodCallCollector.GetMethodCalls();
+            methodInfo.Calls = methodCallCollector.GetCalls();
             methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
         }
 
@@ -325,26 +353,71 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
 /// </summary>
 internal class MethodCallCollector : CSharpSyntaxWalker
 {
-    private readonly List<string> _methodCalls = new();
+    private readonly SemanticModel? _semanticModel;
+    private readonly List<CallInfo> _calls = new();
     private readonly List<string> _fieldAccesses = new();
 
-    public List<string> GetMethodCalls() => _methodCalls;
+    public MethodCallCollector(SemanticModel? semanticModel = null)
+    {
+        _semanticModel = semanticModel;
+    }
+
+    public List<CallInfo> GetCalls() => _calls;
+    public List<string> GetMethodCalls() => _calls.Select(c => c.Name).ToList();
     public List<string> GetFieldAccesses() => _fieldAccesses;
 
     public override void VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         // Extract method name
-        if (node.Expression is MemberAccessExpressionSyntax memberAccess)
+        string? methodName = node.Expression switch
         {
-            var methodName = memberAccess.Name.Identifier.Text;
-            _methodCalls.Add(methodName);
-        }
-        else if (node.Expression is IdentifierNameSyntax identifier)
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.Text,
+            IdentifierNameSyntax identifier => identifier.Identifier.Text,
+            GenericNameSyntax generic => generic.Identifier.Text,
+            _ => null
+        };
+
+        var target = Resolve(node);
+
+        // nameof(...) is parsed as an invocation but is a compile-time constant, not a call
+        var isNameof = target == null && node.Expression is IdentifierNameSyntax { Identifier.Text: "nameof" };
+
+        if (methodName != null && !isNameof)
         {
-            _methodCalls.Add(identifier.Identifier.Text);
+            _calls.Add(target == null
+                ? new CallInfo(methodName)
+                : new CallInfo(
+                    methodName,
+                    TargetId: $"{TypeKeys.Of(target.ContainingType)}::{target.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)}",
+                    TargetClassKey: TypeKeys.Of(target.ContainingType),
+                    TargetKey: TypeKeys.SourceMethodKey(target),
+                    IsAbstract: target.IsAbstract));
         }
 
         base.VisitInvocationExpression(node);
+    }
+
+    /// <summary>
+    /// The method definition an invocation binds to (an extension method in its static form), or
+    /// null when the semantic model cannot decide. A single candidate of a failed overload resolution
+    /// is accepted, since the target method is still known.
+    /// </summary>
+    private IMethodSymbol? Resolve(InvocationExpressionSyntax node)
+    {
+        if (_semanticModel == null)
+        {
+            return null;
+        }
+
+        var info = _semanticModel.GetSymbolInfo(node);
+        var method = info.Symbol as IMethodSymbol
+            ?? (info.CandidateSymbols.Length == 1 ? info.CandidateSymbols[0] as IMethodSymbol : null);
+        if (method?.ContainingType == null)
+        {
+            return null;
+        }
+
+        return (method.ReducedFrom ?? method).OriginalDefinition;
     }
 
     public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)

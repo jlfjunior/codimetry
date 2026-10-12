@@ -75,6 +75,26 @@ public static class TypeKeys
         return $"{name}({string.Join(",", parameters)})";
     }
 
+    /// <summary>
+    /// "{classKey}::{methodKey}" of a method declared in the analysed source code (the key used for
+    /// MC), or null for methods from referenced assemblies, local functions and accessors.
+    /// </summary>
+    public static string? SourceMethodKey(IMethodSymbol method)
+    {
+        var definition = method.ReducedFrom ?? method;
+        definition = definition.OriginalDefinition;
+        if (definition.ContainingType == null)
+        {
+            return null;
+        }
+
+        var declaration = definition.DeclaringSyntaxReferences
+            .Select(r => r.GetSyntax())
+            .OfType<BaseMethodDeclarationSyntax>()
+            .FirstOrDefault();
+        return declaration == null ? null : $"{Of(definition.ContainingType)}::{MethodKey(declaration)}";
+    }
+
     private static string Normalize(string typeText) =>
         string.Concat(typeText.Where(c => !char.IsWhiteSpace(c)));
 

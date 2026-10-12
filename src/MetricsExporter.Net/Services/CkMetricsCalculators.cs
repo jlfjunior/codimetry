@@ -148,8 +148,10 @@ public class CboCalculator
 public class RfcCalculator
 {
     /// <summary>
-    /// Calculates RFC as the number of methods that can be invoked in response to a message.
-    /// RFC = M + R, where M is methods in class, R is methods called by those methods.
+    /// Calculates RFC as the number of methods that can be invoked in response to a message:
+    /// |M ∪ R|, where M is the methods of the class and R the methods they call.
+    /// Resolved calls are identified by the called method; a call to a method of M is already in the
+    /// set, as are calls to local functions. Unresolved calls are identified by their simple name.
     /// </summary>
     public int CalculateRfc(string classKey, IReadOnlyList<CkMethodInfo> allMethods)
     {
@@ -158,11 +160,15 @@ public class RfcCalculator
 
         // Collect all methods called by class methods
         var calledMethods = new HashSet<string>();
-        foreach (var method in classMethods)
+        foreach (var call in classMethods.SelectMany(method => method.Calls))
         {
-            foreach (var calledMethod in method.CalledMethods)
+            if (!call.IsResolved)
             {
-                calledMethods.Add(calledMethod);
+                calledMethods.Add("name:" + call.Name);
+            }
+            else if (call.TargetClassKey != classKey)
+            {
+                calledMethods.Add(call.TargetId!);
             }
         }
 
