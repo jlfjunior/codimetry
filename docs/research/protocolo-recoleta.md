@@ -98,6 +98,46 @@ São erros de implementação, não mudanças de definição. Cada item tem seu 
 4. Compilação com referências reais via MSBuildWorkspace (achado E).
 5. Filtros de escopo decididos na Fase 2 (testes, código gerado, tipos analisados).
 
+#### Resultado (12/10/2026): itens 1–4 concluídos e identificação de chamadas por símbolo (achado do item 5 da revisão)
+
+Branch `recoleta/fase-3`; cada commit tem testes escritos antes da correção (162 testes, nenhum pulado). O item 5 (filtros de escopo) depende da Fase 2 e ainda não foi feito.
+
+| Passo | Commit | O que muda |
+|---|---|---|
+| 01 | `bf45bac` | Classe identificada por projeto + nome completo (achado B). Uma compilação por `.csproj`, ligada pelos `<ProjectReference>`. `partial` vira uma classe só; métodos de interface/struct/record aninhados deixam de contar para a classe externa |
+| 02 | `570929b` | Chave do método inclui a lista de parâmetros (achado C) |
+| 03 | `df14394` | V(G) sem `else if` em dobro (achado D) |
+| — | `38dd36c` | Log da taxa de chamadas resolvidas (não muda métricas) |
+| 04 | `1a0a5a8`, `bdb1d71` | Referências reais (achado E): targeting packs do SDK, usings implícitos por SDK, pacotes NuGet do `obj/project.assets.json` e `ProjectReference` transitivo. Em vez do MSBuildWorkspace, os arquivos de projeto são lidos diretamente; o MSBuild só roda no `dotnet restore` |
+| 05 | `ba447d1` | RFC e CWC identificam o método chamado pelo símbolo (achado do casamento por nome) |
+
+**Taxa de chamadas resolvidas** (42.799 invocações em classes): 8,0% só com a CoreLib → 19,4% com usings implícitos → 34,5% com o framework → **98,1%** com os pacotes NuGet e as referências transitivas.
+
+**Impacto de cada passo** (detalhes em `analysis/fase3/comparacao.md`):
+
+| Número | v1 | 00 (HEAD `231192a`) | 01 identidade | 02 sobrecargas | 03 V(G) | 04 referências | 05 chamadas |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Classes | 2.657 | 2.657 | 3.004 | 3.004 | 3.004 | 3.004 | 3.004 |
+| LCOM = WMC(WMC−1)/2 | 99,40% | 69,48% | 71,87% | = | = | = | = |
+| Acurácia (linha de base 51,1%) | 51,1% | 46,8% | 46,8% | 44,7% | 44,7% | 44,7% | 46,8% |
+| ρ regra em estágios | 0,286 | 0,177 | 0,198 | 0,160 | 0,160 | 0,160 | 0,198 |
+| ρ média do % Normal | 0,363 | 0,348 | 0,305 | 0,308 | 0,308 | 0,325 | 0,333 |
+
+- 01 é o passo com mais efeito estrutural: +347 classes (homônimas separadas), WMC muda em 110 classes, RFC em 196, CWC em 267.
+- 02 muda CLC em 55 classes e CWC em 35; 03 muda a V(G) de 25 métodos (−0,2%); 04 muda só DIT (3 classes) e NOC (1), pelas referências transitivas; 05 muda RFC em 822 classes (+2%) e CWC em 967 (+6%).
+- Exemplo verificado à mão no passo 05: em p12, `EntryService` tem métodos `GetItem` e `GetAll`, e por isso as chamadas `_entryRepository.GetItem()` e `GetAll()` eram ignoradas como "chamadas à própria classe".
+
+**Preparação necessária para reproduzir a coleta a partir do passo 04:**
+
+1. `dotnet restore` em cada `.csproj` de `artefatos-mestrado`. Os projetos de p39 precisam de `-p:NuGetAudit=false`, porque tratam alertas de vulnerabilidade como erro. O restore só grava em `obj/`, que é ignorado pelo git, mas **atualiza `p34-arch-sn/src/AppHost/CashFlow.AppHost/CashFlow.AppHost.AppHost/packages.lock.json`**, que deve ser revertido com `git checkout` depois.
+2. Referências usadas: Microsoft.NETCore.App.Ref 10.0.1 e Microsoft.AspNetCore.App.Ref 10.0.1, registradas no log de cada coleta.
+
+**Limitações conhecidas:**
+
+- p7 depende de pacotes privados do participante no GitHub Packages (`CashFlow.Domain.Shared`, `StreamTail`), que devolvem 401: 65% das chamadas de p7 se resolvem.
+- `p4-arch-esp/src/CashFlow.Jobs` não restaura: usa gerenciamento central de pacotes sem declarar as versões (defeito do artefato).
+- Pacotes com versões flutuantes podem resolver versões diferentes em datas diferentes; a data do restore desta coleta é 12/10/2026.
+
 ### Fase 4: Alinhamento às definições (≈3–5 dias)
 
 1. Seguir a tabela 2.1 de `docs/PLANO_RECOLETA.md`, métrica por métrica, com os testes escritos primeiro:
