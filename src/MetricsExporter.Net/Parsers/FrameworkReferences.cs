@@ -17,6 +17,13 @@ public static class FrameworkReferences
     public static IReadOnlyList<MetadataReference> References => Loaded.Value.References;
 
     /// <summary>
+    /// File names of the framework assemblies, so that package copies of them can be skipped.
+    /// </summary>
+    public static IReadOnlySet<string> FileNames { get; } = new HashSet<string>(
+        References.OfType<PortableExecutableReference>().Select(r => Path.GetFileName(r.FilePath!)),
+        StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Which packs were loaded, e.g. "Microsoft.NETCore.App.Ref 10.0.1, Microsoft.AspNetCore.App.Ref 10.0.1".
     /// </summary>
     public static string Description => Loaded.Value.Description;

@@ -56,6 +56,22 @@ public class CodebaseLoaderTests : IDisposable
     }
 
     [Fact]
+    public void ProjectReferences_AreTransitive_AsInMsBuild()
+    {
+        _dir.WriteFile("domain/Domain.csproj", Project("Microsoft.NET.Sdk", implicitUsings: false));
+        _dir.WriteFile("domain/Entry.cs", "namespace Domain; public class Entry { public void Validate() { } }");
+        _dir.WriteFile("api/Api.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><ProjectReference Include="../domain/Domain.csproj" /></ItemGroup></Project>
+            """);
+        _dir.WriteFile("tests/Tests.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><ProjectReference Include="../api/Api.csproj" /></ItemGroup></Project>
+            """);
+        _dir.WriteFile("tests/EntryTests.cs", "public class EntryTests { public void M() { new Domain.Entry().Validate(); } }");
+
+        Assert.Equal((1, 1), Resolution());
+    }
+
+    [Fact]
     public void ImplicitUsings_ResolveBaseLibraryCalls()
     {
         _dir.WriteFile("lib/Lib.csproj", Project("Microsoft.NET.Sdk", implicitUsings: true));
@@ -87,6 +103,65 @@ public class CodebaseLoaderTests : IDisposable
     {
         _dir.WriteFile("lib/Lib.csproj", Project("Microsoft.NET.Sdk", implicitUsings: true));
         _dir.WriteFile("lib/Host.cs", UsesAspNetCore);
+
+        Assert.Equal((0, 1), Resolution());
+    }
+
+    /// <summary>
+    /// Compiles a one-class assembly into a fake NuGet package folder and writes the
+    /// obj/project.assets.json that "dotnet restore" would produce for it.
+    /// </summary>
+    private void FakeRestoredPackage(string projectDirectory)
+    {
+        var dll = _dir.Combine("packages", "fakepkg", "1.0.0", "lib", "net8.0", "FakePkg.dll");
+        Directory.CreateDirectory(Path.GetDirectoryName(dll)!);
+        using var output = File.Create(dll);
+        var emit = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("FakePkg",
+                [Code.Parse("namespace FakePkg { public class Mediator { public void Send() { } } }")],
+                FrameworkReferences.References,
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary))
+            .Emit(output);
+        Assert.True(emit.Success);
+        output.Close();
+
+        var packages = _dir.Combine("packages").Replace("\\", "/") + "/";
+        _dir.WriteFile($"{projectDirectory}/obj/project.assets.json", $$"""
+            {
+              "version": 3,
+              "targets": {
+                "net8.0": {
+                  "FakePkg/1.0.0": { "type": "package", "compile": { "lib/net8.0/FakePkg.dll": {} } },
+                  "Empty/1.0.0": { "type": "package", "compile": { "lib/net8.0/_._": {} } },
+                  "Other/1.0.0": { "type": "project" }
+                },
+                "net8.0/linux-x64": {}
+              },
+              "libraries": {
+                "FakePkg/1.0.0": { "type": "package", "path": "fakepkg/1.0.0" },
+                "Empty/1.0.0": { "type": "package", "path": "empty/1.0.0" }
+              },
+              "packageFolders": { "{{packages}}": {} }
+            }
+            """);
+    }
+
+    private const string UsesPackage = "public class C { FakePkg.Mediator _m; void M() { _m.Send(); } }";
+
+    [Fact]
+    public void RestoredPackages_AreReferenced_FromProjectAssetsJson()
+    {
+        _dir.WriteFile("app/App.csproj", Project("Microsoft.NET.Sdk", implicitUsings: true));
+        _dir.WriteFile("app/C.cs", UsesPackage);
+        FakeRestoredPackage("app");
+
+        Assert.Equal((1, 1), Resolution());
+    }
+
+    [Fact]
+    public void WithoutRestore_PackageCallsStayUnresolved()
+    {
+        _dir.WriteFile("app/App.csproj", Project("Microsoft.NET.Sdk", implicitUsings: true));
+        _dir.WriteFile("app/C.cs", UsesPackage);
 
         Assert.Equal((0, 1), Resolution());
     }

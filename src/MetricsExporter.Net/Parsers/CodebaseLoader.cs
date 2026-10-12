@@ -52,7 +52,8 @@ public sealed class Codebase
 /// Groups source files by the nearest .csproj above them, builds one compilation per project and
 /// links projects through their &lt;ProjectReference&gt; items. Files outside any project form one
 /// extra compilation. MSBuild is not run: only the project files themselves are read, including
-/// the implicit global usings the SDK would generate (see <see cref="ImplicitUsings"/>).
+/// the implicit global usings the SDK would generate (see <see cref="ImplicitUsings"/>) and, when the
+/// project was restored, its NuGet packages (see <see cref="NuGetReferences"/>).
 /// </summary>
 public class CodebaseLoader
 {
@@ -128,7 +129,9 @@ public class CodebaseLoader
         var references = new List<MetadataReference>(_references);
         if (project != NoProject)
         {
-            foreach (var referenced in ProjectReferences(project))
+            references.AddRange(NuGetReferences.For(project, FrameworkReferences.FileNames));
+
+            foreach (var referenced in TransitiveProjectReferences(project))
             {
                 if (treesByProject.ContainsKey(referenced) && !visiting.Contains(referenced))
                 {
@@ -167,6 +170,33 @@ public class CodebaseLoader
     /// </summary>
     private static string AssemblyName(string project, string root) =>
         project == NoProject ? NoProject : Path.GetRelativePath(root, project).Replace('\\', '/');
+
+    /// <summary>
+    /// Direct and indirect project references: SDK-style projects see the projects their
+    /// references depend on, so a test project referencing only the API also sees the domain.
+    /// </summary>
+    private static IEnumerable<string> TransitiveProjectReferences(string projectPath)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal) { projectPath };
+        var pending = new Queue<string>(ProjectReferences(projectPath));
+        var result = new List<string>();
+        while (pending.Count > 0)
+        {
+            var next = pending.Dequeue();
+            if (!seen.Add(next))
+            {
+                continue;
+            }
+
+            result.Add(next);
+            foreach (var reference in ProjectReferences(next))
+            {
+                pending.Enqueue(reference);
+            }
+        }
+
+        return result;
+    }
 
     private static IEnumerable<string> ProjectReferences(string projectPath)
     {
