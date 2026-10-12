@@ -105,13 +105,13 @@ public class RootCommandHandler
             var misra = context.ParseResult.GetValueForOption(misraOption);
             var cyclomatic = context.ParseResult.GetValueForOption(cyclomaticOption);
             
-            await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic);
         });
 
         return rootCommand;
     }
 
-    private static async Task ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -303,21 +303,23 @@ public class RootCommandHandler
                     logger.LogWarning("No Cyclomatic Complexity metrics found.");
                 }
             }
+
+            return 0;
         }
         catch (DirectoryNotFoundException ex)
         {
             logger.LogError("Directory not found: {Path}", ex.Message);
-            Environment.Exit(1);
+            return 1;
         }
         catch (UnauthorizedAccessException ex)
         {
             logger.LogError("Access denied: {Message}", ex.Message);
-            Environment.Exit(1);
+            return 1;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "An error occurred during analysis");
-            Environment.Exit(1);
+            return 1;
         }
     }
 }

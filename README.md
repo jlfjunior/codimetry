@@ -337,6 +337,17 @@ See [cyclomatic.md](docs/cyclomatic.md#interpretation) for reference thresholds 
 
 The tool's implementation differs from the textbook definitions in some places, for example in how WMC weights methods or how MC treats nesting. Each page documents these differences, so read the "How this tool computes it" section before comparing values with other tools or with published studies.
 
+## Running Tests
+
+The test suite lives in `tests/MetricsExporter.Net.Tests` (xUnit). It covers the parsers, metric calculators, analysis services, CSV exporter, and CLI. It also checks every worked example in `docs/*.md`, so the documentation and the implementation cannot drift apart unnoticed.
+
+```bash
+dotnet test
+
+# with line coverage (Cobertura XML under TestResults/)
+dotnet test --collect:"XPlat Code Coverage"
+```
+
 ## Architecture
 
 The project follows **Simple Layered Architecture** with the following structure:
