@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Regenerates results/index.md from the per-participant CSV files."""
+"""Regenerates <results>/index.md from the per-participant CSV files.
+
+Usage: python3 scripts/generate_index.py [results-dir]   (default: results)
+"""
 
 import csv
 import math
 import os
+import sys
 from datetime import date
 
-RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
+RESULTS_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "results")
 
 
 def read_csv(path):

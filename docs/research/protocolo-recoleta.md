@@ -56,10 +56,33 @@ A principal mudança em relação ao plano original: **o script de análise e o 
 
 ### Fase 1: Script de análise e teste de ouro (≈2–3 dias)
 
-1. Criar `scripts/analysis/cbtam_analysis.py` (pandas/scipy), que recebe `--results <dir>` e gera `analysis/<versão>/` com CSVs e `report.md`, cobrindo todas as saídas listadas na Etapa 4 do plano original.
-2. Consolidar as classes por (participante, nome), exatamente como no Cap. 4.
+1. Criar `scripts/analysis/cbtam_analysis.py`, que recebe `--results <dir>` e gera `analysis/<versão>/` com CSVs e `report.md`, cobrindo todas as saídas listadas na Etapa 4 do plano original.
+2. Consolidar as classes exatamente como no Cap. 4.
 3. Gerar também `per_class.csv` com uma chave estável (participante + arquivo + classe), que a Fase 6 usa no pareamento.
 4. **Gate G1:** rodando sobre `results-v1/`, o script tem que reproduzir 2.657 classes, 6.839 métodos, 99,40%, 51,1% e ρ = 0,286, além das tabelas do Cap. 4. Se não reproduzir, o script ainda não é confiável.
+
+#### Resultado (12/10/2026): G1 aprovado
+
+- Script só com a biblioteca padrão (o Python do sistema não tem pandas/scipy, e assim o resultado não depende de versões de pacotes). Uso e regras em `scripts/analysis/README.md`.
+- `python3 scripts/analysis/cbtam_analysis.py --results results-v1 --out analysis/v1 --check scripts/analysis/published_v1.json` termina com 0 divergências não explicadas.
+- **Reproduzidos exatamente:** contagens (48 / 2.657 / 6.839), `tab:per_class_averages`, `tab:codebase_size`, `position_analysis`, 94,2% DIT = 1, 97,3% NOC = 0, amplitude da LCOM 0,42–57,92, limiares absolutos (99,7 / 100 / 100), 99,40%, correlações citadas, `tab:confusion_matrix`, 51,1% contra linha de base de 51,1%, ρ = 0,286, ρ = 0,363 e 24 erros (20 adjacentes, 4 a dois ou mais níveis).
+- `scripts/generate_index.py` passou a aceitar o diretório de resultados como argumento e reproduz `results-v1/index.md` (só a data muda).
+
+#### Regras implícitas descobertas (não descritas no Cap. 4)
+
+| Regra | Como foi identificada |
+|---|---|
+| Classes consolidadas por (arquivo, classe) mantendo o **último** registro, não por nome | Só essa combinação dá 2.657 e explica DIT/NOC de p11, p15, p20, p25 e p41 |
+| Métodos (MC) **sem** deduplicação | 6.839 = todas as linhas de método |
+| Percentis com interpolação linear; Normal ≤ P50 | P50/P90 resultantes: WMC 1/5, DIT 1/1, NOC 0/0, LCOM 0/10, AC 2/7, CWC 21/159, MC 9/35 |
+| **DIT × NOC (r = 0,02) é por classe**, não por participante | Por participante, r = 0,94 (consolidado) ou 0,98 (bruto) |
+| CBO × classes (r = −0,13) usa o nº de classes **antes** da consolidação | Com o nº consolidado, r = −0,11 |
+
+#### Achados para a Fase 7 (texto)
+
+1. **A tabela `tab:per_participant_results` tem erros de transcrição.** Aplicando a regra em estágios aos próprios valores publicados, 5 linhas (p6, p10, p40, p41, p45) dão um nível diferente da coluna "Previsto", e essa coluna geraria outra matriz de confusão (27/47 = 57,4%). A matriz, a acurácia e o ρ publicados estão corretos; a tabela não. Há ainda 8 células de % Normal divergentes (p13, p18, p19 ×2, p22, p28, p40, p47), duas delas impossíveis com o nº de classes do participante. A lista completa, com justificativas, está na seção `errata` de `scripts/analysis/published_v1.json` e em `analysis/v1/check.md`.
+2. **A frase sobre DIT × NOC está errada.** O texto diz que a correlação "0,98 em n = 36" desapareceu em n = 48. Na verdade, 0,98 é uma correlação por participante e 0,02 é por classe; por participante, em n = 48, ela continua em 0,94–0,98. A mudança vem da granularidade, não do tamanho da amostra.
+3. **Sensibilidade p33:** sem a duplicata, a acurácia fica em 23/46 = 50,0%, igual à linha de base (também 50,0%), e ρ = 0,285. As conclusões não mudam.
 
 ### Fase 2: Decisões de escopo (≈0,5 dia)
 
@@ -117,6 +140,8 @@ Gerar `analysis/comparacao-v1-v2.md` com:
 
 Igual à Etapa 7 de `docs/PLANO_RECOLETA.md`. Acrescentar ao protocolo do estudo de caso no Cap. 4 o tratamento de p29/p33, se a decisão mudar o n, e citar a tag `coleta-v2`.
 
+Independentemente da recoleta, corrigir na versão defendida os achados da Fase 1: as erratas de `tab:per_participant_results` e a frase sobre DIT × NOC em `metric_redundancy` e em `experience_summary`.
+
 ## 4. Decisões de escopo
 
 | Decisão | Opções | Recomendação | Decisão tomada |
@@ -135,7 +160,7 @@ Igual à Etapa 7 de `docs/PLANO_RECOLETA.md`. Acrescentar ao protocolo do estudo
 | Gate | Critério | Fase |
 |---|---|---|
 | G0 | Coleta com `0bc0f89` idêntica a `results-v1/` — **aprovado em 12/10/2026** | 0 |
-| G1 | `cbtam_analysis.py` sobre `results-v1/` reproduz os números da versão defendida | 1 |
+| G1 | `cbtam_analysis.py` sobre `results-v1/` reproduz os números da versão defendida — **aprovado em 12/10/2026** (com erratas da tabela por participante documentadas) | 1 |
 | G2 | `dotnet test` sem falhas e sem testes pulados, cobrindo os exemplos do Cap. 2 e de Misra (CoC = 536) | 4 |
 | G3 | LCOM1 e CBO à mão em 5 classes batem com a ferramenta | 4 |
 | G4 | Contagens da v2 plausíveis frente à v1 e aos filtros | 5 |
