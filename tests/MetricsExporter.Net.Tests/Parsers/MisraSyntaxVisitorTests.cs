@@ -22,7 +22,7 @@ public class MisraSyntaxVisitorTests
                 void Other() { }
             }
             """);
-        return visitor.GetMethodBcsInfo()["C::M"];
+        return visitor.GetMethodBcsInfo().Single(kv => kv.Key.StartsWith("C::M(")).Value;
     }
 
     private static void AssertCounts(BcsInfo bcs, int sequence, int branch, int iteration, int call)
@@ -148,7 +148,7 @@ public class MisraSyntaxVisitorTests
     {
         var visitor = Code.VisitMisra("class C { int M(bool a) => a ? Other() : 0; int Other() => 1; }");
 
-        AssertCounts(visitor.GetMethodBcsInfo()["C::M"], sequence: 1, branch: 1, iteration: 0, call: 1);
+        AssertCounts(visitor.GetMethodBcsInfo()["C::M(bool)"], sequence: 1, branch: 1, iteration: 0, call: 1);
     }
 
     [Fact]
@@ -156,7 +156,7 @@ public class MisraSyntaxVisitorTests
     {
         var visitor = Code.VisitMisra("abstract class C { public abstract void M(); }");
 
-        Assert.Equal(0, visitor.GetMethodBcsInfo()["C::M"].CalculateMc());
+        Assert.Equal(0, visitor.GetMethodBcsInfo()["C::M()"].CalculateMc());
     }
 
     [Fact]
@@ -167,8 +167,8 @@ public class MisraSyntaxVisitorTests
             class B { int _y; B(int y) { _y = y; Init(); } void Init() { } }
             """);
 
-        AssertCounts(visitor.GetMethodBcsInfo()["A::A"], sequence: 1, branch: 0, iteration: 0, call: 0);
-        AssertCounts(visitor.GetMethodBcsInfo()["B::B"], sequence: 2, branch: 0, iteration: 0, call: 1);
+        AssertCounts(visitor.GetMethodBcsInfo()["A::A(int)"], sequence: 1, branch: 0, iteration: 0, call: 0);
+        AssertCounts(visitor.GetMethodBcsInfo()["B::B(int)"], sequence: 2, branch: 0, iteration: 0, call: 1);
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public class MisraSyntaxVisitorTests
             }
             """);
 
-        Assert.True(visitor.GetMethodBcsInfo().ContainsKey("Outer.Inner::M"));
-        Assert.True(visitor.GetMethodBcsInfo().ContainsKey("Outer::N"));
+        Assert.True(visitor.GetMethodBcsInfo().ContainsKey("Outer.Inner::M()"));
+        Assert.True(visitor.GetMethodBcsInfo().ContainsKey("Outer::N()"));
     }
 }

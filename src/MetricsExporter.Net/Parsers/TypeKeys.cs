@@ -58,14 +58,25 @@ public static class TypeKeys
         member.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault() as ClassDeclarationSyntax;
 
     /// <summary>
-    /// Key of a method or constructor within its class.
+    /// Key of a method or constructor within its class: name, arity and parameter list as written,
+    /// e.g. "Save(ref int,string)", so that overloads do not overwrite each other.
     /// </summary>
-    public static string MethodKey(BaseMethodDeclarationSyntax method) => method switch
+    public static string MethodKey(BaseMethodDeclarationSyntax method)
     {
-        MethodDeclarationSyntax m => m.Identifier.Text,
-        ConstructorDeclarationSyntax c => c.Identifier.Text,
-        _ => method.ToString()
-    };
+        var name = method switch
+        {
+            MethodDeclarationSyntax m => WithArity(m.Identifier.Text, m.TypeParameterList?.Parameters.Count ?? 0),
+            ConstructorDeclarationSyntax c => c.Identifier.Text,
+            _ => method.Kind().ToString()
+        };
+
+        var parameters = method.ParameterList.Parameters.Select(p =>
+            string.Join(" ", p.Modifiers.Select(m => m.Text).Append(Normalize(p.Type?.ToString() ?? string.Empty))));
+        return $"{name}({string.Join(",", parameters)})";
+    }
+
+    private static string Normalize(string typeText) =>
+        string.Concat(typeText.Where(c => !char.IsWhiteSpace(c)));
 
     private static string QualifiedName(INamedTypeSymbol type)
     {

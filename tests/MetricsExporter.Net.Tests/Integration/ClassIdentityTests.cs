@@ -101,6 +101,24 @@ public class ClassIdentityTests : IDisposable
     }
 
     [Fact]
+    public async Task Overloads_AreMeasuredSeparately_AndAllCountForTheClass()
+    {
+        _dir.WriteFile("Repo.cs", """
+            public class Repo
+            {
+                public void Save(int id) { }
+                public void Save(string name) { if (name == null) { } for (;;) { } }
+                public void Save(ref int id, string name) { }
+            }
+            """);
+
+        var misra = await Analyzers.Misra(_dir.Path);
+
+        Assert.Equal([0, 2 + 3, 0], misra.Where(m => m.MethodName == "Save").Select(m => m.MC));
+        Assert.Equal(0 + 5 + 0, Assert.Single(misra, m => m.ClassName == "Repo" && m.MethodName == "").CLC);
+    }
+
+    [Fact]
     public async Task MethodsOfNestedNonClassTypes_DoNotCountForTheEnclosingClass()
     {
         _dir.WriteFile("Outer.cs", """
