@@ -428,3 +428,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Dissertation PDF (not distributed with the repository)
+docs/*.pdf

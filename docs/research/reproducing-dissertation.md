@@ -1,4 +1,10 @@
-# Instructions — Collecting Metrics for Artefatos Mestrado
+# Reproducing the Dissertation Data Collection
+
+> **Scope.** This guide is specific to the case study in the master's dissertation *Avaliação da Experiência do Desenvolvedor de Software Por Meio de Métricas Orientadas a Objetos* (Silva Junior, UFS, 2026). It depends on the private `artefatos-mestrado` repository of participant artefacts. To use the tool on your own code, see [COLLECTING_METRICS.md](../COLLECTING_METRICS.md).
+>
+> **Versions.** The values reported in the dissertation were collected with a version older than the LCOM fix (commit `054fc08`) and the Misra MC/CWC fixes that followed it. Re-running with the current version produces different **LCOM**, **MC**, **CLC**, **CWC** and **CC** values. To reproduce the published numbers exactly, check out a commit from before those fixes.
+
+All commands below are run from the root of this repository.
 
 This document explains how to re-run the full metrics collection process for all participants in `artefatos-mestrado` and regenerate the `results/index.md` summary.
 

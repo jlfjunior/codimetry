@@ -68,7 +68,7 @@ A line that mixes code and a comment, such as `return x; // done` or `a * b; /* 
 
 What gets counted at each level:
 
-- **Method and constructor rows** count the lines from the first line of the declaration to its closing brace (or the final `;` of an expression-bodied member). Comments placed *above* the method, including XML documentation, belong to the line before the declaration and are **not** counted. Attributes such as `[HttpGet]` are part of the declaration and **are** counted.
+- **Method and constructor rows** count the lines from the first line of the declaration to its closing brace (or the final `;` of an expression-bodied member). Comments placed *above* the method, including XML documentation, belong to the line before the declaration and are **not** counted. Attributes such as `[HttpGet]` are part of the declaration and **are** counted. An abstract method has no body, so its row counts the single line of its declaration.
 - **Class rows** are the **sum of the class's methods and constructors**. Fields, properties, nested type declarations, and the class's own declaration and braces are not included.
 - **File rows** are the sum of the classes in the file. `using` directives and namespace declarations are not included.
 

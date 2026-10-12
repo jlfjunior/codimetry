@@ -10,6 +10,8 @@ RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
 
 
 def read_csv(path):
+    if not os.path.exists(path):
+        return []
     with open(path) as f:
         return list(csv.DictReader(f))
 
