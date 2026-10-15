@@ -75,6 +75,21 @@ public class RootCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task AcTypeWeights_ChangesTheMisraAc()
+    {
+        _dir.WriteFile("src/Holder.cs", "public class Item { } public class Holder { const int Max = 1; Item _item; int _n; }");
+
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra"));
+        var counted = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra", "--ac-type-weights"));
+        var weighted = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
+
+        // One per instance attribute: _item, _n = 2; v1: Max (1) + Item (2) + int (1) = 4
+        Assert.Contains(counted, l => l.EndsWith(",Holder,,0,2,2,0,0"));
+        Assert.Contains(weighted, l => l.EndsWith(",Holder,,0,4,4,0,0"));
+    }
+
+    [Fact]
     public async Task NoInput_FailsValidation()
     {
         Assert.NotEqual(0, await Run("--out", Output));

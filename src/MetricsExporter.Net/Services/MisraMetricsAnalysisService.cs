@@ -21,6 +21,7 @@ public class MisraMetricsAnalysisService
     private readonly CcCalculator _ccCalculator;
     private readonly CodebaseLoader _codebaseLoader;
     private readonly bool _additiveMc;
+    private readonly bool _acTypeWeights;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
@@ -29,18 +30,20 @@ public class MisraMetricsAnalysisService
         ClassRelationshipBuilder relationshipBuilder,
         ILogger<MisraMetricsAnalysisService>? logger = null,
         CodebaseLoader? codebaseLoader = null,
-        bool additiveMc = false)
+        bool additiveMc = false,
+        bool acTypeWeights = false)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
         _relationshipBuilder = relationshipBuilder;
         _mcCalculator = new McCalculator();
-        _acCalculator = new AcCalculator();
-        _clcCalculator = new ClcCalculator();
+        _acCalculator = new AcCalculator(acTypeWeights);
+        _clcCalculator = new ClcCalculator(acTypeWeights);
         _cwcCalculator = new CwcCalculator();
-        _ccCalculator = new CcCalculator();
+        _ccCalculator = new CcCalculator(acTypeWeights);
         _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _additiveMc = additiveMc;
+        _acTypeWeights = acTypeWeights;
         _logger = logger;
     }
 
@@ -56,6 +59,9 @@ public class MisraMetricsAnalysisService
         _logger?.LogInformation("MC rule: {Rule}", _additiveMc
             ? "additive, v1 (--mc-additive)"
             : "composition, Eq. 23 (sum per layer, product along nesting)");
+        _logger?.LogInformation("AC rule: {Rule}", _acTypeWeights
+            ? "fields and properties weighted by type, static and const included, v1 (--ac-type-weights)"
+            : "one per instance attribute (Eq. 25)");
 
         // Phase 1: Build class relationship graph and collect BCS information
         _logger?.LogInformation("Phase 1: Building class relationship graph and collecting BCS information...");
@@ -232,7 +238,7 @@ public class MisraMetricsAnalysisService
             ckVisitor.Visit(syntaxTree.GetRoot());
 
             // Use MISRA visitor for BCS info and attributes
-            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc);
+            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc, _acTypeWeights);
             misraVisitor.Visit(syntaxTree.GetRoot());
 
             return new FileMisraAnalysisData

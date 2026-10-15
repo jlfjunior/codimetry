@@ -34,10 +34,25 @@ public static class Code
         return visitor;
     }
 
-    public static MisraSyntaxVisitor VisitMisra(string code, bool additiveMc = false)
+    public static MisraSyntaxVisitor VisitMisra(string code, bool additiveMc = false, bool acTypeWeights = false)
     {
-        var visitor = new MisraSyntaxVisitor(additiveMc: additiveMc);
+        var visitor = new MisraSyntaxVisitor(additiveMc: additiveMc, acTypeWeights: acTypeWeights);
         visitor.Visit(Parse(code).GetRoot());
+        return visitor;
+    }
+
+    /// <summary>
+    /// Runs <see cref="MisraSyntaxVisitor"/> with a semantic model, the same way MisraMetricsAnalysisService does.
+    /// </summary>
+    public static MisraSyntaxVisitor VisitMisraWithModel(string code)
+    {
+        var tree = Parse(code);
+        var compilation = CSharpCompilation.Create("Test")
+            .AddSyntaxTrees(tree)
+            .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+
+        var visitor = new MisraSyntaxVisitor(compilation.GetSemanticModel(tree));
+        visitor.Visit(tree.GetRoot());
         return visitor;
     }
 }

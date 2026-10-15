@@ -47,10 +47,18 @@ public class McCalculator
 /// </summary>
 public class AcCalculator
 {
+    private readonly bool _typeWeights;
+
+    /// <param name="typeWeights">Weight each attribute by its type as v1 did (simple = 1, other = 2),
+    /// instead of counting it as one unit (--ac-type-weights).</param>
+    public AcCalculator(bool typeWeights = false)
+    {
+        _typeWeights = typeWeights;
+    }
+
     /// <summary>
-    /// Calculates AC (Attribute Complexity) for a class.
-    /// Simple approach: Count all attributes (fields and properties).
-    /// Complex approach: Weight by type complexity (simple=1, complex=2).
+    /// Calculates AC (Attribute Complexity) for a class: the number of its attributes, each one a
+    /// cognitive unit whatever its type (Eq. 25). With type weights, simple types count 1 and others 2.
     /// </summary>
     public int CalculateAc(string classKey, IReadOnlyDictionary<string, List<string>> classAttributes, 
         IReadOnlyDictionary<string, List<string>> classAttributeTypes)
@@ -60,7 +68,7 @@ public class AcCalculator
             return 0; // No attributes
         }
 
-        if (!classAttributeTypes.TryGetValue(classKey, out var attributeTypes))
+        if (!_typeWeights || !classAttributeTypes.TryGetValue(classKey, out var attributeTypes))
         {
             return attributes.Count; // Fallback to simple count
         }
@@ -118,10 +126,10 @@ public class ClcCalculator
     private readonly McCalculator _mcCalculator;
     private readonly AcCalculator _acCalculator;
 
-    public ClcCalculator()
+    public ClcCalculator(bool acTypeWeights = false)
     {
         _mcCalculator = new McCalculator();
-        _acCalculator = new AcCalculator();
+        _acCalculator = new AcCalculator(acTypeWeights);
     }
 
     /// <summary>
@@ -244,9 +252,9 @@ public class CcCalculator
     private readonly ClcCalculator _clcCalculator;
     private readonly CwcCalculator _cwcCalculator;
 
-    public CcCalculator()
+    public CcCalculator(bool acTypeWeights = false)
     {
-        _clcCalculator = new ClcCalculator();
+        _clcCalculator = new ClcCalculator(acTypeWeights);
         _cwcCalculator = new CwcCalculator();
     }
 

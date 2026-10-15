@@ -1,0 +1,198 @@
+using MetricsExporter.Net.Parsers;
+using MetricsExporter.Net.Tests.Helpers;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace MetricsExporter.Net.Tests.Parsers;
+
+/// <summary>
+/// MC by the composition rule of Eq. 23 (INC-14): sum per layer, product along nesting, one sequence
+/// per layer. Calls are not weighted until INC-16, so the expected values leave them out.
+/// </summary>
+public class MethodComplexityCalculatorTests
+{
+    private static int? Mc(string body, string signature = "void M(bool a, bool b, bool c, bool d, int[] l)") =>
+        MethodComplexityCalculator.Calculate(Code.Method($$"""
+            class C
+            {
+                {{signature}}
+                {
+                    {{body}}
+                }
+
+                void x() { }
+                void y() { }
+            }
+            """, "M"));
+
+    private static int? Article(string name) =>
+        MethodComplexityCalculator.Calculate(
+            Code.Single<BaseMethodDeclarationSyntax>(Samples.MisraArticle, m => m switch
+            {
+                MethodDeclarationSyntax method => method.Identifier.Text == name,
+                ConstructorDeclarationSyntax constructor => constructor.Identifier.Text == name,
+                _ => false
+            }));
+
+    // ---------- Examples of Cap. 2 and of the article ----------
+
+    [Fact]
+    public void Process_MultipliesNestedLayers()
+    {
+        var body = """
+            if (a)
+            {
+                for (var i = 0; i < 10; i++)
+                {
+                    if (b)
+                        System.Console.WriteLine("Even");
+                }
+            }
+            """;
+
+        Assert.Equal(2 * (3 * (2 * 1)), Mc(body));
+    }
+
+    [Fact]
+    public void CalcularDesconto_StructurePlusOneSequence()
+    {
+        Assert.Equal((2 * 1) + 1, Mc("if (a) return 10; return 0;", "int M(bool a)"));
+    }
+
+    [Theory]
+    [InlineData("Software", 1 + (3 * 1))]
+    [InlineData("IsAppropriate", (3 * (2 * 1)) + 1)]
+    [InlineData("Desktop", 1)]
+    [InlineData("Notebook", 1)]
+    [InlineData("GetName", 1)]
+    public void ArticleMethods(string name, int expected)
+    {
+        Assert.Equal(expected, Article(name));
+    }
+
+    [Fact]
+    public void CheckSupportedSw_WithoutTheCallWeight()
+    {
+        // 1 + (2 × 1); the call to IsAppropriate (2 + 7) is added by INC-16, giving the article's 12
+        Assert.Equal(1 + (2 * 1), Article("CheckSupportedSw"));
+    }
+
+    // ---------- Acceptance criteria of INC-14 ----------
+
+    [Fact]
+    public void SimpleStatementsOfALayer_AreOneSequence()
+    {
+        Assert.Equal(2 + 1, Mc("x(); if (c) { x(); } y();"));
+    }
+
+    [Fact]
+    public void StructuresInTheSameInnerLayer_AreSummedThenMultiplied()
+    {
+        Assert.Equal(2 * (2 + 1), Mc("if (c) { x(); if (d) y(); }"));
+        Assert.Equal(3 * (2 + 2), Mc("for (var i = 0; i < 3; i++) { if (a) x(); if (b) y(); }"));
+    }
+
+    [Fact]
+    public void TryCatch_IsTransparent()
+    {
+        Assert.Equal(1, Mc("try { x(); } catch { y(); }"));
+    }
+
+    [Fact]
+    public void EmptyBody_IsZero()
+    {
+        Assert.Equal(0, Mc(""));
+    }
+
+    [Fact]
+    public void ExpressionBody_IsOneSimpleStatement()
+    {
+        var method = Code.Method("class C { int M() => 1; }", "M");
+
+        Assert.Equal(1, MethodComplexityCalculator.Calculate(method));
+    }
+
+    [Fact]
+    public void MethodWithoutBody_HasNoMc()
+    {
+        var method = Code.Method("abstract class C { public abstract void M(); }", "M");
+
+        Assert.Null(MethodComplexityCalculator.Calculate(method));
+    }
+
+    // ---------- Rules for C# constructs ----------
+
+    [Fact]
+    public void IfElse_IsOneBranch_WithBothBranchesInTheInnerLayer()
+    {
+        Assert.Equal(2 * 1, Mc("if (c) return 1; else return 2;", "int M(bool c)"));
+    }
+
+    [Fact]
+    public void ElseIf_IsAnIfNestedInTheElseBranch()
+    {
+        Assert.Equal(2 * (1 + (2 * 1)), Mc("if (a) x(); else if (b) y(); else x();"));
+    }
+
+    [Fact]
+    public void StructureWithEmptyBody_KeepsItsWeight()
+    {
+        Assert.Equal(2 + 3, Mc("if (a) { } for (;;) { }"));
+    }
+
+    [Fact]
+    public void Switch_SectionsFormOneInnerLayer_AndBreakIsNotASequence()
+    {
+        var body = """
+            switch (k)
+            {
+                case 1: x(); break;
+                case 2: y(); break;
+                default: break;
+            }
+            """;
+
+        // Weight 2 as in v1 until INC-15 sets the Case weight (3)
+        Assert.Equal(2 * 1, Mc(body, "void M(int k)"));
+    }
+
+    [Fact]
+    public void Loops_WeighThree()
+    {
+        Assert.Equal(3 * 1, Mc("foreach (var i in l) x();"));
+        Assert.Equal(3 * 1, Mc("while (a) x();"));
+        Assert.Equal(3 * 1, Mc("do { x(); } while (a);"));
+    }
+
+    [Fact]
+    public void Ternary_IsABranchOfItsTwoExpressions()
+    {
+        // The statement that contains it stays a sequence until INC-15 (D23)
+        Assert.Equal(1 + (2 * 1), Mc("return c ? 1 : 0;", "int M(bool c)"));
+        Assert.Equal(1 + (2 * ((2 * 1) + 1)), Mc("return a ? (b ? 1 : 2) : 3;", "int M(bool a, bool b)"));
+    }
+
+    [Fact]
+    public void TernaryInACondition_BelongsToTheLayerOfTheStructure()
+    {
+        Assert.Equal((2 * 1) + (2 * 1), Mc("if (a ? b : c) x();"));
+    }
+
+    [Fact]
+    public void LambdaBodies_AreNotLookedInto()
+    {
+        // INC-17 decides how lambdas count
+        Assert.Equal(1, Mc("System.Array.ForEach(l, i => { if (i > 0) x(); });"));
+    }
+
+    [Fact]
+    public void WrapperStatements_AreTransparent()
+    {
+        var body = """
+            lock (this) { x(); }
+            using (var s = new System.IO.MemoryStream()) { if (a) y(); }
+            checked { x(); }
+            """;
+
+        Assert.Equal((2 * 1) + 1, Mc(body));
+    }
+}

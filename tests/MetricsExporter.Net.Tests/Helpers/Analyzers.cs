@@ -22,8 +22,8 @@ public static class Analyzers
         new CkMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder())
             .AnalyzeAsync(path);
 
-    public static Task<List<MisraMetric>> Misra(string path, bool additiveMc = false) =>
+    public static Task<List<MisraMetric>> Misra(string path, bool additiveMc = false, bool acTypeWeights = false) =>
         new MisraMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder(),
-                additiveMc: additiveMc)
+                additiveMc: additiveMc, acTypeWeights: acTypeWeights)
             .AnalyzeAsync(path);
 }

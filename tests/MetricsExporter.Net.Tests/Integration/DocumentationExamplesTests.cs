@@ -140,27 +140,28 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(12, method["Process"].MC);
         Assert.Equal(3, method["Total"].MC);
         Assert.Equal(3, method["CalculateDiscount"].MC);
-        Assert.Equal(6, @class["Customer"].AC);
+        Assert.Equal(5, @class["Customer"].AC);
         Assert.Equal(3, @class["Order"].AC);
         Assert.Equal(6, @class["Order"].CLC);
         Assert.Equal(6, @class["CartService"].CWC);
-        Assert.Equal(43, codebase.CC);
+        Assert.Equal(40, codebase.CC);
     }
 
     [Fact]
-    public async Task Misra_McAdditive_ReproducesV1()
+    public async Task Misra_V1Options_ReproduceV1()
     {
         _dir.WriteFile("Mc.cs", Samples.MisraMc);
         _dir.WriteFile("Ac.cs", Samples.MisraAc);
         _dir.WriteFile("Clc.cs", Samples.MisraClc);
         _dir.WriteFile("Cwc.cs", Samples.MisraCwc);
 
-        var metrics = await Analyzers.Misra(_dir.Path, additiveMc: true);
+        var metrics = await Analyzers.Misra(_dir.Path, additiveMc: true, acTypeWeights: true);
         var method = metrics.Where(m => m.MethodName != "").ToDictionary(m => m.MethodName);
         var @class = metrics.Where(m => m.ClassName != "" && m.MethodName == "").ToDictionary(m => m.ClassName);
 
         Assert.Equal(10, method["Process"].MC);
         Assert.Equal(9, method["Total"].MC);
+        Assert.Equal(6, @class["Customer"].AC);
         Assert.Equal(8, @class["CartService"].CWC);
         Assert.Equal(55, metrics.Single(m => m.ClassName == "" && m.MethodName == "").CC);
     }

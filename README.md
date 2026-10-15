@@ -90,6 +90,8 @@ You can analyze code using one of three input options:
 | `--ck` | | Calculate and export CK (Chidamber-Kemerer) object-oriented design metrics | `false` |
 | `--misra` | | Calculate and export MISRA (Misra's Cognitive Complexity) metrics | `false` |
 | `--cyclomatic` | `--cc` | Calculate and export Cyclomatic Complexity metrics | `false` |
+| `--mc-additive` | | MISRA: compute MC with the additive rule of v1 instead of the composition rule (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `false` |
+| `--ac-type-weights` | | MISRA: compute AC as v1 did, weighting attributes by type and counting `static`/`const` members (see [docs/misra.md](docs/misra.md#ac--attribute-complexity)) | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**

@@ -65,6 +65,11 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "MISRA: compute MC with the additive rule of v1 (weights summed at any depth) instead of the composition rule of Eq. 23");
 
+        var acTypeWeightsOption = new Option<bool>(
+            aliases: new[] { "--ac-type-weights" },
+            getDefaultValue: () => false,
+            description: "MISRA: compute AC as v1 did, weighting attributes by type (simple = 1, other = 2) and counting static and const members");
+
         var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC, CK, MISRA, and Cyclomatic Complexity metrics from .NET codebases")
         {
             pathOption,
@@ -77,7 +82,8 @@ public class RootCommandHandler
             ckOption,
             misraOption,
             cyclomaticOption,
-            mcAdditiveOption
+            mcAdditiveOption,
+            acTypeWeightsOption
         };
 
         rootCommand.AddValidator(result =>
@@ -111,14 +117,15 @@ public class RootCommandHandler
             var misra = context.ParseResult.GetValueForOption(misraOption);
             var cyclomatic = context.ParseResult.GetValueForOption(cyclomaticOption);
             var mcAdditive = context.ParseResult.GetValueForOption(mcAdditiveOption);
+            var acTypeWeights = context.ParseResult.GetValueForOption(acTypeWeightsOption);
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -254,7 +261,8 @@ public class RootCommandHandler
                     roslynParser,
                     relationshipBuilder,
                     loggerFactory.CreateLogger<MisraMetricsAnalysisService>(),
-                    additiveMc: mcAdditive);
+                    additiveMc: mcAdditive,
+                    acTypeWeights: acTypeWeights);
 
                 var misraMetricsResults = await misraAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 

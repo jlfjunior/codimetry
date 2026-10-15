@@ -50,10 +50,16 @@ public class MisraMetricsCalculatorsTests
     // ---------- AC ----------
 
     [Fact]
-    public void Ac_WeightsSimpleTypesAs1_AndOthersAs2()
+    public void Ac_CountsEachAttributeOnce_WhateverItsType()
+    {
+        Assert.Equal(4, new AcCalculator().CalculateAc("C", Attributes, AttributeTypes));
+    }
+
+    [Fact]
+    public void Ac_WithTypeWeights_WeightsSimpleTypesAs1_AndOthersAs2()
     {
         // int (1) + string? (1) + Address (2) + List<int> (2)
-        Assert.Equal(6, new AcCalculator().CalculateAc("C", Attributes, AttributeTypes));
+        Assert.Equal(6, new AcCalculator(typeWeights: true).CalculateAc("C", Attributes, AttributeTypes));
     }
 
     [Fact]
@@ -65,7 +71,7 @@ public class MisraMetricsCalculatorsTests
     [Fact]
     public void Ac_FallsBackToCount_WithoutTypeInformation()
     {
-        Assert.Equal(4, new AcCalculator().CalculateAc("C", Attributes, new Dictionary<string, List<string>>()));
+        Assert.Equal(4, new AcCalculator(typeWeights: true).CalculateAc("C", Attributes, new Dictionary<string, List<string>>()));
     }
 
     // ---------- CLC ----------
@@ -73,7 +79,7 @@ public class MisraMetricsCalculatorsTests
     [Fact]
     public void Clc_IsAcPlusSumOfMc()
     {
-        Assert.Equal(6 + 3 + 5, new ClcCalculator().CalculateClc("C", Bcs, Attributes, AttributeTypes));
+        Assert.Equal(4 + 3 + 5, new ClcCalculator().CalculateClc("C", Bcs, Attributes, AttributeTypes));
     }
 
     // ---------- CWC ----------
@@ -118,10 +124,10 @@ public class MisraMetricsCalculatorsTests
     {
         List<CkMethodInfo> methods = [Method("A", "C", "Ext", "WriteLine"), Method("B", "C"), Method("Ext", "Other")];
 
-        // CLC(C) = 14, CLC(Other) = 1 + 4 = 5; CWC(C) = 6 + 3 = 9, CWC(Other) = 0
+        // CLC(C) = 4 + 3 + 5 = 12, CLC(Other) = 1 + 4 = 5; CWC(C) = 6 + 3 = 9, CWC(Other) = 0
         var cc = new CcCalculator().CalculateCc(["C", "Other"], Bcs, Attributes, AttributeTypes, methods,
             new Dictionary<string, ClassRelationshipBuilder.ClassInfo>());
 
-        Assert.Equal(14 + 5 + 9 / 2, cc);
+        Assert.Equal(12 + 5 + 9 / 2, cc);
     }
 }

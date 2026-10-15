@@ -60,16 +60,21 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     private readonly Dictionary<string, List<string>> _classAttributeTypes = new();
     private readonly SemanticModel? _semanticModel;
     private readonly bool _additiveMc;
+    private readonly bool _acTypeWeights;
 
     /// <summary>
     /// Keys follow <see cref="TypeKeys"/>: "{classKey}::{methodKey}" for methods and the class key for
     /// attributes. Without a semantic model the class key is derived from the syntax alone.
     /// </summary>
     /// <param name="additiveMc">Use the additive MC of v1 instead of the composition rule (--mc-additive).</param>
-    public MisraSyntaxVisitor(SemanticModel? semanticModel = null, bool additiveMc = false) : base(SyntaxWalkerDepth.Node)
+    /// <param name="acTypeWeights">Collect the attributes as v1 did, every field and property including
+    /// static and const ones (--ac-type-weights), instead of the instance attributes.</param>
+    public MisraSyntaxVisitor(SemanticModel? semanticModel = null, bool additiveMc = false, bool acTypeWeights = false)
+        : base(SyntaxWalkerDepth.Node)
     {
         _semanticModel = semanticModel;
         _additiveMc = additiveMc;
+        _acTypeWeights = acTypeWeights;
     }
 
     public IReadOnlyDictionary<string, BcsInfo> GetMethodBcsInfo() => _methodBcsInfo;
@@ -82,22 +87,11 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
         var attributes = new List<string>();
         var attributeTypes = new List<string>();
 
-        // Collect fields
-        foreach (var field in node.Members.OfType<FieldDeclarationSyntax>())
+        var collected = _acTypeWeights ? AllFieldsAndProperties(node) : InstanceAttributes.Of(node, _semanticModel);
+        foreach (var (name, type) in collected)
         {
-            var fieldType = field.Declaration.Type.ToString();
-            foreach (var variable in field.Declaration.Variables)
-            {
-                attributes.Add(variable.Identifier.Text);
-                attributeTypes.Add(fieldType);
-            }
-        }
-
-        // Collect properties
-        foreach (var property in node.Members.OfType<PropertyDeclarationSyntax>())
-        {
-            attributes.Add(property.Identifier.Text);
-            attributeTypes.Add(property.Type.ToString());
+            attributes.Add(name);
+            attributeTypes.Add(type);
         }
 
         if (attributes.Count > 0)
@@ -114,6 +108,25 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
         }
 
         base.VisitClassDeclaration(node);
+    }
+
+    /// <summary>
+    /// The attributes of v1: every field and property, static and const ones included.
+    /// </summary>
+    private static IEnumerable<(string Name, string Type)> AllFieldsAndProperties(ClassDeclarationSyntax node)
+    {
+        foreach (var field in node.Members.OfType<FieldDeclarationSyntax>())
+        {
+            foreach (var variable in field.Declaration.Variables)
+            {
+                yield return (variable.Identifier.Text, field.Declaration.Type.ToString());
+            }
+        }
+
+        foreach (var property in node.Members.OfType<PropertyDeclarationSyntax>())
+        {
+            yield return (property.Identifier.Text, property.Type.ToString());
+        }
     }
 
     public override void VisitMethodDeclaration(MethodDeclarationSyntax node)

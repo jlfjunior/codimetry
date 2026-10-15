@@ -28,7 +28,7 @@ This produces `metrics_misra.csv`, which has rows at three levels:
 FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
 src/Order.cs,Order,CalculateDiscount,3,0,0,0,0   <- method row: only MC is filled
 src/Order.cs,Order,,0,3,6,0,0                    <- class row: AC, CLC and CWC
-,,,0,0,0,0,43                                    <- one codebase row: CC (= CoC)
+,,,0,0,0,0,40                                    <- one codebase row: CC (= CoC)
 ```
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options (solutions, projects, output directory).
@@ -170,12 +170,24 @@ public class Customer
 
 ### How this tool computes it
 
-The tool counts the **fields and properties** declared in the class, static ones included. It weights each attribute by its type:
+The tool counts the **instance attributes** the class declares, **1 each**, whatever their type:
 
-- **1** for simple types: the numeric primitives, `bool`, `char`, `string`, `object`, `DateTime`, `TimeSpan`, and `Guid`, nullable or not;
-- **2** for any other type: custom classes, collections, generics, and so on.
+- instance fields, one per variable (`int a, b;` is 2);
+- field-like events (`public event EventHandler Changed;`);
+- instance properties with their own storage: auto-properties (`{ get; set; }`, `{ get; init; }`);
+- primary constructor parameters that a member uses, so the object keeps them as state.
 
-For `Customer`, that is four simple attributes plus `Address`, a custom type, so the tool reports **AC = 1 + 1 + 1 + 1 + 2 = 6**.
+These do **not** count:
+
+- `static` and `const` members, which are not instance state;
+- computed properties (`int Total => a + b;`) and properties that read or write a field of the class: the field is the attribute, so it is counted once;
+- events with `add`/`remove` accessors, indexers, and abstract properties;
+- primary constructor parameters used only to initialize a field or property (the field counts);
+- inherited attributes, which belong to the base class.
+
+For `Customer`, that is five auto-properties, so the tool reports **AC = 5**.
+
+Records and structs are not measured yet. `--ac-type-weights` restores the rule of v1: every field and property, `static` and `const` included, weighted 1 for simple types (numeric primitives, `bool`, `char`, `string`, `object`, `DateTime`, `TimeSpan`, `Guid`) and 2 for any other type. With it, `Customer` is 1 + 1 + 1 + 1 + 2 = 6.
 
 ---
 
@@ -218,7 +230,7 @@ public class Order
 
 The formula is the same, $CLC = AC + \sum MC$, but it uses the tool's AC and MC:
 
-- AC = 3, since `int`, `decimal`, and `DateTime` are all simple types;
+- AC = 3, one per auto-property;
 - MC(`CalculateDiscount`) = 3: the expression body counts as one sequence (1) and the ternary as one branch over two simple expressions (2 × 1);
 - **CLC = 3 + 3 = 6**, which is what the tool reports.
 
@@ -339,7 +351,7 @@ $$
 CC_{tool} = \sum_{k} CLC_k + \left\lfloor \frac{\sum_{k} CWC_k}{2} \right\rfloor
 $$
 
-summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 34$ and $\sum CWC = 18$, so **CC = 34 + 9 = 43**.
+summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 31$ and $\sum CWC = 18$, so **CC = 31 + 9 = 40**.
 
 ---
 
