@@ -90,6 +90,11 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "Cyclomatic: operator rule of v1 (?? and goto count; ??=, ?. and the pattern combinators or/and do not)");
 
+        var classesOnlyOption = new Option<bool>(
+            aliases: new[] { "--classes-only" },
+            getDefaultValue: () => false,
+            description: "Measure only classes, as v1 did; by default records, structs and record structs are measured too");
+
         var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC, CK, MISRA, and Cyclomatic Complexity metrics from .NET codebases")
         {
             pathOption,
@@ -107,7 +112,8 @@ public class RootCommandHandler
             wmcWeightOption,
             wmcExcludeStaticOption,
             ccNullOperatorsOption,
-            ccLegacyOperatorsOption
+            ccLegacyOperatorsOption,
+            classesOnlyOption
         };
 
         rootCommand.AddValidator(result =>
@@ -151,14 +157,15 @@ public class RootCommandHandler
             var cyclomaticOptions = new Parsers.CyclomaticOptions(
                 NullOperators: context.ParseResult.GetValueForOption(ccNullOperatorsOption),
                 LegacyOperators: context.ParseResult.GetValueForOption(ccLegacyOperatorsOption));
+            var typeScope = new Parsers.TypeScope(ClassesOnly: context.ParseResult.GetValueForOption(classesOnlyOption));
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -210,6 +217,9 @@ public class RootCommandHandler
                 cyclomaticOptions.LegacyOperators ? "legacy (v1: ?? and goto count)"
                 : cyclomaticOptions.NullOperators ? "null operators (??, ??= and ?. count)"
                 : "default (??, ??=, ?. and goto do not count)");
+            logger.LogInformation("Measured types: {Scope}", typeScope.ClassesOnly
+                ? "classes only, v1 (--classes-only)"
+                : "classes, records, structs and record structs");
 
             // Determine which metrics to calculate
             // If no metric flags are specified, calculate all (default behavior)
@@ -238,7 +248,8 @@ public class RootCommandHandler
                     locCalculator,
                     new LogicalLocCalculator(),
                     new PhysicalLocCalculator(),
-                    loggerFactory.CreateLogger<MetricsAnalysisService>());
+                    loggerFactory.CreateLogger<MetricsAnalysisService>(),
+                    typeScope);
 
                 var metrics = await analysisService.AnalyzeAsync(inputPath, !noRecursive);
 
@@ -272,7 +283,8 @@ public class RootCommandHandler
                     loggerFactory.CreateLogger<CkMetricsAnalysisService>(),
                     wmcWeight: wmcWeight,
                     wmcExcludeStatic: wmcExcludeStatic,
-                    cyclomaticOptions: cyclomaticOptions);
+                    cyclomaticOptions: cyclomaticOptions,
+                    typeScope: typeScope);
 
                 var ckMetricsResults = await ckAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 
@@ -302,7 +314,8 @@ public class RootCommandHandler
                     relationshipBuilder,
                     loggerFactory.CreateLogger<MisraMetricsAnalysisService>(),
                     additiveMc: mcAdditive,
-                    acTypeWeights: acTypeWeights);
+                    acTypeWeights: acTypeWeights,
+                    typeScope: typeScope);
 
                 var misraMetricsResults = await misraAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 
@@ -329,7 +342,8 @@ public class RootCommandHandler
                     fileDiscovery,
                     roslynParser,
                     loggerFactory.CreateLogger<CyclomaticComplexityAnalysisService>(),
-                    cyclomaticOptions);
+                    cyclomaticOptions,
+                    typeScope);
 
                 var ccMetricsResults = await ccAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 

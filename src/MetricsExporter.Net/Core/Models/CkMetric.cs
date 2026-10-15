@@ -55,5 +55,10 @@ public class CkMetric
     /// maximum n(n−1)/2 can be checked without assuming it equals WMC.
     /// </summary>
     public int LcomMethods { get; set; }
+
+    /// <summary>
+    /// Kind of type: class, record, struct or record struct.
+    /// </summary>
+    public string Kind { get; set; } = "class";
 }
 

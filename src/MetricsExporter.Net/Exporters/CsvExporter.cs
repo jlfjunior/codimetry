@@ -48,7 +48,7 @@ public class CsvExporter
         var csv = new StringBuilder();
         
         // Write header
-        csv.AppendLine("FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods");
+        csv.AppendLine("FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind");
 
         // Write data rows
         foreach (var metric in metrics)
@@ -56,7 +56,7 @@ public class CsvExporter
             var filePath = EscapeCsvField(metric.FilePath);
             var className = EscapeCsvField(metric.ClassName);
             
-            csv.AppendLine($"{filePath},{className},{metric.WMC},{metric.DIT},{metric.NOC},{metric.CBO},{metric.RFC},{metric.LCOM},{metric.LcomMethods}");
+            csv.AppendLine($"{filePath},{className},{metric.WMC},{metric.DIT},{metric.NOC},{metric.CBO},{metric.RFC},{metric.LCOM},{metric.LcomMethods},{EscapeCsvField(metric.Kind)}");
         }
 
         await File.WriteAllTextAsync(outputPath, csv.ToString());
@@ -76,7 +76,7 @@ public class CsvExporter
         var csv = new StringBuilder();
         
         // Write header
-        csv.AppendLine("FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC");
+        csv.AppendLine("FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind");
 
         // Write data rows
         foreach (var metric in metrics)
@@ -85,7 +85,7 @@ public class CsvExporter
             var className = EscapeCsvField(metric.ClassName);
             var methodName = EscapeCsvField(metric.MethodName);
             
-            csv.AppendLine($"{filePath},{className},{methodName},{metric.MC},{metric.AC},{metric.CLC},{metric.CWC},{metric.CC}");
+            csv.AppendLine($"{filePath},{className},{methodName},{metric.MC},{metric.AC},{metric.CLC},{metric.CWC},{metric.CC},{EscapeCsvField(metric.Kind)}");
         }
 
         await File.WriteAllTextAsync(outputPath, csv.ToString());

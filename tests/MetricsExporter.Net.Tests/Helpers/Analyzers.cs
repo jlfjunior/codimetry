@@ -9,23 +9,25 @@ namespace MetricsExporter.Net.Tests.Helpers;
 /// </summary>
 public static class Analyzers
 {
-    public static Task<List<LocMetric>> Loc(string path, bool recursive = true) =>
+    public static Task<List<LocMetric>> Loc(string path, bool recursive = true, TypeScope? typeScope = null) =>
         new MetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new LocCalculator(),
-                new LogicalLocCalculator(), new PhysicalLocCalculator())
+                new LogicalLocCalculator(), new PhysicalLocCalculator(), typeScope: typeScope)
             .AnalyzeAsync(path, recursive);
 
-    public static Task<List<CyclomaticComplexityMetric>> Cyclomatic(string path, CyclomaticOptions? options = null) =>
-        new CyclomaticComplexityAnalysisService(new FileDiscoveryService(), new RoslynParser(), options: options)
+    public static Task<List<CyclomaticComplexityMetric>> Cyclomatic(string path, CyclomaticOptions? options = null,
+        TypeScope? typeScope = null) =>
+        new CyclomaticComplexityAnalysisService(new FileDiscoveryService(), new RoslynParser(), options: options, scope: typeScope)
             .AnalyzeAsync(path);
 
     public static Task<List<CkMetric>> Ck(string path, WmcWeight wmcWeight = WmcWeight.Unit, bool wmcExcludeStatic = false,
-        CyclomaticOptions? cyclomaticOptions = null) =>
+        CyclomaticOptions? cyclomaticOptions = null, TypeScope? typeScope = null) =>
         new CkMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder(),
-                wmcWeight: wmcWeight, wmcExcludeStatic: wmcExcludeStatic, cyclomaticOptions: cyclomaticOptions)
+                wmcWeight: wmcWeight, wmcExcludeStatic: wmcExcludeStatic, cyclomaticOptions: cyclomaticOptions, typeScope: typeScope)
             .AnalyzeAsync(path);
 
-    public static Task<List<MisraMetric>> Misra(string path, bool additiveMc = false, bool acTypeWeights = false) =>
+    public static Task<List<MisraMetric>> Misra(string path, bool additiveMc = false, bool acTypeWeights = false,
+        TypeScope? typeScope = null) =>
         new MisraMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder(),
-                additiveMc: additiveMc, acTypeWeights: acTypeWeights)
+                additiveMc: additiveMc, acTypeWeights: acTypeWeights, typeScope: typeScope)
             .AnalyzeAsync(path);
 }

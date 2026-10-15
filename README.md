@@ -96,6 +96,7 @@ You can analyze code using one of three input options:
 | `--wmc-exclude-static` | | CK: leave static methods and constructors out of WMC, as v1 did | `false` |
 | `--cc-null-operators` | | Cyclomatic: count `??`, `??=` and `?.` as decision points, also in WMC with `--wmc-weight cyclomatic` (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
 | `--cc-legacy-operators` | | Cyclomatic: operator rule of v1 (`??` and `goto` count; `??=`, `?.`, `or`/`and` do not) | `false` |
+| `--classes-only` | | Measure only classes, as v1 did; by default records, structs and record structs are measured too (see [docs/README.md](docs/README.md#which-types-are-measured)) | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
@@ -228,7 +229,7 @@ src/Example.cs,,,12
 #### CSV Format
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind
 ```
 
 #### Columns
@@ -242,23 +243,24 @@ FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods
 - **RFC**: Response For a Class (methods in class + methods called)
 - **LCOM**: Lack of Cohesion of Methods (cohesion measure, lower is better)
 - **LcomMethods**: Number of methods LCOM is computed over (instance methods, constructors excluded)
+- **Kind**: `class`, `record`, `struct` or `record struct`
 
 #### Example Output
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods
-src/Example.cs,ExampleClass,5,1,2,3,15,8,5
-src/Service.cs,UserService,8,0,0,5,25,12,7
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind
+src/Example.cs,ExampleClass,5,1,2,3,15,8,5,class
+src/Service.cs,UserService,8,0,0,5,25,12,7,class
 ```
 
-**Note:** CK metrics are calculated at the class level only (one row per class).
+**Note:** CK metrics are calculated at the class level only (one row per class, record or struct).
 
 ### MISRA Metrics Output (`metrics_misra.csv`)
 
 #### CSV Format
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
 ```
 
 #### Columns
@@ -271,6 +273,7 @@ FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
 - **CLC**: Class Complexity - Overall complexity of the class (class-level only)
 - **CWC**: Coupling Weight for a Class - Complexity from inter-class interactions (class-level only)
 - **CC**: Code Complexity - Overall complexity of the codebase (codebase-level only)
+- **Kind**: Kind of the type of the row: `class`, `record`, `struct` or `record struct` (empty for the codebase row)
 
 #### Output Levels
 
@@ -283,11 +286,11 @@ The CSV includes metrics at three levels:
 #### Example Output
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
-src/Example.cs,ExampleClass,SimpleMethod,3,0,0,0,0
-src/Example.cs,ExampleClass,ComplexMethod,8,0,0,0,0
-src/Example.cs,ExampleClass,,0,6,25,15,0
-,,,0,0,0,0,45
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
+src/Example.cs,ExampleClass,SimpleMethod,3,0,0,0,0,class
+src/Example.cs,ExampleClass,ComplexMethod,8,0,0,0,0,class
+src/Example.cs,ExampleClass,,0,6,25,15,0,class
+,,,0,0,0,0,45,
 ```
 
 **Note:** 

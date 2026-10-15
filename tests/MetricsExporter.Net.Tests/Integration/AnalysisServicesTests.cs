@@ -83,7 +83,7 @@ public class AnalysisServicesTests : IDisposable
         _dir.WriteFile("Comments.cs", "// one\n// two\n// three\n");
 
         var metrics = await Analyzers.Loc(_dir.Path);
-        var dto = metrics.Single(m => m.FilePath.EndsWith("Dto.cs"));
+        var dto = metrics.Single(m => m.FilePath.EndsWith("Dto.cs") && m.ClassName == "");
         var comments = metrics.Single(m => m.FilePath.EndsWith("Comments.cs"));
 
         Assert.Equal((0, 1 + 1 + 1, 2), (dto.Loc, dto.Lloc, dto.PhysicalLoc));

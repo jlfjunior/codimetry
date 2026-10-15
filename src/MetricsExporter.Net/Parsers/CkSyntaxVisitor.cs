@@ -27,6 +27,10 @@ public class CkCodeElement
     public bool IsSealed { get; set; }
     public string? Namespace { get; set; }
     public string? FullyQualifiedName { get; set; }
+    /// <summary>
+    /// class, record, struct or record struct (see <see cref="TypeScope.KindOf"/>).
+    /// </summary>
+    public string Kind { get; set; } = "class";
 }
 
 /// <summary>
@@ -60,7 +64,7 @@ public class CkMethodInfo
     public string Key { get; set; } = string.Empty;
     public string? ContainingClass { get; set; }
     /// <summary>
-    /// Key of the class that declares the method; null for members of interfaces, structs and records.
+    /// Key of the type that declares the method; null for members of types outside the <see cref="TypeScope"/>.
     /// </summary>
     public string? ContainingClassKey { get; set; }
     public int StartLine { get; set; }
@@ -134,12 +138,16 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     private readonly List<CkCodeElement> _classes = new();
     private readonly List<CkMethodInfo> _methods = new();
     private readonly CyclomaticOptions _cyclomaticOptions;
+    private readonly TypeScope _scope;
     private readonly List<ClassDependency> _dependencies = new();
     private readonly SemanticModel? _semanticModel;
 
     /// <param name="cyclomaticOptions">Operator rule for the V(G) of each method (WMC with c_i = V(G)).</param>
-    public CkSyntaxVisitor(SemanticModel? semanticModel = null, CyclomaticOptions? cyclomaticOptions = null) : base(SyntaxWalkerDepth.Node)
+    /// <param name="scope">Which types are measured (--classes-only).</param>
+    public CkSyntaxVisitor(SemanticModel? semanticModel = null, CyclomaticOptions? cyclomaticOptions = null, TypeScope? scope = null)
+        : base(SyntaxWalkerDepth.Node)
     {
+        _scope = scope ?? TypeScope.Default;
         _cyclomaticOptions = cyclomaticOptions ?? CyclomaticOptions.Default;
         _semanticModel = semanticModel;
     }
@@ -161,14 +169,38 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
 
     public override void VisitClassDeclaration(ClassDeclarationSyntax node)
     {
+        CollectType(node);
+        base.VisitClassDeclaration(node);
+    }
+
+    public override void VisitRecordDeclaration(RecordDeclarationSyntax node)
+    {
+        CollectType(node);
+        base.VisitRecordDeclaration(node);
+    }
+
+    public override void VisitStructDeclaration(StructDeclarationSyntax node)
+    {
+        CollectType(node);
+        base.VisitStructDeclaration(node);
+    }
+
+    private void CollectType(TypeDeclarationSyntax node)
+    {
+        if (!_scope.IsMeasured(node))
+        {
+            return;
+        }
+
+        var isValueType = TypeScope.IsValueType(node);
         var className = node.Identifier.Text;
         var classKey = TypeKeys.Of(node, _semanticModel);
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
 
-        // Get base class
+        // Get base class (a struct has none: its base list holds only interfaces)
         string? baseClass = null;
-        if (node.BaseList != null)
+        if (node.BaseList != null && !isValueType)
         {
             var baseType = node.BaseList.Types
                 .FirstOrDefault(t => t.Type is IdentifierNameSyntax || t.Type is QualifiedNameSyntax);
@@ -182,7 +214,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var interfaces = new List<string>();
         if (node.BaseList != null)
         {
-            foreach (var baseType in node.BaseList.Types.Skip(1)) // Skip first (base class)
+            foreach (var baseType in node.BaseList.Types.Skip(isValueType ? 0 : 1)) // Skip first (base class)
             {
                 interfaces.Add(baseType.Type.ToString());
             }
@@ -202,7 +234,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             if (symbol != null)
             {
                 fullyQualifiedName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                baseClass = symbol.BaseType != null ? TypeKeys.Of(symbol.BaseType) : null;
+                baseClass = symbol.BaseType != null && !isValueType ? TypeKeys.Of(symbol.BaseType) : null;
             }
         }
 
@@ -218,7 +250,8 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             IsAbstract = node.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)),
             IsSealed = node.Modifiers.Any(m => m.IsKind(SyntaxKind.SealedKeyword)),
             Namespace = namespaceName,
-            FullyQualifiedName = fullyQualifiedName
+            FullyQualifiedName = fullyQualifiedName,
+            Kind = TypeScope.KindOf(node)
         });
 
         // Collect dependencies for this class
@@ -268,7 +301,22 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
 
         foreach (var parameter in node.ParameterList?.Parameters ?? default)
         {
-            dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.PrimaryConstructorParameter, parameter.Identifier.Text));
+            var name = parameter.Identifier.Text;
+            if (node is RecordDeclarationSyntax)
+            {
+                // A positional parameter of a record is a public property, unless a member with its name is declared
+                if (!TypeScope.DeclaresMember(node, name, _semanticModel))
+                {
+                    var parameterType = parameter.Type?.ToString() ?? string.Empty;
+                    dependency.PropertyTypes.Add(parameterType);
+                    dependency.DependentTypes.Add(parameterType);
+                    dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Property, name));
+                }
+            }
+            else
+            {
+                dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.PrimaryConstructorParameter, name));
+            }
         }
 
         // Collect method parameter and return types
@@ -282,8 +330,6 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         }
 
         _dependencies.Add(dependency);
-
-        base.VisitClassDeclaration(node);
     }
 
     public override void VisitMethodDeclaration(MethodDeclarationSyntax node)
@@ -292,7 +338,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
 
-        var containingClass = TypeKeys.ContainingClass(node);
+        var containingClass = _scope.ContainingType(node);
         var className = containingClass?.Identifier.Text;
 
         var methodInfo = new CkMethodInfo
@@ -332,7 +378,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
 
-        var containingClass = TypeKeys.ContainingClass(node);
+        var containingClass = _scope.ContainingType(node);
         var className = containingClass?.Identifier.Text;
 
         var methodInfo = new CkMethodInfo

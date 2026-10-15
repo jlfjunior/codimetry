@@ -31,20 +31,20 @@ public class CsvExporterTests : IDisposable
     public async Task Ck_WritesHeaderAndRows()
     {
         await _exporter.ExportCkMetricsAsync(
-            [new CkMetric { FilePath = "a.cs", ClassName = "A", WMC = 1, DIT = 2, NOC = 3, CBO = 4, RFC = 5, LCOM = 6, LcomMethods = 4 }],
+            [new CkMetric { FilePath = "a.cs", ClassName = "A", WMC = 1, DIT = 2, NOC = 3, CBO = 4, RFC = 5, LCOM = 6, LcomMethods = 4, Kind = "record struct" }],
             _dir.Combine("metrics_ck.csv"));
 
-        Assert.Equal(["FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods", "a.cs,A,1,2,3,4,5,6,4"], Lines("metrics_ck.csv"));
+        Assert.Equal(["FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind", "a.cs,A,1,2,3,4,5,6,4,record struct"], Lines("metrics_ck.csv"));
     }
 
     [Fact]
     public async Task Misra_WritesHeaderAndRows()
     {
         await _exporter.ExportMisraMetricsAsync(
-            [new MisraMetric { FilePath = "a.cs", ClassName = "A", MethodName = "M", MC = 1, AC = 2, CLC = 3, CWC = 4, CC = 5 }],
+            [new MisraMetric { FilePath = "a.cs", ClassName = "A", MethodName = "M", MC = 1, AC = 2, CLC = 3, CWC = 4, CC = 5, Kind = "record" }],
             _dir.Combine("metrics_misra.csv"));
 
-        Assert.Equal(["FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC", "a.cs,A,M,1,2,3,4,5"], Lines("metrics_misra.csv"));
+        Assert.Equal(["FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind", "a.cs,A,M,1,2,3,4,5,record"], Lines("metrics_misra.csv"));
     }
 
     [Fact]

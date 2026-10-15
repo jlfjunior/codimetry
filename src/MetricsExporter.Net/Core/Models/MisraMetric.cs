@@ -52,5 +52,9 @@ public class MisraMetric
     /// from all classes and their interactions. Only populated for codebase-level entries.
     /// </summary>
     public int CC { get; set; }
-}
 
+    /// <summary>
+    /// Kind of the type of the row (class, record, struct or record struct). Empty for the codebase row.
+    /// </summary>
+    public string Kind { get; set; } = string.Empty;
+}

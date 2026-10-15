@@ -149,7 +149,7 @@ What gets measured:
 - **Methods, constructors, and property accessors** each get a row. Accessors appear as `Name.get` and `Name.set`.
 - Expression-bodied properties (`=> ...`), `init` accessors, and abstract methods are not measured.
 - Lambdas and local functions declared inside a method are added to that method's complexity.
-- **Class rows** sum all the measured members of the class. **File rows** sum all the classes in the file.
+- **Class rows** sum all the measured members of the class. Records and structs get class rows too, and a method belongs to the nearest enclosing type, so the methods of a nested record are not added to the enclosing class (see [which types are measured](README.md#which-types-are-measured)). **File rows** sum all the classes in the file.
 
 The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods-per-class). It differs from the `WMC` column of `metrics_ck.csv`, which by default counts methods ($c_i = 1$) and, even with `--wmc-weight cyclomatic`, does not include property accessors.
 

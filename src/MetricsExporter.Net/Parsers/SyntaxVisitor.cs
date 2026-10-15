@@ -23,15 +23,41 @@ public class CodeElement
 public class SyntaxVisitor : CSharpSyntaxWalker
 {
     private readonly List<CodeElement> _elements = new();
+    private readonly TypeScope _scope;
 
-    public SyntaxVisitor() : base(SyntaxWalkerDepth.Node)
+    /// <param name="scope">Which types get a class row (--classes-only).</param>
+    public SyntaxVisitor(TypeScope? scope = null) : base(SyntaxWalkerDepth.Node)
     {
+        _scope = scope ?? TypeScope.Default;
     }
 
     public IReadOnlyList<CodeElement> GetElements() => _elements;
 
     public override void VisitClassDeclaration(ClassDeclarationSyntax node)
     {
+        AddType(node);
+        base.VisitClassDeclaration(node);
+    }
+
+    public override void VisitRecordDeclaration(RecordDeclarationSyntax node)
+    {
+        AddType(node);
+        base.VisitRecordDeclaration(node);
+    }
+
+    public override void VisitStructDeclaration(StructDeclarationSyntax node)
+    {
+        AddType(node);
+        base.VisitStructDeclaration(node);
+    }
+
+    private void AddType(TypeDeclarationSyntax node)
+    {
+        if (!_scope.IsMeasured(node))
+        {
+            return;
+        }
+
         var className = node.Identifier.Text;
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
@@ -44,9 +70,6 @@ public class SyntaxVisitor : CSharpSyntaxWalker
             IsClass = true,
             Node = node
         });
-
-        // Visit methods in this class
-        base.VisitClassDeclaration(node);
     }
 
     public override void VisitMethodDeclaration(MethodDeclarationSyntax node)
@@ -55,8 +78,8 @@ public class SyntaxVisitor : CSharpSyntaxWalker
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
 
-        // Find the containing class
-        var containingClass = node.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+        // Find the containing type
+        var containingClass = _scope.ContainingType(node);
         var className = containingClass?.Identifier.Text;
 
         _elements.Add(new CodeElement
@@ -78,8 +101,8 @@ public class SyntaxVisitor : CSharpSyntaxWalker
         var startLine = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         var endLine = node.GetLocation().GetLineSpan().EndLinePosition.Line + 1;
 
-        // Find the containing class
-        var containingClass = node.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+        // Find the containing type
+        var containingClass = _scope.ContainingType(node);
         var className = containingClass?.Identifier.Text;
 
         _elements.Add(new CodeElement

@@ -299,6 +299,9 @@ def analyse(participants):
             "classes_raw": sum(len(p["classes_raw"]) for p in participants),
             "classes": len(all_classes),
             "methods": sum(len(p["methods"]) for p in participants),
+            # Records and structs are measured since INC-13; v1 results have no Kind column (only classes)
+            "by_kind": {k: sum(1 for r in all_classes if r.get("Kind", "class") == k)
+                        for k in sorted({r.get("Kind", "class") for r in all_classes})},
         },
         "dit_noc_class_level": dit_noc_class_level,
         "lcom_equals_max_pairs_pct": 100 * lcom_equals_max_pairs / len(all_classes),
@@ -426,6 +429,7 @@ def render_report(r, label):
           "Limiares absolutos (% Normal sobre todas as classes): " +
           ", ".join(f"{m} {fmt(v, 1)}%" for m, v in r["absolute_normal_pct"].items()), "",
           f"LCOM = n(n−1)/2 (n = métodos da LCOM; WMC na v1) em {fmt(r['lcom_equals_max_pairs_pct'])}% das classes.", "",
+          "Tipos medidos por Kind: " + ", ".join(f"{k} {n}" for k, n in r["counts"]["by_kind"].items()) + ".", "",
           "Limiares relativos (amostra combinada):", "", "| Métrica | População | P50 | P90 |", "|---|---:|---:|---:|"]
     for m, th in r["thresholds"].items():
         L.append(f"| {m} | {th['n']} | {fmt(th['p50'])} | {fmt(th['p90'])} |")

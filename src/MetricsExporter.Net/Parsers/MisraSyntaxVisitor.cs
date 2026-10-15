@@ -61,6 +61,7 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     private readonly SemanticModel? _semanticModel;
     private readonly bool _additiveMc;
     private readonly bool _acTypeWeights;
+    private readonly TypeScope _scope;
 
     /// <summary>
     /// Keys follow <see cref="TypeKeys"/>: "{classKey}::{methodKey}" for methods and the class key for
@@ -69,9 +70,12 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     /// <param name="additiveMc">Use the additive MC of v1 instead of the composition rule (--mc-additive).</param>
     /// <param name="acTypeWeights">Collect the attributes as v1 did, every field and property including
     /// static and const ones (--ac-type-weights), instead of the instance attributes.</param>
-    public MisraSyntaxVisitor(SemanticModel? semanticModel = null, bool additiveMc = false, bool acTypeWeights = false)
+    /// <param name="scope">Which types are measured (--classes-only).</param>
+    public MisraSyntaxVisitor(SemanticModel? semanticModel = null, bool additiveMc = false, bool acTypeWeights = false,
+        TypeScope? scope = null)
         : base(SyntaxWalkerDepth.Node)
     {
+        _scope = scope ?? TypeScope.Default;
         _semanticModel = semanticModel;
         _additiveMc = additiveMc;
         _acTypeWeights = acTypeWeights;
@@ -83,6 +87,29 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
 
     public override void VisitClassDeclaration(ClassDeclarationSyntax node)
     {
+        CollectAttributes(node);
+        base.VisitClassDeclaration(node);
+    }
+
+    public override void VisitRecordDeclaration(RecordDeclarationSyntax node)
+    {
+        CollectAttributes(node);
+        base.VisitRecordDeclaration(node);
+    }
+
+    public override void VisitStructDeclaration(StructDeclarationSyntax node)
+    {
+        CollectAttributes(node);
+        base.VisitStructDeclaration(node);
+    }
+
+    private void CollectAttributes(TypeDeclarationSyntax node)
+    {
+        if (!_scope.IsMeasured(node))
+        {
+            return;
+        }
+
         var classKey = TypeKeys.Of(node, _semanticModel);
         var attributes = new List<string>();
         var attributeTypes = new List<string>();
@@ -106,14 +133,13 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
             existing.AddRange(attributes);
             _classAttributeTypes[classKey].AddRange(attributeTypes);
         }
-
-        base.VisitClassDeclaration(node);
     }
 
     /// <summary>
-    /// The attributes of v1: every field and property, static and const ones included.
+    /// The attributes of v1: every field and property, static and const ones included (and the positional
+    /// properties of a record, which v1 did not measure).
     /// </summary>
-    private static IEnumerable<(string Name, string Type)> AllFieldsAndProperties(ClassDeclarationSyntax node)
+    private IEnumerable<(string Name, string Type)> AllFieldsAndProperties(TypeDeclarationSyntax node)
     {
         foreach (var field in node.Members.OfType<FieldDeclarationSyntax>())
         {
@@ -126,6 +152,14 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
         foreach (var property in node.Members.OfType<PropertyDeclarationSyntax>())
         {
             yield return (property.Identifier.Text, property.Type.ToString());
+        }
+
+        if (node is RecordDeclarationSyntax { ParameterList: { } parameters })
+        {
+            foreach (var parameter in parameters.Parameters.Where(p => !TypeScope.DeclaresMember(node, p.Identifier.Text, _semanticModel)))
+            {
+                yield return (parameter.Identifier.Text, parameter.Type?.ToString() ?? string.Empty);
+            }
         }
     }
 
@@ -193,11 +227,11 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     }
 
     /// <summary>
-    /// Key of a method in <see cref="GetMethodBcsInfo"/>, or null when it does not belong to a class.
+    /// Key of a method in <see cref="GetMethodBcsInfo"/>, or null when it does not belong to a measured type.
     /// </summary>
     private string? MethodBcsKey(BaseMethodDeclarationSyntax method)
     {
-        var containingClass = TypeKeys.ContainingClass(method);
+        var containingClass = _scope.ContainingType(method);
         return containingClass == null
             ? null
             : $"{TypeKeys.Of(containingClass, _semanticModel)}::{TypeKeys.MethodKey(method)}";

@@ -20,6 +20,20 @@ Each page explains what the metric measures, gives its formal definition, works 
 | [ck.md](ck.md) | WMC, RFC, LCOM, CBO, DIT, NOC | `--ck` | `metrics_ck.csv` | class |
 | [misra.md](misra.md) | MC, AC, CLC, CWC, CoC | `--misra` | `metrics_misra.csv` | method, class, codebase |
 
+## Which types are measured
+
+Every metric that works per class measures **classes, records (`record`, `record class`), structs and record structs**, and all four CSV files agree on that scope:
+
+- a `record` is a class: it has a base class, so it enters DIT, NOC and CoC like any class;
+- a `struct` or `record struct` is a value type with no base class: DIT = NOC = 0, and it enters every other metric;
+- the positional parameters of a record (`record Person(string Name)`) are public properties, so they count as attributes for AC and as instance variables for LCOM;
+- interfaces and enums are not measured; default interface members are left out too;
+- members synthesized by the compiler (`Equals`, `ToString`, `Deconstruct`...) are not counted, since nobody wrote them.
+
+A method belongs to the **nearest** enclosing type: the methods of a record nested in a class are measured for the record, never for the class. `metrics_ck.csv` and `metrics_misra.csv` have a `Kind` column (`class`, `record`, `struct`, `record struct`) to filter by type.
+
+`--classes-only` restores the scope of v1: only classes get rows. Methods of records and structs then still get rows in `metrics_cyclomatic.csv` and `metrics_loc.csv`, with an empty `ClassName`.
+
 **Which metric for which question?**
 
 - *How big is it?* → [LOC](loc.md)

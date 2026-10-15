@@ -39,7 +39,7 @@ public sealed class Codebase
 
         foreach (var document in Documents)
         {
-            foreach (var declaration in document.Tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())
+            foreach (var declaration in document.Tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>().Where(TypeScope.Default.IsMeasured))
             {
                 if (document.SemanticModel.GetDeclaredSymbol(declaration) is not INamedTypeSymbol type)
                 {
@@ -72,7 +72,7 @@ public sealed class Codebase
     }
 
     /// <summary>
-    /// How many method invocations inside classes the semantic model binds to a method symbol.
+    /// How many method invocations inside measured types the semantic model binds to a method symbol.
     /// A low rate means missing references, and then calls cannot be told apart by their target.
     /// </summary>
     public (int Resolved, int Total) InvocationResolution()
@@ -82,7 +82,7 @@ public sealed class Codebase
         {
             foreach (var invocation in document.Tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                if (TypeKeys.ContainingClass(invocation) == null)
+                if (TypeScope.Default.ContainingType(invocation) == null)
                 {
                     continue;
                 }

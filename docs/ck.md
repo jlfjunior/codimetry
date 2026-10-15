@@ -22,8 +22,10 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --pat
 This produces `metrics_ck.csv` with **one row per class**:
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind
 ```
+
+Records, structs and record structs get rows too; `Kind` tells them apart (see [which types are measured](README.md#which-types-are-measured)).
 
 `LcomMethods` is the number of methods LCOM is computed over (see [LCOM](#lcom--lack-of-cohesion-of-methods)). It is not a metric: it gives the maximum $n(n-1)/2$ that LCOM can reach, which is no longer derived from WMC now that WMC also counts static methods and constructors.
 
@@ -216,7 +218,8 @@ The instance variables of a class are the ones **declared in it** (in any of its
 
 - non-static fields and properties, including computed properties such as `int Total => a + b`;
 - non-static field-like events (`public event EventHandler Changed;`);
-- the parameters of its primary constructor (`class C(Repo repo)`).
+- the parameters of its primary constructor (`class C(Repo repo)`);
+- the positional parameters of a record (`record Range(int Min, int Max)`), which are public properties.
 
 Inherited members do not count.
 
@@ -323,6 +326,8 @@ The tool counts how many levels there are above the class, following `BaseList` 
 
 A base class from outside the analysed code, such as `ControllerBase` or `DbContext`, counts as one level, but its own ancestors are not resolved. So DIT is a lower bound for classes that extend framework types. Interfaces are not part of the inheritance tree.
 
+A record follows the same rule as a class (`record Student(...) : Person(...)` is one level below `Person`). A struct or record struct has no base class, so its DIT and NOC are 0.
+
 ---
 
 ## NOC — Number of Children
@@ -372,7 +377,7 @@ The tool counts the classes **in the analysed code** whose direct base is the cl
 - **LCOM1 is fragile.** Methods that use no instance state inflate the metric even in cohesive classes.
 - **Inheritance metrics matter less in modern code.** Composition, interfaces, and dependency injection reduce the relevance of DIT and NOC.
 - **Metrics complement each other.** CK metrics capture *structure*. Use them together with cyclomatic complexity (control flow) and the cognitive metrics in [misra.md](misra.md) (understandability), not in isolation.
-- **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Only `class` declarations are measured: `record`, `struct`, and `interface` types do not produce rows.
+- **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Classes, records and structs are measured; interfaces and enums do not produce rows (see [which types are measured](README.md#which-types-are-measured)).
 
 ## References
 

@@ -51,13 +51,6 @@ public static class TypeKeys
     }
 
     /// <summary>
-    /// The class that owns a member: the nearest enclosing type declaration, if it is a class.
-    /// Members of interfaces, structs and records (even when nested in a class) belong to no class.
-    /// </summary>
-    public static ClassDeclarationSyntax? ContainingClass(SyntaxNode member) =>
-        member.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault() as ClassDeclarationSyntax;
-
-    /// <summary>
     /// Key of a method or constructor within its class: name, arity and parameter list as written,
     /// e.g. "Save(ref int,string)", so that overloads do not overwrite each other.
     /// </summary>

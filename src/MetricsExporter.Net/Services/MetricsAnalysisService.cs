@@ -16,6 +16,7 @@ public class MetricsAnalysisService
     private readonly LogicalLocCalculator _logicalLocCalculator;
     private readonly PhysicalLocCalculator _physicalLocCalculator;
     private readonly ILogger<MetricsAnalysisService>? _logger;
+    private readonly TypeScope? _typeScope;
 
     public MetricsAnalysisService(
         FileDiscoveryService fileDiscoveryService,
@@ -23,8 +24,10 @@ public class MetricsAnalysisService
         LocCalculator locCalculator,
         LogicalLocCalculator logicalLocCalculator,
         PhysicalLocCalculator physicalLocCalculator,
-        ILogger<MetricsAnalysisService>? logger = null)
+        ILogger<MetricsAnalysisService>? logger = null,
+        TypeScope? typeScope = null)
     {
+        _typeScope = typeScope;
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
         _locCalculator = locCalculator;
@@ -82,7 +85,7 @@ public class MetricsAnalysisService
             }
 
             var sourceText = File.ReadAllText(filePath);
-            var visitor = new SyntaxVisitor();
+            var visitor = new SyntaxVisitor(_typeScope);
             visitor.Visit(syntaxTree.GetRoot());
 
             var elements = visitor.GetElements();

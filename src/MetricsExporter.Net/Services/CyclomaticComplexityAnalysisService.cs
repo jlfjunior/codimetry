@@ -15,17 +15,20 @@ public class CyclomaticComplexityAnalysisService
     private readonly FileDiscoveryService _fileDiscoveryService;
     private readonly RoslynParser _roslynParser;
     private readonly CyclomaticComplexityCalculator _calculator;
+    private readonly TypeScope _scope;
     private readonly ILogger<CyclomaticComplexityAnalysisService>? _logger;
 
     public CyclomaticComplexityAnalysisService(
         FileDiscoveryService fileDiscoveryService,
         RoslynParser roslynParser,
         ILogger<CyclomaticComplexityAnalysisService>? logger = null,
-        CyclomaticOptions? options = null)
+        CyclomaticOptions? options = null,
+        TypeScope? scope = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
         _calculator = new CyclomaticComplexityCalculator(options);
+        _scope = scope ?? TypeScope.Default;
         _logger = logger;
     }
 
@@ -112,7 +115,7 @@ public class CyclomaticComplexityAnalysisService
             // Process methods
             foreach (var method in methods)
             {
-                var containingClass = method.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+                var containingClass = _scope.ContainingType(method);
                 var className = containingClass?.Identifier.Text ?? string.Empty;
 
                 // Skip abstract methods (they have no body)
@@ -135,7 +138,7 @@ public class CyclomaticComplexityAnalysisService
             // Process constructors
             foreach (var constructor in constructors)
             {
-                var containingClass = constructor.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+                var containingClass = _scope.ContainingType(constructor);
                 var className = containingClass?.Identifier.Text ?? string.Empty;
 
                 var complexity = _calculator.CalculateComplexity(constructor);
@@ -156,7 +159,7 @@ public class CyclomaticComplexityAnalysisService
 
             foreach (var property in properties)
             {
-                var containingClass = property.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+                var containingClass = _scope.ContainingType(property);
                 var className = containingClass?.Identifier.Text ?? string.Empty;
 
                 // Process getter
@@ -193,7 +196,8 @@ public class CyclomaticComplexityAnalysisService
 
             // Add class-level metrics (sum of all methods in class)
             var classes = root.DescendantNodes()
-                .OfType<ClassDeclarationSyntax>()
+                .OfType<TypeDeclarationSyntax>()
+                .Where(_scope.IsMeasured)
                 .ToList();
 
             foreach (var classDecl in classes)

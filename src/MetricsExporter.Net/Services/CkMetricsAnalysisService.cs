@@ -22,6 +22,7 @@ public class CkMetricsAnalysisService
     private readonly LcomCalculator _lcomCalculator;
     private readonly CodebaseLoader _codebaseLoader;
     private readonly CyclomaticOptions? _cyclomaticOptions;
+    private readonly TypeScope? _typeScope;
     private readonly ILogger<CkMetricsAnalysisService>? _logger;
 
     public CkMetricsAnalysisService(
@@ -32,13 +33,15 @@ public class CkMetricsAnalysisService
         CodebaseLoader? codebaseLoader = null,
         WmcWeight wmcWeight = WmcWeight.Unit,
         bool wmcExcludeStatic = false,
-        CyclomaticOptions? cyclomaticOptions = null)
+        CyclomaticOptions? cyclomaticOptions = null,
+        TypeScope? typeScope = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
         _relationshipBuilder = relationshipBuilder;
         _wmcCalculator = new WmcCalculator(wmcWeight, wmcExcludeStatic);
         _cyclomaticOptions = cyclomaticOptions;
+        _typeScope = typeScope;
         _ditCalculator = new DitCalculator(relationshipBuilder);
         _nocCalculator = new NocCalculator(relationshipBuilder);
         _cboCalculator = new CboCalculator();
@@ -91,6 +94,9 @@ public class CkMetricsAnalysisService
         }
 
         _logger?.LogInformation("Built relationship graph with {Count} class declarations", allClasses.Count);
+        _logger?.LogInformation("Measured types by kind: {Kinds}", string.Join(", ",
+            allClasses.GroupBy(c => c.ClassKey).Select(g => g.First().Kind).GroupBy(k => k).OrderBy(g => g.Key)
+                .Select(g => $"{g.Key} {g.Count()}")));
         _logger?.LogInformation("LCOM attribute accesses: {Methods} methods matched by name (no semantic model), {Ambiguous} ambiguous identifiers not counted",
             methodsWithoutModel, ambiguousAccesses);
 
@@ -128,7 +134,8 @@ public class CkMetricsAnalysisService
                     CBO = cbo,
                     RFC = rfc,
                     LCOM = lcom,
-                    LcomMethods = LcomCalculator.Methods(classKey, allMethods).Count()
+                    LcomMethods = LcomCalculator.Methods(classKey, allMethods).Count(),
+                    Kind = classElement.Kind
                 };
 
                 allMetrics.Add(metric);
@@ -148,7 +155,7 @@ public class CkMetricsAnalysisService
     {
         try
         {
-            var visitor = new CkSyntaxVisitor(semanticModel, _cyclomaticOptions);
+            var visitor = new CkSyntaxVisitor(semanticModel, _cyclomaticOptions, _typeScope);
             visitor.Visit(syntaxTree.GetRoot());
 
             return new FileAnalysisData

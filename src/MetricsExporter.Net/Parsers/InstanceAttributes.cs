@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace MetricsExporter.Net.Parsers;
 
 /// <summary>
-/// The attributes (instance variables) a class declaration adds to the state of its objects, for AC.
+/// The attributes (instance variables) a type declaration (class, record or struct) adds to the state of its objects, for AC.
 /// Each one is a unit of state, whatever its type:
 /// <list type="bullet">
 /// <item>instance fields, one per variable (not static, not const);</item>
@@ -14,13 +14,14 @@ namespace MetricsExporter.Net.Parsers;
 /// A property that reads or writes a field of the class is counted by that field, and a computed
 /// property (<c>int Total => a + b</c>) holds no state;</item>
 /// <item>primary constructor parameters captured as state, i.e. used by a member other than a field or
-/// property initializer.</item>
+/// property initializer;</item>
+/// <item>positional parameters of a record, which are public properties.</item>
 /// </list>
 /// Inherited attributes are not declared in the class and do not count.
 /// </summary>
 public static class InstanceAttributes
 {
-    public static IEnumerable<(string Name, string Type)> Of(ClassDeclarationSyntax declaration, SemanticModel? semanticModel)
+    public static IEnumerable<(string Name, string Type)> Of(TypeDeclarationSyntax declaration, SemanticModel? semanticModel)
     {
         foreach (var member in declaration.Members)
         {
@@ -43,7 +44,11 @@ public static class InstanceAttributes
         {
             foreach (var parameter in declaration.ParameterList.Parameters)
             {
-                if (IsCaptured(parameter, declaration, semanticModel))
+                // A positional parameter of a record is a public property with its own storage, unless a
+                // member with its name is declared (then that member is the attribute)
+                if (declaration is RecordDeclarationSyntax
+                        ? !TypeScope.DeclaresMember(declaration, parameter.Identifier.Text, semanticModel)
+                        : IsCaptured(parameter, declaration, semanticModel))
                 {
                     yield return (parameter.Identifier.Text, parameter.Type?.ToString() ?? string.Empty);
                 }
@@ -76,11 +81,11 @@ public static class InstanceAttributes
     /// A primary constructor parameter becomes state when a member other than a field or property
     /// initializer uses it. The members may be in any part of a partial class.
     /// </summary>
-    private static bool IsCaptured(ParameterSyntax parameter, ClassDeclarationSyntax declaration, SemanticModel? semanticModel)
+    private static bool IsCaptured(ParameterSyntax parameter, TypeDeclarationSyntax declaration, SemanticModel? semanticModel)
     {
         var symbol = semanticModel?.GetDeclaredSymbol(parameter);
-        IEnumerable<ClassDeclarationSyntax> parts = symbol?.ContainingSymbol.ContainingType is { } type
-            ? type.DeclaringSyntaxReferences.Select(r => r.GetSyntax()).OfType<ClassDeclarationSyntax>()
+        IEnumerable<TypeDeclarationSyntax> parts = symbol?.ContainingSymbol.ContainingType is { } type
+            ? type.DeclaringSyntaxReferences.Select(r => r.GetSyntax()).OfType<TypeDeclarationSyntax>()
             : [declaration];
 
         foreach (var part in parts)

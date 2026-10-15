@@ -25,11 +25,13 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --pat
 This produces `metrics_misra.csv`, which has rows at three levels:
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
-src/Order.cs,Order,CalculateDiscount,3,0,0,0,0   <- method row: only MC is filled
-src/Order.cs,Order,,0,3,6,0,0                    <- class row: AC, CLC and CWC
-,,,0,0,0,0,40                                    <- one codebase row: CC (= CoC)
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
+src/Order.cs,Order,CalculateDiscount,3,0,0,0,0,class   <- method row: only MC is filled
+src/Order.cs,Order,,0,3,6,0,0,class                    <- class row: AC, CLC and CWC
+,,,0,0,0,0,41,                                         <- one codebase row: CC (= CoC)
 ```
+
+`Kind` is the kind of the type of the row: `class`, `record`, `struct` or `record struct` (see [which types are measured](README.md#which-types-are-measured)).
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options (solutions, projects, output directory).
 
@@ -175,7 +177,8 @@ The tool counts the **instance attributes** the class declares, **1 each**, what
 - instance fields, one per variable (`int a, b;` is 2);
 - field-like events (`public event EventHandler Changed;`);
 - instance properties with their own storage: auto-properties (`{ get; set; }`, `{ get; init; }`);
-- primary constructor parameters that a member uses, so the object keeps them as state.
+- primary constructor parameters that a member uses, so the object keeps them as state;
+- the positional parameters of a record (`record Person(string Name, int Age)` has AC = 2), which are public properties, unless the record declares a member with the same name (then that member is the attribute).
 
 These do **not** count:
 
@@ -187,7 +190,7 @@ These do **not** count:
 
 For `Customer`, that is five auto-properties, so the tool reports **AC = 5**.
 
-Records and structs are not measured yet. `--ac-type-weights` restores the rule of v1: every field and property, `static` and `const` included, weighted 1 for simple types (numeric primitives, `bool`, `char`, `string`, `object`, `DateTime`, `TimeSpan`, `Guid`) and 2 for any other type. With it, `Customer` is 1 + 1 + 1 + 1 + 2 = 6.
+Records, structs and record structs follow the same rules. `--ac-type-weights` restores the rule of v1: every field and property, `static` and `const` included, weighted 1 for simple types (numeric primitives, `bool`, `char`, `string`, `object`, `DateTime`, `TimeSpan`, `Guid`) and 2 for any other type. With it, `Customer` is 1 + 1 + 1 + 1 + 2 = 6.
 
 ---
 
@@ -351,7 +354,7 @@ $$
 CC_{tool} = \sum_{k} CLC_k + \left\lfloor \frac{\sum_{k} CWC_k}{2} \right\rfloor
 $$
 
-summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 31$ and $\sum CWC = 18$, so **CC = 31 + 9 = 40**.
+summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 32$ and $\sum CWC = 18$, so **CC = 32 + 9 = 41**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods.
 
 ---
 
@@ -362,7 +365,7 @@ summed over every class $k$ in the analysed code. The CWC total is halved becaus
 - **Less validated than CK.** The Misra suite, especially CWC and CoC, is much more recent and has far fewer independent replications and public datasets than the CK metrics or cyclomatic complexity.
 - **Possible redundancy.** MC overlaps with cyclomatic complexity (both describe a method's control flow), and CLC overlaps with [WMC](ck.md#wmc--weighted-methods-per-class). Watch for high correlations when you combine these metrics.
 - **Formulations differ between tools.** As this page shows, the dissertation's didactic formulas and the tool's BCS-weighted implementation give different numbers for the same code. Always state which formulation you used, and don't compare absolute values across tools.
-- **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Only `class` declarations are measured: `record`, `struct`, and `interface` types do not produce rows.
+- **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Classes, records and structs are measured; interfaces and enums do not produce rows (see [which types are measured](README.md#which-types-are-measured)).
 
 ## References
 

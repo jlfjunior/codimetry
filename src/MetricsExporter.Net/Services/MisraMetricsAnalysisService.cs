@@ -22,6 +22,7 @@ public class MisraMetricsAnalysisService
     private readonly CodebaseLoader _codebaseLoader;
     private readonly bool _additiveMc;
     private readonly bool _acTypeWeights;
+    private readonly TypeScope? _typeScope;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
@@ -31,7 +32,8 @@ public class MisraMetricsAnalysisService
         ILogger<MisraMetricsAnalysisService>? logger = null,
         CodebaseLoader? codebaseLoader = null,
         bool additiveMc = false,
-        bool acTypeWeights = false)
+        bool acTypeWeights = false,
+        TypeScope? typeScope = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -44,6 +46,7 @@ public class MisraMetricsAnalysisService
         _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _additiveMc = additiveMc;
         _acTypeWeights = acTypeWeights;
+        _typeScope = typeScope;
         _logger = logger;
     }
 
@@ -121,6 +124,7 @@ public class MisraMetricsAnalysisService
         // Phase 2: Calculate method-level metrics (MC)
         _logger?.LogInformation("Phase 2: Calculating method-level metrics (MC)...");
         var allClassesMap = _relationshipBuilder.GetAllClasses();
+        var kinds = allClasses.GroupBy(c => c.ClassKey!).ToDictionary(g => g.Key, g => g.First().Kind);
         var methodMetrics = new List<MisraMetric>();
 
         foreach (var method in allMethods)
@@ -144,7 +148,8 @@ public class MisraMetricsAnalysisService
                     FilePath = filePath,
                     ClassName = method.ContainingClass ?? string.Empty,
                     MethodName = method.Name,
-                    MC = mc
+                    MC = mc,
+                    Kind = kinds.GetValueOrDefault(classKey, string.Empty)
                 };
 
                 methodMetrics.Add(metric);
@@ -183,7 +188,8 @@ public class MisraMetricsAnalysisService
                     MethodName = string.Empty, // Class-level
                     AC = ac,
                     CLC = clc,
-                    CWC = cwc
+                    CWC = cwc,
+                    Kind = classElement.Kind
                 };
 
                 classMetrics.Add(metric);
@@ -234,11 +240,11 @@ public class MisraMetricsAnalysisService
             var semanticModel = document.SemanticModel;
 
             // Use CK visitor for class/method/dependency info
-            var ckVisitor = new CkSyntaxVisitor(semanticModel);
+            var ckVisitor = new CkSyntaxVisitor(semanticModel, scope: _typeScope);
             ckVisitor.Visit(syntaxTree.GetRoot());
 
             // Use MISRA visitor for BCS info and attributes
-            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc, _acTypeWeights);
+            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc, _acTypeWeights, _typeScope);
             misraVisitor.Visit(syntaxTree.GetRoot());
 
             return new FileMisraAnalysisData
