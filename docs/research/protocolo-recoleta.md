@@ -140,6 +140,8 @@ Branch `recoleta/fase-3`; cada commit tem testes escritos antes da correção (1
 
 ### Fase 4: Alinhamento às definições (≈3–5 dias)
 
+> Plano detalhado, com as decisões pendentes e os exemplos de referência: [plano-correcao-metricas.md](plano-correcao-metricas.md).
+
 1. Seguir a tabela 2.1 de `docs/PLANO_RECOLETA.md`, métrica por métrica, com os testes escritos primeiro:
    - exemplos do Cap. 2: DIT = 2, LOC lógica = 4, MC = 12, CLC = 6, CWC = 4, CoC = 4;
    - apêndice de Misra et al. (2018), portado para C#: MC(HARDWARE) = 16, CLC(HARDWARE) = 20, CWC(HARDWARE) = 9, CoC = 536.

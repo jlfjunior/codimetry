@@ -102,6 +102,16 @@ public class DocumentationExamplesTests : IDisposable
     }
 
     [Fact]
+    public async Task Ck_ConstructorsDoNotEnterLcom()
+    {
+        _dir.WriteFile("LcomCtor.cs", Samples.LcomCtor);
+
+        var metric = (await Analyzers.Ck(_dir.Path)).Single(m => m.ClassName == "LcomCtor");
+
+        Assert.Equal(1, metric.LCOM);   // INC-09: with the constructor it would be 0
+    }
+
+    [Fact]
     public async Task Ck_StaticConstructor_IsNotAnInstanceMethod()
     {
         _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);

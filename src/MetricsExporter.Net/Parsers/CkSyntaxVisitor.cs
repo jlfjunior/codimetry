@@ -66,6 +66,7 @@ public class CkMethodInfo
     public int StartLine { get; set; }
     public int EndLine { get; set; }
     public bool IsStatic { get; set; }
+    public bool IsConstructor { get; set; }
     public bool IsAbstract { get; set; }
     public List<CallInfo> Calls { get; set; } = new();
 
@@ -335,6 +336,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             StartLine = startLine,
             EndLine = endLine,
             IsStatic = node.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)),
+            IsConstructor = true,
             ReturnType = null
         };
 

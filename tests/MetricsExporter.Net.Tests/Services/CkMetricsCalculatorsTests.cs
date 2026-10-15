@@ -6,13 +6,14 @@ namespace MetricsExporter.Net.Tests.Services;
 public class CkMetricsCalculatorsTests
 {
     private static CkMethodInfo Method(string name, string @class = "C", bool isStatic = false,
-        string[]? calls = null, string[]? fields = null) => new()
+        string[]? calls = null, string[]? fields = null, bool isConstructor = false) => new()
     {
         Name = name,
         Key = name,
         ContainingClass = @class,
         ContainingClassKey = @class,
         IsStatic = isStatic,
+        IsConstructor = isConstructor,
         CalledMethods = [.. calls ?? []],
         AccessedFields = [.. fields ?? []]
     };
@@ -81,6 +82,20 @@ public class CkMetricsCalculatorsTests
         List<CkMethodInfo> methods = [Method("A", fields: ["x"]), Method("S", isStatic: true)];
 
         Assert.Equal(0, new LcomCalculator().CalculateLcom("C", methods, [Dependency("C", "x")]));
+    }
+
+    [Fact]
+    public void Lcom_IgnoresConstructors()
+    {
+        // Without the constructor: (A,B) share nothing -> P = 1, Q = 0
+        List<CkMethodInfo> methods =
+        [
+            Method("C", isConstructor: true, fields: ["a", "b"]),
+            Method("A", fields: ["a"]),
+            Method("B", fields: ["b"])
+        ];
+
+        Assert.Equal(1, new LcomCalculator().CalculateLcom("C", methods, [Dependency("C", "a", "b")]));
     }
 
     [Fact]

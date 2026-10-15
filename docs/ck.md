@@ -79,7 +79,7 @@ public class Calculator
 
 ### How this tool computes it
 
-The `WMC` column uses **$c_i = 1$**. It counts the **non-static methods and constructors** declared in the class. Properties, static methods, and local functions are not counted. For `Calculator` the tool reports **WMC = 3**.
+The `WMC` column uses **$c_i = 1$**. It counts the **non-static methods and constructors** declared in the class. Properties, static methods, static constructors, and local functions are not counted. For `Calculator` the tool reports **WMC = 3**.
 
 To get a complexity-weighted view, run with `--cyclomatic` and look at the class-level rows of `metrics_cyclomatic.csv`. That value sums the cyclomatic complexity of every method in the class, which gives 4 for `Calculator`. Note that it also includes constructors and property accessors.
 
@@ -194,7 +194,12 @@ public class User
 
 ### How this tool computes it
 
-The tool applies the LCOM1 formula above to the class's **non-static methods and constructors**. Classes with zero or one method have LCOM = 0.
+The tool applies the LCOM1 formula above to the **non-static methods** declared in the class (in any of its `partial` declarations). Classes with zero or one method have LCOM = 0. These do not enter:
+
+- constructors, static or not: a constructor usually initializes every field, so it would share state with almost every method regardless of how cohesive the methods are;
+- property accessors, operators, and local functions.
+
+A primary constructor has no body of its own, so it never enters either.
 
 The instance variables of a class are the ones **declared in it** (in any of its `partial` declarations):
 

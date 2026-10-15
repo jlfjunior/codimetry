@@ -215,6 +215,8 @@ public class CkSyntaxVisitorTests
     [InlineData("class C { string Nome; int A() => this.Nome.Length; int B() => Nome.Length; }", 0)]
     [InlineData("class Repo { public void Save() { } } class C(Repo repo) { void A() => repo.Save(); void B() => repo.Save(); }", 0)]
     [InlineData("class C { System.Action _h; void A() => _h(); void B() => _h(); }", 0)]
+    [InlineData("class C { int a, b; C() { a = 1; b = 2; } int M1() => a; int M2() => b; }", 1)]  // INC-09: constructor does not enter
+    [InlineData("class C(int a, int b) { int M1() => a; int M2() => b; }", 1)]                       // primary constructor never enters
     public void Lcom_CountsSharedAttributesOfTheCurrentObject(string code, int expected)
     {
         Assert.Equal(expected, Lcom(code));
@@ -243,5 +245,14 @@ public class CkSyntaxVisitorTests
         var visitor = Code.VisitCk("class C { static C() { } C() { } }");
 
         Assert.Equal([true, false], visitor.GetMethods().Select(m => m.IsStatic));
+    }
+
+    [Fact]
+    public void Constructors_AreMarked_MethodsAreNot()
+    {
+        var visitor = Code.VisitCk("class C { C() { } void M() { } }");
+
+        Assert.True(visitor.GetMethods().Single(m => m.Name == "C").IsConstructor);
+        Assert.False(visitor.GetMethods().Single(m => m.Name == "M").IsConstructor);
     }
 }

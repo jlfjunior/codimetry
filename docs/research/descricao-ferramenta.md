@@ -82,7 +82,7 @@ Os itens abaixo afetam o que a dissertação pode afirmar sobre a ferramenta e s
 
 1. **Formulações adotadas.** O texto da dissertação deve descrever o que a ferramenta efetivamente calcula:
    - **WMC** usa $c_i = 1$ (contagem de métodos não estáticos e construtores). A §2.5.1 afirma que se adota a complexidade ciclomática como $c_i$. Ajuste o texto ou use a soma por classe de `metrics_cyclomatic.csv`.
-   - **LCOM** usa a formulação original LCOM1, o que é coerente com a §2.5.3.
+   - **LCOM** usa a formulação original LCOM1, o que é coerente com a §2.5.3, sobre os **métodos de instância** da classe, **sem construtores** (D4, INC-09). A §2.5.3 fala em "pares de métodos da classe" sem declarar a escolha: acrescente que os construtores ficam de fora porque costumam inicializar todos os campos e, por isso, compartilham atributo com quase todo método, o que reduziria a LCOM independentemente da coesão. Cite a referência que justifica a exclusão (ainda a conferir; ver §2 do INC-09).
    - **DIT** conta `System.Object` como um nível, o que é coerente com o exemplo da §2.5.5 (DIT = 3).
    - **MC** usa os **pesos cognitivos das estruturas básicas de controle** (sequência 1, desvio 2, iteração 3, chamada 2; Wang e Shao, 2003), somados **sem incremento por aninhamento**. A §2.6.1 descreve o MC pelas regras de Campbell, com incremento por aninhamento. É preciso alinhar as duas descrições.
    - **AC** pondera os atributos por tipo (1 para tipos simples, 2 para os demais). A §2.6.2 conta 1 por atributo.

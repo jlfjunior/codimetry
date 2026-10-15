@@ -192,7 +192,7 @@ public class LcomCalculator
     public int CalculateLcom(string classKey, IReadOnlyList<CkMethodInfo> allMethods, IReadOnlyList<ClassDependency> dependencies)
     {
         var classMethods = allMethods
-            .Where(m => m.ContainingClassKey == classKey && !m.IsStatic)
+            .Where(m => m.ContainingClassKey == classKey && !m.IsStatic && !m.IsConstructor)
             .ToList();
 
         if (classMethods.Count <= 1)

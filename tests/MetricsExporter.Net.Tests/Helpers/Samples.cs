@@ -165,6 +165,24 @@ public static class Samples
         }
         """;
 
+    /// <summary>Sonda INC-09: o construtor inicializa os dois campos, mas não entra na LCOM (LCOM = 1).</summary>
+    public const string LcomCtor = """
+        public class LcomCtor
+        {
+            private readonly int a;
+            private readonly int b;
+
+            public LcomCtor(int a, int b)
+            {
+                this.a = a;
+                this.b = b;
+            }
+
+            public int M1() => a;
+            public int M2() => b;
+        }
+        """;
+
     /// <summary>Sonda INC-08: o construtor estático não entra no WMC nem na LCOM (WMC = 1, LCOM = 0).</summary>
     public const string StaticCtor = """
         public class StaticCtor
