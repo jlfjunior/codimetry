@@ -34,9 +34,9 @@ public static class Code
         return visitor;
     }
 
-    public static MisraSyntaxVisitor VisitMisra(string code)
+    public static MisraSyntaxVisitor VisitMisra(string code, bool additiveMc = false)
     {
-        var visitor = new MisraSyntaxVisitor();
+        var visitor = new MisraSyntaxVisitor(additiveMc: additiveMc);
         visitor.Visit(Parse(code).GetRoot());
         return visitor;
     }

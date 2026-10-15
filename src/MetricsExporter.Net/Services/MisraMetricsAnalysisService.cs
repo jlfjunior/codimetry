@@ -20,6 +20,7 @@ public class MisraMetricsAnalysisService
     private readonly CwcCalculator _cwcCalculator;
     private readonly CcCalculator _ccCalculator;
     private readonly CodebaseLoader _codebaseLoader;
+    private readonly bool _additiveMc;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
@@ -27,7 +28,8 @@ public class MisraMetricsAnalysisService
         RoslynParser roslynParser,
         ClassRelationshipBuilder relationshipBuilder,
         ILogger<MisraMetricsAnalysisService>? logger = null,
-        CodebaseLoader? codebaseLoader = null)
+        CodebaseLoader? codebaseLoader = null,
+        bool additiveMc = false)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -38,6 +40,7 @@ public class MisraMetricsAnalysisService
         _cwcCalculator = new CwcCalculator();
         _ccCalculator = new CcCalculator();
         _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
+        _additiveMc = additiveMc;
         _logger = logger;
     }
 
@@ -50,6 +53,9 @@ public class MisraMetricsAnalysisService
         var files = _fileDiscoveryService.DiscoverFiles(path, recursive).ToList();
 
         _logger?.LogInformation("Discovered {Count} C# files for MISRA metrics analysis", files.Count);
+        _logger?.LogInformation("MC rule: {Rule}", _additiveMc
+            ? "additive, v1 (--mc-additive)"
+            : "composition, Eq. 23 (sum per layer, product along nesting)");
 
         // Phase 1: Build class relationship graph and collect BCS information
         _logger?.LogInformation("Phase 1: Building class relationship graph and collecting BCS information...");
@@ -114,6 +120,10 @@ public class MisraMetricsAnalysisService
         foreach (var method in allMethods)
         {
             if (string.IsNullOrEmpty(method.ContainingClassKey))
+                continue;
+
+            // A method without a body has no MC; v1 reported it as 0
+            if (!_additiveMc && allBcsInfo.TryGetValue($"{method.ContainingClassKey}::{method.Key}", out var bcs) && !bcs.HasBody)
                 continue;
 
             try
@@ -222,7 +232,7 @@ public class MisraMetricsAnalysisService
             ckVisitor.Visit(syntaxTree.GetRoot());
 
             // Use MISRA visitor for BCS info and attributes
-            var misraVisitor = new MisraSyntaxVisitor(semanticModel);
+            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc);
             misraVisitor.Visit(syntaxTree.GetRoot());
 
             return new FileMisraAnalysisData

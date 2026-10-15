@@ -179,4 +179,17 @@ public class AnalysisServicesTests : IDisposable
         Assert.Equal((1, 2, 0), (@class.AC, @class.CLC, @class.CWC));
         Assert.Equal(2, codebase.CC);
     }
+
+    [Fact]
+    public async Task Misra_MethodWithoutBody_HasNoMcRow_ExceptInAdditiveMode()
+    {
+        _dir.WriteFile("A.cs", "public abstract class A { public abstract void M(); public void N() { } }");
+
+        var composed = await Analyzers.Misra(_dir.Path);
+        var additive = await Analyzers.Misra(_dir.Path, additiveMc: true);
+
+        Assert.DoesNotContain(composed, m => m.MethodName == "M");
+        Assert.Equal(0, Assert.Single(composed, m => m.MethodName == "N").MC);
+        Assert.Equal(0, Assert.Single(additive, m => m.MethodName == "M").MC);
+    }
 }

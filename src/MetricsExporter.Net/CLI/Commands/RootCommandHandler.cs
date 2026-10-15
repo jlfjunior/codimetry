@@ -60,6 +60,11 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "Calculate and export Cyclomatic Complexity metrics");
 
+        var mcAdditiveOption = new Option<bool>(
+            aliases: new[] { "--mc-additive" },
+            getDefaultValue: () => false,
+            description: "MISRA: compute MC with the additive rule of v1 (weights summed at any depth) instead of the composition rule of Eq. 23");
+
         var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC, CK, MISRA, and Cyclomatic Complexity metrics from .NET codebases")
         {
             pathOption,
@@ -71,7 +76,8 @@ public class RootCommandHandler
             locOption,
             ckOption,
             misraOption,
-            cyclomaticOption
+            cyclomaticOption,
+            mcAdditiveOption
         };
 
         rootCommand.AddValidator(result =>
@@ -104,14 +110,15 @@ public class RootCommandHandler
             var ck = context.ParseResult.GetValueForOption(ckOption);
             var misra = context.ParseResult.GetValueForOption(misraOption);
             var cyclomatic = context.ParseResult.GetValueForOption(cyclomaticOption);
+            var mcAdditive = context.ParseResult.GetValueForOption(mcAdditiveOption);
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -246,7 +253,8 @@ public class RootCommandHandler
                     fileDiscovery,
                     roslynParser,
                     relationshipBuilder,
-                    loggerFactory.CreateLogger<MisraMetricsAnalysisService>());
+                    loggerFactory.CreateLogger<MisraMetricsAnalysisService>(),
+                    additiveMc: mcAdditive);
 
                 var misraMetricsResults = await misraAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 

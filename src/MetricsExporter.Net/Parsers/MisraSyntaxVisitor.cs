@@ -30,12 +30,23 @@ public class BcsInfo
     public int CallCount { get; set; }
 
     /// <summary>
-    /// Calculates the total Method Complexity (MC) based on BCS weights.
-    /// MC = (SequenceCount * 1) + (BranchCount * 2) + (IterationCount * 3) + (CallCount * 2)
+    /// MC by the composition rule (<see cref="MethodComplexityCalculator"/>), or null when the method
+    /// has no body or the additive rule is in use.
+    /// </summary>
+    public int? ComposedMc { get; set; }
+
+    /// <summary>
+    /// The method has a body (it is not abstract, an interface member, extern or a partial declaration).
+    /// </summary>
+    public bool HasBody { get; set; } = true;
+
+    /// <summary>
+    /// The method's MC: the composition rule when it was calculated, otherwise the additive rule of v1,
+    /// MC = (SequenceCount * 1) + (BranchCount * 2) + (IterationCount * 3) + (CallCount * 2).
     /// </summary>
     public int CalculateMc()
     {
-        return (SequenceCount * 1) + (BranchCount * 2) + (IterationCount * 3) + (CallCount * 2);
+        return ComposedMc ?? (SequenceCount * 1) + (BranchCount * 2) + (IterationCount * 3) + (CallCount * 2);
     }
 }
 
@@ -48,14 +59,17 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     private readonly Dictionary<string, List<string>> _classAttributes = new();
     private readonly Dictionary<string, List<string>> _classAttributeTypes = new();
     private readonly SemanticModel? _semanticModel;
+    private readonly bool _additiveMc;
 
     /// <summary>
     /// Keys follow <see cref="TypeKeys"/>: "{classKey}::{methodKey}" for methods and the class key for
     /// attributes. Without a semantic model the class key is derived from the syntax alone.
     /// </summary>
-    public MisraSyntaxVisitor(SemanticModel? semanticModel = null) : base(SyntaxWalkerDepth.Node)
+    /// <param name="additiveMc">Use the additive MC of v1 instead of the composition rule (--mc-additive).</param>
+    public MisraSyntaxVisitor(SemanticModel? semanticModel = null, bool additiveMc = false) : base(SyntaxWalkerDepth.Node)
     {
         _semanticModel = semanticModel;
+        _additiveMc = additiveMc;
     }
 
     public IReadOnlyDictionary<string, BcsInfo> GetMethodBcsInfo() => _methodBcsInfo;
@@ -111,7 +125,7 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
             return;
         }
 
-        var bcsInfo = new BcsInfo();
+        var bcsInfo = NewBcsInfo(node);
         _methodBcsInfo[key] = bcsInfo;
 
         // Visit method body to count BCSs
@@ -143,7 +157,7 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
             return;
         }
 
-        var bcsInfo = new BcsInfo();
+        var bcsInfo = NewBcsInfo(node);
         _methodBcsInfo[key] = bcsInfo;
 
         if (node.Body != null)
@@ -157,6 +171,12 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
         }
 
         base.VisitConstructorDeclaration(node);
+    }
+
+    private BcsInfo NewBcsInfo(BaseMethodDeclarationSyntax node)
+    {
+        var mc = MethodComplexityCalculator.Calculate(node);
+        return new BcsInfo { HasBody = mc != null, ComposedMc = _additiveMc ? null : mc };
     }
 
     /// <summary>

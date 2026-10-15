@@ -347,4 +347,90 @@ public static class Samples
             }
         }
         """;
+
+    // ---------- Misra et al. (2018), appendix, ported to C# (docs/research/plano-correcao-metricas.md) ----------
+
+    public const string MisraArticle = """
+        using System;
+
+        public class Computer
+        {
+            protected string name;
+            protected string producer;
+            public string GetName() { return name; }
+            public string GetProducer() { return producer; }
+        }
+
+        public class Software : Computer
+        {
+            protected string version;
+            protected string[] supportedOS = new string[5];
+
+            public Software(string cname, string cproducer, string cversion, string[] csupportedOS)
+            {
+                name = cname;
+                producer = cproducer;
+                version = cversion;
+                for (int i = 0; i < 5; i++)
+                    supportedOS[i] = csupportedOS[i];
+            }
+
+            public string GetVersion() { return version; }
+
+            public bool IsAppropriate(string cos)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    if (string.Compare(cos, supportedOS[i]) == 0)
+                        return true;
+                }
+                return false;
+            }
+        }
+
+        public class Hardware : Computer
+        {
+            protected string cpu;
+            protected int ram;
+            protected int hd;
+            protected string os;
+            public string GetCPU() { return cpu; }
+            public int GetRAM() { return ram; }
+            public int GetHD() { return hd; }
+            public string GetOS() { return os; }
+
+            public void CheckSupportedSw(Software s)
+            {
+                bool result = s.IsAppropriate(os);
+                if (result)
+                    Console.WriteLine("This is an appropriate software for this computer");
+                else
+                    Console.WriteLine("This is NOT an appropriate software for this computer");
+            }
+        }
+
+        public class Desktop : Hardware
+        {
+            protected string pcase;
+
+            public Desktop(string cname, string cproducer, string ccpu, int cram, int chd, string cos, string ccase)
+            {
+                name = cname; producer = cproducer; cpu = ccpu; ram = cram; hd = chd; os = cos; pcase = ccase;
+            }
+
+            public string GetCase() { return pcase; }
+        }
+
+        public class Notebook : Hardware
+        {
+            protected float weight;
+
+            public Notebook(string cname, string cproducer, string ccpu, int cram, int chd, string cos, float cweight)
+            {
+                name = cname; producer = cproducer; cpu = ccpu; ram = cram; hd = chd; os = cos; weight = cweight;
+            }
+
+            public float GetWeight() { return weight; }
+        }
+        """;
 }

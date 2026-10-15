@@ -60,6 +60,21 @@ public class RootCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task McAdditive_ChangesTheMisraMc()
+    {
+        _dir.WriteFile("src/Nested.cs", "public class Nested { public void M(bool a) { if (a) { for (;;) { } } } }");
+
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra"));
+        var composed = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra", "--mc-additive"));
+        var additive = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
+
+        // Composition: 2 × 3 = 6; additive: 2 + 3 = 5
+        Assert.Contains(composed, l => l.EndsWith(",Nested,M,6,0,0,0,0"));
+        Assert.Contains(additive, l => l.EndsWith(",Nested,M,5,0,0,0,0"));
+    }
+
+    [Fact]
     public async Task NoInput_FailsValidation()
     {
         Assert.NotEqual(0, await Run("--out", Output));

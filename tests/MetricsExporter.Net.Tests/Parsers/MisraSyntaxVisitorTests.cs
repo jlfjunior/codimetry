@@ -9,7 +9,7 @@ namespace MetricsExporter.Net.Tests.Parsers;
 /// </summary>
 public class MisraSyntaxVisitorTests
 {
-    private static BcsInfo Bcs(string body, string signature = "void M(int x, bool a, bool b)")
+    private static BcsInfo Bcs(string body, string signature = "void M(int x, bool a, bool b)", bool additiveMc = false)
     {
         var visitor = Code.VisitMisra($$"""
             class C
@@ -21,7 +21,7 @@ public class MisraSyntaxVisitorTests
 
                 void Other() { }
             }
-            """);
+            """, additiveMc);
         return visitor.GetMethodBcsInfo().Single(kv => kv.Key.StartsWith("C::M(")).Value;
     }
 
@@ -98,10 +98,11 @@ public class MisraSyntaxVisitorTests
             }
             """;
 
-        // MC = 1 + 2*2 + 3 + 2 = 10, as documented for Process() in docs/misra.md
+        // Composition rule: 2 × (3 × (2 × 1)) = 12; the additive rule of v1 gives 1 + 2*2 + 3 + 2 = 10
         var bcs = Bcs(body);
         AssertCounts(bcs, sequence: 1, branch: 2, iteration: 1, call: 1);
-        Assert.Equal(10, bcs.CalculateMc());
+        Assert.Equal(12, bcs.CalculateMc());
+        Assert.Equal(10, Bcs(body, additiveMc: true).CalculateMc());
     }
 
     [Fact]

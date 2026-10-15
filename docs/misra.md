@@ -28,7 +28,7 @@ This produces `metrics_misra.csv`, which has rows at three levels:
 FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
 src/Order.cs,Order,CalculateDiscount,3,0,0,0,0   <- method row: only MC is filled
 src/Order.cs,Order,,0,3,6,0,0                    <- class row: AC, CLC and CWC
-,,,0,0,0,0,55                                    <- one codebase row: CC (= CoC)
+,,,0,0,0,0,43                                    <- one codebase row: CC (= CoC)
 ```
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options (solutions, projects, output directory).
@@ -89,22 +89,27 @@ For the same method, cyclomatic complexity is $V(G) = 1 + 3 = 4$. The difference
 
 ### How this tool computes it
 
-The tool does **not** use Campbell's nesting increments. It uses the **cognitive weights of Basic Control Structures (BCS)** (Wang & Shao, 2003). Each structure found in the method is weighted, and the weights are **added**:
+The tool does **not** use Campbell's nesting increments. It uses the **cognitive weights of Basic Control Structures (BCS)** (Wang & Shao, 2003), composed as in Eq. 23 of Misra et al. (2018): weights in the same layer are **added**, nested layers are **multiplied**.
 
 | BCS | Examples | Weight |
 |-----|----------|--------|
-| Sequence | each ordinary statement (assignment, `return`, call statement…) | 1 |
-| Branch | `if`, each `else` / `else if`, `switch`, ternary `?:` | 2 |
+| Sequence | the simple statements of a layer (assignment, declaration, `return`, `throw`, call statement…), all together | 1 |
+| Branch | `if` (with or without `else`), `switch`, ternary `?:` | 2 |
 | Iteration | `for`, `foreach`, `while`, `do-while` | 3 |
-| Call | each method invocation | 2 |
 
-$$
-MC_{tool} = 1 \cdot N_{seq} + 2 \cdot N_{branch} + 3 \cdot N_{iter} + 2 \cdot N_{call}
-$$
+The rule is recursive over statement lists:
 
-Every statement is visited, at any nesting depth: the bodies of `if`/`else`, loops, `switch` sections, `try`/`catch`/`finally`, `using`, and so on. Control-structure statements and wrappers such as blocks are not counted as sequences themselves; their inner statements are. `break` is not counted. Nesting adds no extra weight. For the `Process` method above, the tool reports **MC = 10**: two `if`s (2 + 2), one `for` (3), and the `Console.WriteLine` statement (sequence 1 + call 2).
+- weight(list) = Σ weight(structures of the list) + 1 if the list has at least one simple statement; an empty list weighs 0;
+- weight(structure) = W × weight(inner layer). The inner layer joins all branches of the structure (the `then` and `else` of an `if`, every section of a `switch`) and counts at least 1, so a structure with an empty body keeps its own weight;
+- all simple statements of a layer form **one** sequence, even when a structure separates them (`a(); if (c) { x(); } b();` = 2 + 1 = 3);
+- blocks, `try`/`catch`/`finally`, `using`, `lock`, `checked`, `unsafe`, `fixed` and labels are transparent: their statements belong to the enclosing list;
+- `else if` is an `if` nested in the `else` branch, as written: `if (a) x(); else if (b) y(); else z();` = 2 × (1 + 2 × 1) = 6;
+- a ternary is a branch over its two expressions (a nested ternary is a structure of that layer) and adds to the layer where it appears; the statement that contains it still counts as a simple statement;
+- an expression-bodied method (`=> ...`) is a list with one simple statement; an empty body (`{ }`) weighs 0; methods without a body (abstract, interface) have no MC row.
 
-An expression-bodied method (`=> ...`) counts as one sequence, plus whatever branches and calls its expression contains. `catch`, `&&`/`||`, and `??` are not counted. Abstract methods have MC = 0.
+For the `Process` method above, the tool reports **MC = 2 × (3 × (2 × 1)) = 12**: the outer `if` (2) contains the `for` (3), which contains the inner `if` (2), whose body is one sequence (1).
+
+Not modelled yet: method calls add no weight (planned: 2 + MC of the called method, only for methods of the analysed code); lambda bodies are not looked into; `switch` weighs 2 instead of the Case weight 3; parallelism and interrupts (weight 4) have no reliable syntactic marker in C#.
 
 Example of the tool's calculation:
 
@@ -113,15 +118,17 @@ public class PriceCalculator
 {
     public decimal Total(IEnumerable<decimal> prices)
     {
-        var total = prices.Sum();          // sequence (1) + call (2)
-        if (total > 100) total *= 0.9m;    // branch (2) + sequence (1)
-        return Math.Round(total, 2);       // sequence (1) + call (2)
+        var total = prices.Sum();          // simple statement
+        if (total > 100) total *= 0.9m;    // branch: 2 × 1
+        return Math.Round(total, 2);       // simple statement
     }
 }
 ```
 
-- 3 sequences × 1 + 1 branch × 2 + 2 calls × 2
-- **MC = 3 + 2 + 4 = 9**, which is what the tool reports
+- the two simple statements of the method body form one sequence (1), and the `if` adds 2 × 1
+- **MC = 2 + 1 = 3**, which is what the tool reports
+
+`--mc-additive` restores the rule of v1, which adds the weights at any depth and counts each statement and each call: $MC = 1 \cdot N_{seq} + 2 \cdot N_{branch} + 3 \cdot N_{iter} + 2 \cdot N_{call}$, where each `else` is one more branch. With it, `Process` is 10 and `Total` is 9.
 
 Because the two models differ, **MC values from this tool are not comparable** with Campbell/SonarQube cognitive complexity values.
 
@@ -212,7 +219,7 @@ public class Order
 The formula is the same, $CLC = AC + \sum MC$, but it uses the tool's AC and MC:
 
 - AC = 3, since `int`, `decimal`, and `DateTime` are all simple types;
-- MC(`CalculateDiscount`) = 3: the expression body counts as one sequence (1) and the ternary as one branch (2);
+- MC(`CalculateDiscount`) = 3: the expression body counts as one sequence (1) and the ternary as one branch over two simple expressions (2 × 1);
 - **CLC = 3 + 3 = 6**, which is what the tool reports.
 
 Constructors are included in the sum. Methods are identified by `Class::Name`, so all overloads of a method share a single MC value.
@@ -281,9 +288,9 @@ The tool walks **every invocation** in every method of the class. Repeated calls
 
 For `CartService`:
 
-- `IsAvailable`: its tool MC is 3 (one sequence plus one call to `TryGetValue`), so it adds 3 + 2 = 5;
-- `WriteLine`: unresolved, so it adds 3;
-- **CWC = 5 + 3 = 8**, which is what the tool reports.
+- `IsAvailable`: its tool MC is 1 (an expression body is one sequence), so it adds 1 + 2 = 3;
+- `WriteLine`: a library method, so it adds 3;
+- **CWC = 3 + 3 = 6**, which is what the tool reports.
 
 Methods are matched by simple name only. Counting every library call makes the tool's CWC grow with the overall amount of code, not just with coupling to other classes in the system.
 
@@ -332,7 +339,7 @@ $$
 CC_{tool} = \sum_{k} CLC_k + \left\lfloor \frac{\sum_{k} CWC_k}{2} \right\rfloor
 $$
 
-summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 45$ and $\sum CWC = 20$, so **CC = 45 + 10 = 55**.
+summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 34$ and $\sum CWC = 18$, so **CC = 34 + 9 = 43**.
 
 ---
 
