@@ -83,6 +83,17 @@ public class ClassIdentityTests : IDisposable
     }
 
     [Fact]
+    public async Task PartialClass_AttributeDeclaredInOneFile_IsSharedByMethodsInTheOther()
+    {
+        _dir.WriteFile("Cart.cs", "namespace N; public partial class Cart { private int _count; }");
+        _dir.WriteFile("Cart.Ops.cs", "namespace N; public partial class Cart { void Add() { _count++; } int Count() => _count; }");
+
+        var ck = await Analyzers.Ck(_dir.Path);
+
+        Assert.Equal(0, Assert.Single(ck, m => m.ClassName == "Cart").LCOM);
+    }
+
+    [Fact]
     public async Task Inheritance_IsResolvedAcrossProjects_ThroughProjectReferences()
     {
         _dir.WriteFile("core/Core.csproj", Csproj);

@@ -89,6 +89,18 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(0, metrics["Cat"].NOC);
     }
 
+    [Fact]
+    public async Task Ck_Cap2Usuario_LcomIs3_AndAttributesOfOtherObjectsDoNotCount()
+    {
+        _dir.WriteFile("Usuario.cs", Samples.Cap2Usuario);
+        _dir.WriteFile("LcomFalse.cs", Samples.LcomFalse);
+
+        var metrics = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(3, metrics["Usuario"].LCOM);
+        Assert.Equal(3, metrics["LcomFalse"].LCOM);   // INC-07: Nome of a Dto is not an attribute of LcomFalse
+    }
+
     // ---------- docs/misra.md ----------
 
     [Fact]

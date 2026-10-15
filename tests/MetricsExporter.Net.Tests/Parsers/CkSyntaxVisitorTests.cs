@@ -1,3 +1,5 @@
+using MetricsExporter.Net.Parsers;
+using MetricsExporter.Net.Services;
 using MetricsExporter.Net.Tests.Helpers;
 
 namespace MetricsExporter.Net.Tests.Parsers;
@@ -42,7 +44,33 @@ public class CkSyntaxVisitorTests
 
         var dependency = visitor.GetDependencies().Single();
 
-        Assert.Equal(["_a", "_b", "Name"], dependency.InstanceMemberNames.Order());
+        Assert.Equal(["field:_a", "field:_b", "prop:Name"], dependency.InstanceMemberNames.Order());
+    }
+
+    [Fact]
+    public void InstanceMemberNames_IncludeFieldLikeEventsAndPrimaryConstructorParameters()
+    {
+        var visitor = Code.VisitCk("""
+            using System;
+            class C(int n)
+            {
+                public event EventHandler? Changed;
+                public static event EventHandler? Shared;
+            }
+            """);
+
+        var dependency = visitor.GetDependencies().Single();
+
+        Assert.Equal(["event:Changed", "param:n"], dependency.InstanceMemberNames.Order());
+    }
+
+    [Fact]
+    public void InstanceMemberNames_WithoutSemanticModel_AreNames()
+    {
+        var visitor = new CkSyntaxVisitor();
+        visitor.Visit(Code.Parse("class C { int _a; public string Name { get; set; } }").GetRoot());
+
+        Assert.Equal(["_a", "Name"], visitor.GetDependencies().Single().InstanceMemberNames.Order());
     }
 
     [Fact]
@@ -84,34 +112,112 @@ public class CkSyntaxVisitorTests
         Assert.All(methods.Values, m => Assert.Equal("C", m.ContainingClass));
     }
 
-    // Regression tests for the LCOM fix: accessed fields are matched by name, including
-    // the receiver of a call (_logger.Log()) and this.X, but not another object's members.
+    // INC-07: an access is a use of an attribute of the current object, identified by the symbol
+    // the semantic model binds the identifier to ("field:X", "prop:X", "event:X", "param:X").
 
-    [Fact]
-    public void AccessedFields_IncludeReceiverOfMemberCall()
+    private const string AccessClass = """
+        using System;
+        using System.Collections.Generic;
+        enum Status { Ativo }
+        class Dto { public string Nome = ""; }
+        class Base { protected int Herdado; }
+        class C : Base
+        {
+            public string Nome = "";
+            string nome = "";
+            public Status Status { get; set; }
+            Action _handler = () => { };
+            public event EventHandler? Changed;
+            C Criar(string nome) => this;
+            MEMBER
+        }
+        """;
+
+    private static IEnumerable<string> Accessed(CkSyntaxVisitor visitor, string method) =>
+        visitor.GetMethods().Single(m => m.Name == method).AccessedFields.Distinct().Order(StringComparer.Ordinal);
+
+    [Theory]
+    [InlineData("object M() => new Dto { Nome = \"x\" };", "")]
+    [InlineData("object M() => new Dto { Nome = Nome };", "field:Nome")]
+    [InlineData("object M() => new C { Nome = \"x\" };", "")]
+    [InlineData("object? M(Dto? d) => d?.Nome;", "")]
+    [InlineData("object M(C outro) => outro.Nome;", "")]
+    [InlineData("bool M(object outro) => outro is C { Nome: \"x\" };", "")]
+    [InlineData("bool M(object outro) => outro is C { Nome.Length: 1 };", "")]
+    [InlineData("string M() => nameof(Nome);", "")]
+    [InlineData("object M() => Criar(nome: \"x\");", "")]
+    [InlineData("void M() { var Nome = 1; Console.WriteLine(Nome); }", "")]
+    [InlineData("object M() => Status.Ativo;", "")]
+    [InlineData("object M() => this.Nome;", "field:Nome")]
+    [InlineData("int M() => Nome.Length + nome.Length;", "field:Nome,field:nome")]
+    [InlineData("bool M() => Status == Status.Ativo;", "prop:Status")]
+    [InlineData("void M() => _handler();", "field:_handler")]
+    [InlineData("void M() => Changed?.Invoke(this, EventArgs.Empty);", "event:Changed")]
+    [InlineData("int M() => Herdado;", "")]
+    [InlineData("object M() => new List<string> { Nome };", "field:Nome")]
+    [InlineData("void M() { Action a = () => Console.WriteLine(Nome); }", "field:Nome")]
+    public void AccessedFields_AreAttributesOfTheCurrentObject(string member, string expected)
     {
-        var visitor = Code.VisitCk("class C { Logger _logger; void M() { _logger.Log(); } }");
+        var visitor = Code.VisitCk(AccessClass.Replace("MEMBER", member));
 
-        Assert.Contains("_logger", visitor.GetMethods().Single().AccessedFields);
+        Assert.Equal(expected.Split(',', StringSplitOptions.RemoveEmptyEntries), Accessed(visitor, "M"));
     }
 
     [Fact]
-    public void AccessedFields_IncludeThisMemberAccess()
+    public void AccessedFields_PrimaryConstructorParameter_OnlyWhenNoMemberHidesIt()
     {
-        var visitor = Code.VisitCk("class C { int _count; void M() { this._count++; } }");
+        var visitor = Code.VisitCk("""
+            class Repo { public void Save() { } }
+            class C(Repo repo, int n)
+            {
+                private readonly Repo repo = repo;
+                void M() { repo.Save(); }
+                int N() => n;
+                C Clone() => new C(repo: repo, n: 1);
+                C(Repo repo, int x, int y) : this(repo, x) { Use(repo); }
+                void Use(Repo r) { }
+            }
+            """);
 
-        Assert.Contains("_count", visitor.GetMethods().Single().AccessedFields);
+        Assert.Equal(["field:repo"], Accessed(visitor, "M"));
+        Assert.Equal(["param:n"], Accessed(visitor, "N"));
+        Assert.Equal(["field:repo"], Accessed(visitor, "Clone"));   // the name in repo: is not an access
+        Assert.Empty(Accessed(visitor, "C"));                       // parameter of an ordinary constructor
     }
 
     [Fact]
-    public void AccessedFields_ExcludeMembersOfOtherObjects()
+    public void AccessedFields_WithoutSemanticModel_MatchNamesWithSyntacticExclusions()
     {
-        var visitor = Code.VisitCk("class C { string Status; bool M(C other) => other.Status == \"x\"; }");
+        var visitor = new CkSyntaxVisitor();
+        visitor.Visit(Code.Parse("""
+            class C
+            {
+                string Nome;
+                object M(Dto d) => new Dto { Nome = "x" };
+                int N() => this.Nome.Length + nameof(Nome).Length;
+            }
+            """).GetRoot());
 
-        var accessed = visitor.GetMethods().Single().AccessedFields;
+        Assert.DoesNotContain("Nome", Accessed(visitor, "M"));
+        Assert.Equal(["Nome"], Accessed(visitor, "N"));
+        Assert.Equal(2, visitor.MethodsWithoutSemanticModel);
+    }
 
-        Assert.Contains("other", accessed);
-        Assert.DoesNotContain("Status", accessed);
+    private static int Lcom(string code)
+    {
+        var visitor = Code.VisitCk(code);
+        var key = visitor.GetClasses().Single(c => c.Name == "C").ClassKey!;
+        return new LcomCalculator().CalculateLcom(key, visitor.GetMethods(), ClassDependency.MergeByClass(visitor.GetDependencies()));
+    }
+
+    [Theory]
+    [InlineData("class C { string Nome; void A() { var Nome = 1; } int B() => Nome.Length; }", 1)]
+    [InlineData("class C { string Nome; int A() => this.Nome.Length; int B() => Nome.Length; }", 0)]
+    [InlineData("class Repo { public void Save() { } } class C(Repo repo) { void A() => repo.Save(); void B() => repo.Save(); }", 0)]
+    [InlineData("class C { System.Action _h; void A() => _h(); void B() => _h(); }", 0)]
+    public void Lcom_CountsSharedAttributesOfTheCurrentObject(string code, int expected)
+    {
+        Assert.Equal(expected, Lcom(code));
     }
 
     [Fact]
@@ -125,8 +231,8 @@ public class CkSyntaxVisitorTests
         var ctorA = visitor.GetMethods().Single(m => m.Name == "A");
         var ctorB = visitor.GetMethods().Single(m => m.Name == "B");
 
-        Assert.Contains("_x", ctorA.AccessedFields);
-        Assert.Contains("_y", ctorB.AccessedFields);
+        Assert.Contains("field:_x", ctorA.AccessedFields);
+        Assert.Contains("field:_y", ctorB.AccessedFields);
         Assert.Equal(["Init"], ctorB.CalledMethods);
         Assert.Equal(["int"], ctorB.ParameterTypes);
     }

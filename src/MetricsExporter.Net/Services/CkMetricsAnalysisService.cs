@@ -66,6 +66,7 @@ public class CkMetricsAnalysisService
         _logger?.LogInformation("Invocation resolution: {Resolved} of {Total} invocations bound to a method ({Percent:F1}%)",
             resolved, total, total == 0 ? 100.0 : 100.0 * resolved / total);
 
+        int methodsWithoutModel = 0, ambiguousAccesses = 0;
         foreach (var document in codebase.Documents)
         {
             var fileData = AnalyzeFileWithModel(document.Tree, document.SemanticModel);
@@ -74,6 +75,8 @@ public class CkMetricsAnalysisService
                 allClasses.AddRange(fileData.Classes);
                 allMethods.AddRange(fileData.Methods);
                 allDependencies.AddRange(fileData.Dependencies);
+                methodsWithoutModel += fileData.MethodsWithoutSemanticModel;
+                ambiguousAccesses += fileData.AmbiguousAccesses;
 
                 foreach (var classElement in fileData.Classes)
                 {
@@ -83,6 +86,8 @@ public class CkMetricsAnalysisService
         }
 
         _logger?.LogInformation("Built relationship graph with {Count} class declarations", allClasses.Count);
+        _logger?.LogInformation("LCOM attribute accesses: {Methods} methods matched by name (no semantic model), {Ambiguous} ambiguous identifiers not counted",
+            methodsWithoutModel, ambiguousAccesses);
 
         // Phase 2: Calculate CK metrics for each class (one row per class, joining partial declarations)
         _logger?.LogInformation("Phase 2: Calculating CK metrics...");
@@ -144,7 +149,9 @@ public class CkMetricsAnalysisService
             {
                 Classes = visitor.GetClasses().ToList(),
                 Methods = visitor.GetMethods().ToList(),
-                Dependencies = visitor.GetDependencies().ToList()
+                Dependencies = visitor.GetDependencies().ToList(),
+                MethodsWithoutSemanticModel = visitor.MethodsWithoutSemanticModel,
+                AmbiguousAccesses = visitor.AmbiguousAccesses
             };
         }
         catch (Exception ex)
@@ -159,6 +166,8 @@ public class CkMetricsAnalysisService
         public List<CkCodeElement> Classes { get; set; } = new();
         public List<CkMethodInfo> Methods { get; set; } = new();
         public List<ClassDependency> Dependencies { get; set; } = new();
+        public int MethodsWithoutSemanticModel { get; set; }
+        public int AmbiguousAccesses { get; set; }
     }
 }
 

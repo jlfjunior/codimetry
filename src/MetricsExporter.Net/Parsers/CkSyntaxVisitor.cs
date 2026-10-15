@@ -77,6 +77,9 @@ public class CkMethodInfo
         get => Calls.Select(c => c.Name).ToList();
         set => Calls = value.Select(name => new CallInfo(name)).ToList();
     }
+    /// <summary>
+    /// Attributes of the current object the method uses (see <see cref="InstanceMemberIds"/>), with repetitions.
+    /// </summary>
     public List<string> AccessedFields { get; set; } = new();
     public List<string> ParameterTypes { get; set; } = new();
     public string? ReturnType { get; set; }
@@ -93,6 +96,10 @@ public class ClassDependency
     public HashSet<string> DependentTypes { get; set; } = new();
     public List<string> FieldTypes { get; set; } = new();
     public List<string> PropertyTypes { get; set; } = new();
+    /// <summary>
+    /// Attributes of the class for LCOM (see <see cref="InstanceMemberIds"/>): instance fields, properties
+    /// and field-like events declared in the class, and the parameters of its primary constructor.
+    /// </summary>
     public HashSet<string> InstanceMemberNames { get; set; } = new();
 
     /// <summary>
@@ -132,6 +139,17 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     public IReadOnlyList<CkCodeElement> GetClasses() => _classes;
     public IReadOnlyList<CkMethodInfo> GetMethods() => _methods;
     public IReadOnlyList<ClassDependency> GetDependencies() => _dependencies;
+
+    /// <summary>
+    /// Methods whose attribute accesses were matched by name because there was no semantic model.
+    /// </summary>
+    public int MethodsWithoutSemanticModel { get; private set; }
+
+    /// <summary>
+    /// Identifiers the semantic model could not bind to a single symbol although one candidate is an
+    /// attribute of the class; they are not counted as accesses.
+    /// </summary>
+    public int AmbiguousAccesses { get; private set; }
 
     public override void VisitClassDeclaration(ClassDeclarationSyntax node)
     {
@@ -214,7 +232,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             {
                 foreach (var variable in field.Declaration.Variables)
                 {
-                    dependency.InstanceMemberNames.Add(variable.Identifier.Text);
+                    dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Field, variable.Identifier.Text));
                 }
             }
         }
@@ -228,8 +246,21 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
 
             if (!IsStaticMember(property.Modifiers))
             {
-                dependency.InstanceMemberNames.Add(property.Identifier.Text);
+                dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Property, property.Identifier.Text));
             }
+        }
+
+        foreach (var eventField in node.Members.OfType<EventFieldDeclarationSyntax>().Where(e => !IsStaticMember(e.Modifiers)))
+        {
+            foreach (var variable in eventField.Declaration.Variables)
+            {
+                dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Event, variable.Identifier.Text));
+            }
+        }
+
+        foreach (var parameter in node.ParameterList?.Parameters ?? default)
+        {
+            dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.PrimaryConstructorParameter, parameter.Identifier.Text));
         }
 
         // Collect method parameter and return types
@@ -279,20 +310,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         }
 
         // Collect method calls and field accesses from method body
-        if (node.Body != null)
-        {
-            var methodCallCollector = new MethodCallCollector(_semanticModel);
-            methodCallCollector.Visit(node.Body);
-            methodInfo.Calls = methodCallCollector.GetCalls();
-            methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
-        }
-        else if (node.ExpressionBody != null)
-        {
-            var methodCallCollector = new MethodCallCollector(_semanticModel);
-            methodCallCollector.Visit(node.ExpressionBody);
-            methodInfo.Calls = methodCallCollector.GetCalls();
-            methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
-        }
+        CollectBody((SyntaxNode?)node.Body ?? node.ExpressionBody, methodInfo);
 
         _methods.Add(methodInfo);
 
@@ -330,19 +348,33 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         }
 
         // Collect method calls and field accesses
-        SyntaxNode? body = (SyntaxNode?)node.Body ?? node.ExpressionBody;
-        if (body != null)
-        {
-            var methodCallCollector = new MethodCallCollector(_semanticModel);
-            methodCallCollector.Visit(body);
-            methodInfo.Calls = methodCallCollector.GetCalls();
-            methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
-        }
+        CollectBody((SyntaxNode?)node.Body ?? node.ExpressionBody, methodInfo);
 
         _methods.Add(methodInfo);
 
         base.VisitConstructorDeclaration(node);
     }
+
+    private void CollectBody(SyntaxNode? body, CkMethodInfo methodInfo)
+    {
+        if (body == null)
+        {
+            return;
+        }
+
+        var methodCallCollector = new MethodCallCollector(_semanticModel, methodInfo.ContainingClassKey);
+        methodCallCollector.Visit(body);
+        methodInfo.Calls = methodCallCollector.GetCalls();
+        methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
+
+        AmbiguousAccesses += methodCallCollector.AmbiguousAccesses;
+        if (_semanticModel == null)
+        {
+            MethodsWithoutSemanticModel++;
+        }
+    }
+
+    private string MemberId(string kind, string name) => InstanceMemberIds.Of(kind, name, _semanticModel != null);
 
     private static bool IsStaticMember(SyntaxTokenList modifiers) =>
         modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword));
@@ -354,13 +386,18 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
 internal class MethodCallCollector : CSharpSyntaxWalker
 {
     private readonly SemanticModel? _semanticModel;
+    private readonly string? _classKey;
     private readonly List<CallInfo> _calls = new();
     private readonly List<string> _fieldAccesses = new();
 
-    public MethodCallCollector(SemanticModel? semanticModel = null)
+    /// <param name="classKey">Key of the class that declares the method; its attributes are the accesses recorded.</param>
+    public MethodCallCollector(SemanticModel? semanticModel = null, string? classKey = null)
     {
         _semanticModel = semanticModel;
+        _classKey = classKey;
     }
+
+    public int AmbiguousAccesses { get; private set; }
 
     public List<CallInfo> GetCalls() => _calls;
     public List<string> GetMethodCalls() => _calls.Select(c => c.Name).ToList();
@@ -420,32 +457,127 @@ internal class MethodCallCollector : CSharpSyntaxWalker
         return (method.ReducedFrom ?? method).OriginalDefinition;
     }
 
-    public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
-    {
-        // Only this.Member refers to the current instance; other.Member belongs to another object
-        if (node.Parent is not InvocationExpressionSyntax &&
-            node.Expression is ThisExpressionSyntax &&
-            node.Name is IdentifierNameSyntax identifier)
-        {
-            _fieldAccesses.Add(identifier.Identifier.Text);
-        }
-
-        base.VisitMemberAccessExpression(node);
-    }
-
     public override void VisitIdentifierName(IdentifierNameSyntax node)
     {
-        // Simple identifier access (could be field or local variable)
-        // We'll be conservative and include it. The receiver of a member access
-        // (e.g. _logger in _logger.Log()) is also an access to that identifier.
-        var isReceiver = node.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Expression == node;
-        if (node.Parent is not InvocationExpressionSyntax &&
-            (node.Parent is not MemberAccessExpressionSyntax || isReceiver))
+        if (!IsExcludedBySyntax(node))
         {
-            _fieldAccesses.Add(node.Identifier.Text);
+            if (_semanticModel == null)
+            {
+                // Without a semantic model, any identifier other than a called name may be an attribute
+                if (!IsCalledName(node))
+                {
+                    _fieldAccesses.Add(node.Identifier.Text);
+                }
+            }
+            else
+            {
+                var info = _semanticModel.GetSymbolInfo(node);
+                var id = AttributeId(info.Symbol);
+                if (id != null)
+                {
+                    _fieldAccesses.Add(id);
+                }
+                else if (info.Symbol == null && info.CandidateSymbols.Any(c => AttributeId(c) != null))
+                {
+                    AmbiguousAccesses++;
+                }
+            }
         }
 
         base.VisitIdentifierName(node);
     }
+
+    /// <summary>
+    /// Positions where the identifier names a member without using the current object's state, even
+    /// when it binds to an attribute of the class: another object's member, an initializer or pattern
+    /// target, an argument name, or the operand of nameof.
+    /// </summary>
+    private bool IsExcludedBySyntax(IdentifierNameSyntax node)
+    {
+        switch (node.Parent)
+        {
+            // other.X and base.X belong to another object (or to the base class); only this.X counts
+            case MemberAccessExpressionSyntax memberAccess when memberAccess.Name == node &&
+                memberAccess.Expression is not ThisExpressionSyntax:
+            case MemberBindingExpressionSyntax:
+            case NameEqualsSyntax:
+                return true;
+            // new T { X = ... }: X is a member of the created object
+            case AssignmentExpressionSyntax assignment when assignment.Left == node &&
+                assignment.Parent is InitializerExpressionSyntax initializer &&
+                initializer.IsKind(SyntaxKind.ObjectInitializerExpression):
+                return true;
+        }
+
+        // Argument names (f(x: 1)) and property patterns ({ X: 1 }, { X.Y: 1 })
+        SyntaxNode top = node;
+        while (top.Parent is MemberAccessExpressionSyntax)
+        {
+            top = top.Parent;
+        }
+
+        if (top.Parent is BaseExpressionColonSyntax)
+        {
+            return true;
+        }
+
+        return node.Ancestors()
+            .TakeWhile(a => a is ExpressionSyntax or ArgumentSyntax or ArgumentListSyntax)
+            .OfType<InvocationExpressionSyntax>()
+            .Any(IsNameof);
+    }
+
+    private bool IsNameof(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is IdentifierNameSyntax { Identifier.Text: "nameof" } &&
+        _semanticModel?.GetSymbolInfo(invocation).Symbol == null;
+
+    private static bool IsCalledName(IdentifierNameSyntax node) =>
+        node.Parent is InvocationExpressionSyntax ||
+        node.Parent is MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax } memberAccess && memberAccess.Name == node;
+
+    /// <summary>
+    /// Identity of the symbol when it is an attribute of the method's class: an instance field,
+    /// property or event declared in it, or a parameter of its primary constructor. Null otherwise.
+    /// </summary>
+    private string? AttributeId(ISymbol? symbol)
+    {
+        switch (symbol?.OriginalDefinition)
+        {
+            case IFieldSymbol { IsStatic: false } field when IsOwnType(field.ContainingType):
+                return InstanceMemberIds.Of(InstanceMemberIds.Field, field.Name, semantic: true);
+            case IPropertySymbol { IsStatic: false } property when IsOwnType(property.ContainingType):
+                return InstanceMemberIds.Of(InstanceMemberIds.Property, property.Name, semantic: true);
+            case IEventSymbol { IsStatic: false } @event when IsOwnType(@event.ContainingType):
+                return InstanceMemberIds.Of(InstanceMemberIds.Event, @event.Name, semantic: true);
+            case IParameterSymbol parameter when
+                parameter.ContainingSymbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor &&
+                IsOwnType(constructor.ContainingType) &&
+                IsPrimaryConstructorParameter(parameter):
+                return InstanceMemberIds.Of(InstanceMemberIds.PrimaryConstructorParameter, parameter.Name, semantic: true);
+            default:
+                return null;
+        }
+    }
+
+    private bool IsOwnType(INamedTypeSymbol? type) => type != null && _classKey != null && TypeKeys.Of(type) == _classKey;
+
+    // Roslyn has no public API that marks the primary constructor: its parameters are declared in the
+    // parameter list of the type declaration, those of an ordinary constructor in the constructor.
+    private static bool IsPrimaryConstructorParameter(IParameterSymbol parameter) =>
+        parameter.DeclaringSyntaxReferences.Any(r => r.GetSyntax() is ParameterSyntax { Parent.Parent: TypeDeclarationSyntax });
 }
 
+/// <summary>
+/// Identity of an attribute for LCOM. With a semantic model it is "{kind}:{name}", so that a primary
+/// constructor parameter and a member with the same name are distinct; without one, the name alone.
+/// The class is implied: only attributes of the method's own class are recorded.
+/// </summary>
+public static class InstanceMemberIds
+{
+    public const string Field = "field";
+    public const string Property = "prop";
+    public const string Event = "event";
+    public const string PrimaryConstructorParameter = "param";
+
+    public static string Of(string kind, string name, bool semantic) => semantic ? $"{kind}:{name}" : name;
+}

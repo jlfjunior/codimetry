@@ -125,6 +125,46 @@ public static class Samples
         }
         """;
 
+    /// <summary>Cap. 2, exemplo de LCOM alto: LCOM = 3.</summary>
+    public const string Cap2Usuario = """
+        using System;
+
+        public class Usuario
+        {
+            public string Nome;
+            public string Email;
+
+            public void ExibirNome()
+            {
+                Console.WriteLine(Nome);
+            }
+
+            public void EnviarEmail(string mensagem)
+            {
+                Console.WriteLine($"Enviando para {Email}: {mensagem}");
+            }
+
+            public void CadastrarProduto()
+            {
+                Console.WriteLine("Produto cadastrado!");
+            }
+        }
+        """;
+
+    /// <summary>Sonda INC-07: nenhum par de métodos compartilha atributo do objeto (LCOM = 3).</summary>
+    public const string LcomFalse = """
+        public class Dto { public string Nome = ""; }
+
+        public class LcomFalse
+        {
+            public string Nome = "";
+            public int Idade;
+            public Dto A() => new Dto { Nome = "x" };
+            public string? B(Dto? d) => d?.Nome;
+            public int C() => Idade;
+        }
+        """;
+
     public const string CkCbo = """
         namespace Samples.Cbo;
 

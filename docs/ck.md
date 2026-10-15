@@ -194,7 +194,23 @@ public class User
 
 ### How this tool computes it
 
-The tool applies the LCOM1 formula above to the class's **non-static methods and constructors**, using the fields and properties of the class as its instance variables. Classes with zero or one method have LCOM = 0.
+The tool applies the LCOM1 formula above to the class's **non-static methods and constructors**. Classes with zero or one method have LCOM = 0.
+
+The instance variables of a class are the ones **declared in it** (in any of its `partial` declarations):
+
+- non-static fields and properties, including computed properties such as `int Total => a + b`;
+- non-static field-like events (`public event EventHandler Changed;`);
+- the parameters of its primary constructor (`class C(Repo repo)`).
+
+Inherited members do not count.
+
+A method **uses** an instance variable when the semantic model binds an identifier in its body to one of them, either as a simple name (`Name`, `_handler()`) or as `this.Name`. These do not count, even when the name matches an instance variable:
+
+- members of another object: `other.Name`, `d?.Name`, `new Dto { Name = "x" }` (the left-hand side of an object initializer), `x is C { Name: "x" }`;
+- argument names (`Create(name: x)`) and `nameof(Name)`;
+- locals, parameters of the method or of an ordinary constructor, and types (`Status.Active` where the class also has a `Status` property).
+
+When the semantic model is not available, identifiers are matched by name with the same syntactic exclusions. The log reports how many methods were analysed that way.
 
 ---
 
