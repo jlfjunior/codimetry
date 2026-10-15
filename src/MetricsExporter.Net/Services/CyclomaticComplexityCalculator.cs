@@ -9,12 +9,19 @@ namespace MetricsExporter.Net.Services;
 /// </summary>
 public class CyclomaticComplexityCalculator
 {
+    private readonly CyclomaticOptions _options;
+
+    public CyclomaticComplexityCalculator(CyclomaticOptions? options = null)
+    {
+        _options = options ?? CyclomaticOptions.Default;
+    }
+
     /// <summary>
     /// Calculates cyclomatic complexity for a method declaration.
     /// </summary>
     public int CalculateComplexity(MethodDeclarationSyntax method)
     {
-        var visitor = new CyclomaticComplexityVisitor();
+        var visitor = new CyclomaticComplexityVisitor(_options);
 
         if (method.Body != null)
         {
@@ -38,7 +45,7 @@ public class CyclomaticComplexityCalculator
     /// </summary>
     public int CalculateComplexity(ConstructorDeclarationSyntax constructor)
     {
-        var visitor = new CyclomaticComplexityVisitor();
+        var visitor = new CyclomaticComplexityVisitor(_options);
 
         if (constructor.Body != null)
         {
@@ -58,7 +65,7 @@ public class CyclomaticComplexityCalculator
     /// </summary>
     public int CalculateComplexity(AccessorDeclarationSyntax accessor)
     {
-        var visitor = new CyclomaticComplexityVisitor();
+        var visitor = new CyclomaticComplexityVisitor(_options);
 
         if (accessor.Body != null)
         {
@@ -82,7 +89,7 @@ public class CyclomaticComplexityCalculator
     /// </summary>
     public int CalculateComplexity(BlockSyntax block)
     {
-        var visitor = new CyclomaticComplexityVisitor();
+        var visitor = new CyclomaticComplexityVisitor(_options);
         visitor.Visit(block);
         return visitor.GetComplexity();
     }

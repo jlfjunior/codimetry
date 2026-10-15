@@ -21,6 +21,7 @@ public class CkMetricsAnalysisService
     private readonly RfcCalculator _rfcCalculator;
     private readonly LcomCalculator _lcomCalculator;
     private readonly CodebaseLoader _codebaseLoader;
+    private readonly CyclomaticOptions? _cyclomaticOptions;
     private readonly ILogger<CkMetricsAnalysisService>? _logger;
 
     public CkMetricsAnalysisService(
@@ -30,12 +31,14 @@ public class CkMetricsAnalysisService
         ILogger<CkMetricsAnalysisService>? logger = null,
         CodebaseLoader? codebaseLoader = null,
         WmcWeight wmcWeight = WmcWeight.Unit,
-        bool wmcExcludeStatic = false)
+        bool wmcExcludeStatic = false,
+        CyclomaticOptions? cyclomaticOptions = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
         _relationshipBuilder = relationshipBuilder;
         _wmcCalculator = new WmcCalculator(wmcWeight, wmcExcludeStatic);
+        _cyclomaticOptions = cyclomaticOptions;
         _ditCalculator = new DitCalculator(relationshipBuilder);
         _nocCalculator = new NocCalculator(relationshipBuilder);
         _cboCalculator = new CboCalculator();
@@ -145,7 +148,7 @@ public class CkMetricsAnalysisService
     {
         try
         {
-            var visitor = new CkSyntaxVisitor(semanticModel);
+            var visitor = new CkSyntaxVisitor(semanticModel, _cyclomaticOptions);
             visitor.Visit(syntaxTree.GetRoot());
 
             return new FileAnalysisData

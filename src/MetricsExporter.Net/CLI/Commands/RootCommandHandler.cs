@@ -80,6 +80,16 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "CK: leave static methods and constructors out of WMC, as v1 did");
 
+        var ccNullOperatorsOption = new Option<bool>(
+            aliases: new[] { "--cc-null-operators" },
+            getDefaultValue: () => false,
+            description: "Cyclomatic: count ??, ??= and ?. as decision points (also in WMC with --wmc-weight cyclomatic)");
+
+        var ccLegacyOperatorsOption = new Option<bool>(
+            aliases: new[] { "--cc-legacy-operators" },
+            getDefaultValue: () => false,
+            description: "Cyclomatic: operator rule of v1 (?? and goto count; ??=, ?. and the pattern combinators or/and do not)");
+
         var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC, CK, MISRA, and Cyclomatic Complexity metrics from .NET codebases")
         {
             pathOption,
@@ -95,7 +105,9 @@ public class RootCommandHandler
             mcAdditiveOption,
             acTypeWeightsOption,
             wmcWeightOption,
-            wmcExcludeStaticOption
+            wmcExcludeStaticOption,
+            ccNullOperatorsOption,
+            ccLegacyOperatorsOption
         };
 
         rootCommand.AddValidator(result =>
@@ -113,6 +125,10 @@ public class RootCommandHandler
             else if (count > 1)
             {
                 result.ErrorMessage = "Error: Only one of --path, --solution, or --project can be specified at a time.";
+            }
+            else if (result.GetValueForOption(ccNullOperatorsOption) && result.GetValueForOption(ccLegacyOperatorsOption))
+            {
+                result.ErrorMessage = "Error: --cc-null-operators and --cc-legacy-operators cannot be used together.";
             }
         });
 
@@ -132,14 +148,17 @@ public class RootCommandHandler
             var acTypeWeights = context.ParseResult.GetValueForOption(acTypeWeightsOption);
             var wmcWeight = context.ParseResult.GetValueForOption(wmcWeightOption);
             var wmcExcludeStatic = context.ParseResult.GetValueForOption(wmcExcludeStaticOption);
+            var cyclomaticOptions = new Parsers.CyclomaticOptions(
+                NullOperators: context.ParseResult.GetValueForOption(ccNullOperatorsOption),
+                LegacyOperators: context.ParseResult.GetValueForOption(ccLegacyOperatorsOption));
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -187,6 +206,10 @@ public class RootCommandHandler
             {
                 logger.LogInformation("Recursive: {Recursive}", !noRecursive);
             }
+            logger.LogInformation("Cyclomatic operators: {Rule}",
+                cyclomaticOptions.LegacyOperators ? "legacy (v1: ?? and goto count)"
+                : cyclomaticOptions.NullOperators ? "null operators (??, ??= and ?. count)"
+                : "default (??, ??=, ?. and goto do not count)");
 
             // Determine which metrics to calculate
             // If no metric flags are specified, calculate all (default behavior)
@@ -248,7 +271,8 @@ public class RootCommandHandler
                     relationshipBuilder,
                     loggerFactory.CreateLogger<CkMetricsAnalysisService>(),
                     wmcWeight: wmcWeight,
-                    wmcExcludeStatic: wmcExcludeStatic);
+                    wmcExcludeStatic: wmcExcludeStatic,
+                    cyclomaticOptions: cyclomaticOptions);
 
                 var ckMetricsResults = await ckAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 
@@ -304,7 +328,8 @@ public class RootCommandHandler
                 var ccAnalysisService = new CyclomaticComplexityAnalysisService(
                     fileDiscovery,
                     roslynParser,
-                    loggerFactory.CreateLogger<CyclomaticComplexityAnalysisService>());
+                    loggerFactory.CreateLogger<CyclomaticComplexityAnalysisService>(),
+                    cyclomaticOptions);
 
                 var ccMetricsResults = await ccAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 

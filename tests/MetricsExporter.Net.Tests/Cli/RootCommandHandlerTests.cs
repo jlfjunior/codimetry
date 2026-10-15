@@ -112,6 +112,36 @@ public class RootCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task CcOperatorOptions_ChangeTheVgAndTheCyclomaticWmc()
+    {
+        _dir.WriteFile("src/Names.cs", "public class Names { public string Of(string? s) => s ?? \"\"; }");
+
+        async Task<(string[] Cc, string[] Ck)> Collect(params string[] options)
+        {
+            Assert.Equal(0, await Run(["--path", Source, "--out", Output, "--cc", "--ck", "--wmc-weight", "cyclomatic", .. options]));
+            return (File.ReadAllLines(Path.Combine(Output, "metrics_cyclomatic.csv")),
+                    File.ReadAllLines(Path.Combine(Output, "metrics_ck.csv")));
+        }
+
+        var byDefault = await Collect();
+        var nullOperators = await Collect("--cc-null-operators");
+        var legacy = await Collect("--cc-legacy-operators");
+
+        Assert.Contains(byDefault.Cc, l => l.EndsWith(",Names,Of,1"));
+        Assert.Contains(byDefault.Ck, l => l.Contains(",Names,1,"));
+        Assert.Contains(nullOperators.Cc, l => l.EndsWith(",Names,Of,2"));
+        Assert.Contains(nullOperators.Ck, l => l.Contains(",Names,2,"));
+        Assert.Contains(legacy.Cc, l => l.EndsWith(",Names,Of,2"));
+    }
+
+    [Fact]
+    public async Task CcNullAndLegacyOperators_FailValidationTogether()
+    {
+        Assert.NotEqual(0, await Run("--path", Source, "--out", Output, "--cc-null-operators", "--cc-legacy-operators"));
+        Assert.Empty(OutputFiles());
+    }
+
+    [Fact]
     public async Task NoInput_FailsValidation()
     {
         Assert.NotEqual(0, await Run("--out", Output));

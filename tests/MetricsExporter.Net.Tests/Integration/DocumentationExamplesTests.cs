@@ -1,4 +1,5 @@
 using MetricsExporter.Net.Tests.Helpers;
+using MetricsExporter.Net.Parsers;
 using MetricsExporter.Net.Services;
 
 namespace MetricsExporter.Net.Tests.Integration;
@@ -54,13 +55,16 @@ public class DocumentationExamplesTests : IDisposable
     }
 
     [Fact]
-    public async Task Cyclomatic_ShippingCalculator_Fee_Is7()
+    public async Task Cyclomatic_ShippingCalculator_Fee_Is5()
     {
         _dir.WriteFile("Shipping.cs", Samples.ShippingCalculator);
 
         var metrics = await Analyzers.Cyclomatic(_dir.Path);
+        var withNullOperators = await Analyzers.Cyclomatic(_dir.Path, new CyclomaticOptions(NullOperators: true));
 
-        Assert.Equal(7, metrics.Single(m => m.MethodName == "Fee").Complexity);
+        // 1 + 2 arms (the discard arm is not a decision) + && + ?:; ?? only with --cc-null-operators
+        Assert.Equal(5, metrics.Single(m => m.MethodName == "Fee").Complexity);
+        Assert.Equal(6, withNullOperators.Single(m => m.MethodName == "Fee").Complexity);
         Assert.Equal(2, metrics.Single(m => m.MethodName == "Discount").Complexity);
     }
 

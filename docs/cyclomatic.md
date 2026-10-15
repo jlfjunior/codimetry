@@ -108,16 +108,22 @@ The tool starts each method at **1** and adds **1** for each of the following:
 | Construct | Counted |
 |-----------|---------|
 | `if`, `else if` | each one |
-| `switch` statement | each `case` label **and** the `default` label |
-| `switch` expression | each arm, including the discard arm `_` |
+| `switch` statement | each `case` label, constant or pattern (`case 1: case 2:` counts 2); **not** `default`, nor a catch-all `case var x:` without `when` |
+| `switch` expression | each arm, **except** the catch-all arm (`_`, or `var x` without `when`) |
 | `for`, `foreach`, `while`, `do-while` | each loop |
 | `catch` | each clause |
 | `?:` | each ternary |
-| `&&`, `\|\|` | each operator |
-| `??` | each null-coalescing operator |
-| `goto` | each jump |
+| `&&`, `\|\|` | each operator, in any expression (short-circuiting creates the path even in an assignment) |
+| `or`, `and` (pattern combinators) | each combinator, like `\|\|` and `&&` |
 
-Compared with the definition above, the tool **also counts** `default` labels, `switch`-expression discard arms, `??`, and `goto`. All of these add an execution path in C#, but the dissertation's definition (Section 2.4) does not list them. If you compare values with other tools, check how each of these constructs is treated.
+`default` and the catch-all pattern are not counted for the same reason as a plain `else`: they are the complementary path of the other labels. A `when` clause is part of its `case` or arm and adds nothing of its own, but `&&` and `\|\|` inside it count. A `when` does make `_` or `var x` conditional, so `_ when ready => …` counts.
+
+**Not counted:**
+
+- `goto`: an unconditional jump has a single outgoing edge, so it creates no independent path.
+- `??`, `??=` and `?.`: the dissertation's definition (Section 2.4) does not list them. They branch on null, so the three follow one rule: none counts by default, and `--cc-null-operators` counts each one.
+
+`--cc-legacy-operators` restores the operator rule of v1: `??` and `goto` count; `??=`, `?.`, `or` and `and` do not. The two options cannot be used together. The `switch` rules above apply in every mode: the v1 count of `default` and `_` was a defect. The options also apply to WMC with `--wmc-weight cyclomatic`, which uses this same count, and the log records which rule was used.
 
 An example using these modern C# constructs:
 
@@ -132,11 +138,11 @@ public decimal Fee(Region region, decimal weight, string? coupon) =>
 ```
 
 - base 1
-- 3 switch arms (+3)
+- 2 switch arms (+2); the discard arm `_` is not counted
 - `&&` (+1)
 - `?:` (+1)
-- `??` (+1)
-- **Complexity = 7**, which is what the tool reports
+- `??` is not counted
+- **Complexity = 5**, which is what the tool reports (6 with `--cc-null-operators`)
 
 What gets measured:
 
@@ -152,6 +158,7 @@ The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods
 - **Nesting is ignored.** Two methods with the same number of decisions get the same value, whether the code is flat or deeply nested (Shepperd, 1988). Use [MC](misra.md#mc--method-complexity) for a nesting-aware view.
 - **Data complexity is ignored.** Only control flow is measured.
 - **Correlation with size.** $V(G)$ tends to grow with LOC, but Landman et al. (2016) show that the correlation is only moderate at the **method** level, so the two metrics are not redundant there. The correlation gets stronger when values are aggregated to classes or systems.
+- **Exhaustive `switch` expressions without a catch-all.** `flag switch { true => a, false => b }` has two paths, but the tool counts both arms (V(G) = 3, not 2): telling that the arms are exhaustive needs the semantic model. Write the last arm as `_` to get the exact value.
 - **Weak predictor of understandability on its own.** Esposito et al. (2024) found only a moderate correlation with the understandability perceived by early-career developers. Use it together with the [CK](ck.md) and [Misra](misra.md) metrics.
 
 ## References

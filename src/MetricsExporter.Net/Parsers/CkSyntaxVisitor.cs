@@ -133,11 +133,14 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
 {
     private readonly List<CkCodeElement> _classes = new();
     private readonly List<CkMethodInfo> _methods = new();
+    private readonly CyclomaticOptions _cyclomaticOptions;
     private readonly List<ClassDependency> _dependencies = new();
     private readonly SemanticModel? _semanticModel;
 
-    public CkSyntaxVisitor(SemanticModel? semanticModel = null) : base(SyntaxWalkerDepth.Node)
+    /// <param name="cyclomaticOptions">Operator rule for the V(G) of each method (WMC with c_i = V(G)).</param>
+    public CkSyntaxVisitor(SemanticModel? semanticModel = null, CyclomaticOptions? cyclomaticOptions = null) : base(SyntaxWalkerDepth.Node)
     {
+        _cyclomaticOptions = cyclomaticOptions ?? CyclomaticOptions.Default;
         _semanticModel = semanticModel;
     }
 
@@ -385,14 +388,14 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     /// <summary>
     /// V(G) of a body; a method without one (abstract, interface, extern) has a single path.
     /// </summary>
-    private static int CyclomaticComplexityOf(SyntaxNode? body)
+    private int CyclomaticComplexityOf(SyntaxNode? body)
     {
         if (body == null)
         {
             return 1;
         }
 
-        var visitor = new CyclomaticComplexityVisitor();
+        var visitor = new CyclomaticComplexityVisitor(_cyclomaticOptions);
         visitor.Visit(body);
         return visitor.GetComplexity();
     }

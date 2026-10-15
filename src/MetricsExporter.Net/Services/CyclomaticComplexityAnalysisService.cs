@@ -20,11 +20,12 @@ public class CyclomaticComplexityAnalysisService
     public CyclomaticComplexityAnalysisService(
         FileDiscoveryService fileDiscoveryService,
         RoslynParser roslynParser,
-        ILogger<CyclomaticComplexityAnalysisService>? logger = null)
+        ILogger<CyclomaticComplexityAnalysisService>? logger = null,
+        CyclomaticOptions? options = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
-        _calculator = new CyclomaticComplexityCalculator();
+        _calculator = new CyclomaticComplexityCalculator(options);
         _logger = logger;
     }
 

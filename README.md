@@ -94,6 +94,8 @@ You can analyze code using one of three input options:
 | `--ac-type-weights` | | MISRA: compute AC as v1 did, weighting attributes by type and counting `static`/`const` members (see [docs/misra.md](docs/misra.md#ac--attribute-complexity)) | `false` |
 | `--wmc-weight` | | CK: weight of each method in WMC, `unit` (c_i = 1) or `cyclomatic` (c_i = V(G)) (see [docs/ck.md](docs/ck.md#wmc--weighted-methods-per-class)) | `unit` |
 | `--wmc-exclude-static` | | CK: leave static methods and constructors out of WMC, as v1 did | `false` |
+| `--cc-null-operators` | | Cyclomatic: count `??`, `??=` and `?.` as decision points, also in WMC with `--wmc-weight cyclomatic` (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
+| `--cc-legacy-operators` | | Cyclomatic: operator rule of v1 (`??` and `goto` count; `??=`, `?.`, `or`/`and` do not) | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
@@ -336,7 +338,7 @@ See [cyclomatic.md](docs/cyclomatic.md#interpretation) for reference thresholds 
 | Metric | In one line | Details |
 |--------|-------------|---------|
 | LOC | Non-blank, non-comment lines of each method and constructor. Classes and files sum their methods | [loc.md](docs/loc.md) |
-| Cyclomatic Complexity | 1 + number of decision points (`if`, `case`, loops, `catch`, `?:`, `&&`, `\|\|`, `??`…) | [cyclomatic.md](docs/cyclomatic.md) |
+| Cyclomatic Complexity | 1 + number of decision points (`if`, `case`, loops, `catch`, `?:`, `&&`, `\|\|`, `or`/`and`…) | [cyclomatic.md](docs/cyclomatic.md) |
 | WMC, RFC, LCOM, CBO, DIT, NOC | Chidamber & Kemerer object-oriented design metrics | [ck.md](docs/ck.md) |
 | MC, AC, CLC, CWC, CC | Misra et al. cognitive complexity metrics, using Basic Control Structure weights | [misra.md](docs/misra.md) |
 
