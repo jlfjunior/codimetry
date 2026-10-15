@@ -13,17 +13,23 @@ public class MetricsAnalysisService
     private readonly FileDiscoveryService _fileDiscoveryService;
     private readonly RoslynParser _roslynParser;
     private readonly LocCalculator _locCalculator;
+    private readonly LogicalLocCalculator _logicalLocCalculator;
+    private readonly PhysicalLocCalculator _physicalLocCalculator;
     private readonly ILogger<MetricsAnalysisService>? _logger;
 
     public MetricsAnalysisService(
         FileDiscoveryService fileDiscoveryService,
         RoslynParser roslynParser,
         LocCalculator locCalculator,
+        LogicalLocCalculator logicalLocCalculator,
+        PhysicalLocCalculator physicalLocCalculator,
         ILogger<MetricsAnalysisService>? logger = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
         _locCalculator = locCalculator;
+        _logicalLocCalculator = logicalLocCalculator;
+        _physicalLocCalculator = physicalLocCalculator;
         _logger = logger;
     }
 
@@ -59,21 +65,6 @@ public class MetricsAnalysisService
             }
         }
 
-        // Add file-level metrics (sum of all classes in file)
-        var fileLevelMetrics = allMetrics
-            .Where(m => !string.IsNullOrEmpty(m.ClassName) && string.IsNullOrEmpty(m.MethodName))
-            .GroupBy(m => m.FilePath)
-            .Select(g => new LocMetric
-            {
-                FilePath = g.Key,
-                ClassName = string.Empty,
-                MethodName = string.Empty,
-                Loc = g.Sum(c => c.Loc)
-            })
-            .ToList();
-
-        allMetrics.AddRange(fileLevelMetrics);
-
         return allMetrics;
     }
 
@@ -107,7 +98,8 @@ public class MetricsAnalysisService
                     FilePath = filePath,
                     ClassName = method.ContainingClass ?? string.Empty,
                     MethodName = method.Name,
-                    Loc = methodLoc
+                    Loc = methodLoc,
+                    Lloc = _logicalLocCalculator.Calculate(method.Node)
                 });
             }
 
@@ -126,9 +118,22 @@ public class MetricsAnalysisService
                     FilePath = filePath,
                     ClassName = classElement.Name,
                     MethodName = string.Empty,
-                    Loc = classLoc
+                    Loc = classLoc,
+                    Lloc = _logicalLocCalculator.Calculate(classElement.Node)
                 });
             }
+
+            // File row: LOC keeps the v1 sum of classes; LLOC and physical LOC are measured on the whole file,
+            // so records, structs, enums, nested types and files without classes are all covered.
+            metrics.Add(new LocMetric
+            {
+                FilePath = filePath,
+                ClassName = string.Empty,
+                MethodName = string.Empty,
+                Loc = metrics.Where(m => !string.IsNullOrEmpty(m.ClassName) && string.IsNullOrEmpty(m.MethodName)).Sum(m => m.Loc),
+                Lloc = _logicalLocCalculator.Calculate(syntaxTree.GetRoot()),
+                PhysicalLoc = _physicalLocCalculator.Calculate(syntaxTree.GetText())
+            });
 
             _logger?.LogDebug("Extracted {Count} metrics from {FilePath}", metrics.Count, filePath);
 

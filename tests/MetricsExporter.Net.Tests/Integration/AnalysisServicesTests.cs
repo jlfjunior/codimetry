@@ -62,6 +62,47 @@ public class AnalysisServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task Lloc_ClassAndFileAreMeasuredOnTheirNodes()
+    {
+        _dir.WriteFile("Account.cs", Account);
+
+        var metrics = await Analyzers.Loc(_dir.Path);
+        var account = metrics.Where(m => m.ClassName == "Account").ToDictionary(m => m.MethodName);
+
+        Assert.Equal(4, account["Account"].Lloc); // declaration, if, throw, assignment
+        Assert.Equal(1, account["Run"].Lloc);
+        // class, field, constructor (4), Balance (property 1 + get 2 + set 3), Count, Run
+        Assert.Equal(1 + 1 + 4 + 6 + 1 + 1, account[""].Lloc);
+        Assert.Equal(2 + 14, metrics.Single(m => m.ClassName == "" && m.MethodName == "").Lloc);
+    }
+
+    [Fact]
+    public async Task Loc_EveryFileGetsAFileRow_EvenWithoutClasses()
+    {
+        _dir.WriteFile("Dto.cs", "public record Dto(string Nome);\npublic enum E { A }\n");
+        _dir.WriteFile("Comments.cs", "// one\n// two\n// three\n");
+
+        var metrics = await Analyzers.Loc(_dir.Path);
+        var dto = metrics.Single(m => m.FilePath.EndsWith("Dto.cs"));
+        var comments = metrics.Single(m => m.FilePath.EndsWith("Comments.cs"));
+
+        Assert.Equal((0, 1 + 1 + 1, 2), (dto.Loc, dto.Lloc, dto.PhysicalLoc));
+        Assert.Equal((0, 0, 3), (comments.Loc, comments.Lloc, comments.PhysicalLoc));
+    }
+
+    [Fact]
+    public async Task Loc_NestedClass_IsCountedOnceInTheFileRow()
+    {
+        _dir.WriteFile("Outer.cs", "class Outer { class Inner { void M() { } } }");
+
+        var metrics = await Analyzers.Loc(_dir.Path);
+
+        Assert.Equal(3, metrics.Single(m => m.ClassName == "Outer").Lloc);
+        Assert.Equal(2, metrics.Single(m => m.ClassName == "Inner" && m.MethodName == "").Lloc);
+        Assert.Equal(3, metrics.Single(m => m.ClassName == "" && m.MethodName == "").Lloc);
+    }
+
+    [Fact]
     public async Task Loc_NonRecursive_IgnoresSubdirectories()
     {
         _dir.WriteFile("Top.cs", "public class Top { public void M() { } }");

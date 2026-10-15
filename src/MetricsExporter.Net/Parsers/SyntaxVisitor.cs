@@ -14,6 +14,7 @@ public class CodeElement
     public int StartLine { get; set; }
     public int EndLine { get; set; }
     public bool IsClass { get; set; }
+    public SyntaxNode Node { get; set; } = null!;
 }
 
 /// <summary>
@@ -40,7 +41,8 @@ public class SyntaxVisitor : CSharpSyntaxWalker
             Name = className,
             StartLine = startLine,
             EndLine = endLine,
-            IsClass = true
+            IsClass = true,
+            Node = node
         });
 
         // Visit methods in this class
@@ -63,7 +65,8 @@ public class SyntaxVisitor : CSharpSyntaxWalker
             ContainingClass = className,
             StartLine = startLine,
             EndLine = endLine,
-            IsClass = false
+            IsClass = false,
+            Node = node
         });
 
         base.VisitMethodDeclaration(node);
@@ -85,7 +88,8 @@ public class SyntaxVisitor : CSharpSyntaxWalker
             ContainingClass = className,
             StartLine = startLine,
             EndLine = endLine,
-            IsClass = false
+            IsClass = false,
+            Node = node
         });
 
         base.VisitConstructorDeclaration(node);

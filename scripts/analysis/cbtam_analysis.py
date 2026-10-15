@@ -143,7 +143,8 @@ def load_participant(directory):
         "misra_classes": last_per_key(misra_classes_raw, ["FilePath", "ClassName"]),
         "misra_classes_raw": misra_classes_raw,
         "methods": [r for r in misra if r["MethodName"]],
-        "loc": int(sum(num(r, "LOC") for r in file_level(loc))),
+        # Tamanho = LLOC (Park, 1992); resultados v1 sem a coluna caem na LOC antiga
+        "loc": int(sum(num(r, "LLOC" if "LLOC" in r else "LOC") for r in file_level(loc))),
         "cyclomatic": int(sum(num(r, "Complexity") for r in file_level(cyc))),
         "coc": int(num(codebase_rows[0], "CC")) if codebase_rows else 0,
     }

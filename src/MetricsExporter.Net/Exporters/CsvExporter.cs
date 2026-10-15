@@ -19,7 +19,7 @@ public class CsvExporter
         var csv = new StringBuilder();
         
         // Write header
-        csv.AppendLine("FilePath,ClassName,MethodName,LOC");
+        csv.AppendLine("FilePath,ClassName,MethodName,LOC,LLOC,PhysicalLOC");
 
         // Write data rows
         foreach (var metric in metrics)
@@ -28,7 +28,7 @@ public class CsvExporter
             var className = EscapeCsvField(metric.ClassName);
             var methodName = EscapeCsvField(metric.MethodName);
             
-            csv.AppendLine($"{filePath},{className},{methodName},{metric.Loc}");
+            csv.AppendLine($"{filePath},{className},{methodName},{metric.Loc},{metric.Lloc},{metric.PhysicalLoc}");
         }
 
         await File.WriteAllTextAsync(outputPath, csv.ToString());

@@ -15,13 +15,16 @@ public class CsvExporterTests : IDisposable
         File.ReadAllLines(_dir.Combine(fileName));
 
     [Fact]
-    public async Task Loc_WritesHeaderAndRows()
+    public async Task Loc_WritesHeaderAndRows_PhysicalLocEmptyBelowFileLevel()
     {
         await _exporter.ExportAsync(
-            [new LocMetric { FilePath = "a.cs", ClassName = "A", MethodName = "M", Loc = 5 }],
+            [
+                new LocMetric { FilePath = "a.cs", ClassName = "A", MethodName = "M", Loc = 5, Lloc = 3 },
+                new LocMetric { FilePath = "a.cs", Loc = 5, Lloc = 4, PhysicalLoc = 10 }
+            ],
             _dir.Combine("metrics_loc.csv"));
 
-        Assert.Equal(["FilePath,ClassName,MethodName,LOC", "a.cs,A,M,5"], Lines("metrics_loc.csv"));
+        Assert.Equal(["FilePath,ClassName,MethodName,LOC,LLOC,PhysicalLOC", "a.cs,A,M,5,3,", "a.cs,,,5,4,10"], Lines("metrics_loc.csv"));
     }
 
     [Fact]
@@ -61,7 +64,7 @@ public class CsvExporterTests : IDisposable
             [new LocMetric { FilePath = "dir, with comma/a.cs", ClassName = "Say\"Hi\"", MethodName = "", Loc = 1 }],
             _dir.Combine("metrics_loc.csv"));
 
-        Assert.Equal("\"dir, with comma/a.cs\",\"Say\"\"Hi\"\"\",,1", Lines("metrics_loc.csv")[1]);
+        Assert.Equal("\"dir, with comma/a.cs\",\"Say\"\"Hi\"\"\",,1,0,", Lines("metrics_loc.csv")[1]);
     }
 
     [Fact]

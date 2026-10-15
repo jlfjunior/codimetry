@@ -26,6 +26,20 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(5, metrics.Single(m => m.ClassName == "" && m.MethodName == "").Loc);
     }
 
+    [Fact]
+    public async Task Loc_Calculator_LogicalIs4_PhysicalIs10()
+    {
+        _dir.WriteFile("Calculator.cs", Samples.LocCalculator);
+
+        var metrics = await Analyzers.Loc(_dir.Path);
+        var file = metrics.Single(m => m.ClassName == "" && m.MethodName == "");
+
+        Assert.Equal(4, file.Lloc);
+        Assert.Equal(10, file.PhysicalLoc);
+        Assert.Equal(3, metrics.Single(m => m.MethodName == "Add").Lloc);
+        Assert.Equal(4, metrics.Single(m => m.ClassName == "Calculator" && m.MethodName == "").Lloc);
+    }
+
     // ---------- docs/cyclomatic.md ----------
 
     [Fact]

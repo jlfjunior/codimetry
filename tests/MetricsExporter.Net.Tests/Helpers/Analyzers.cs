@@ -10,7 +10,8 @@ namespace MetricsExporter.Net.Tests.Helpers;
 public static class Analyzers
 {
     public static Task<List<LocMetric>> Loc(string path, bool recursive = true) =>
-        new MetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new LocCalculator())
+        new MetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new LocCalculator(),
+                new LogicalLocCalculator(), new PhysicalLocCalculator())
             .AnalyzeAsync(path, recursive);
 
     public static Task<List<CyclomaticComplexityMetric>> Cyclomatic(string path) =>

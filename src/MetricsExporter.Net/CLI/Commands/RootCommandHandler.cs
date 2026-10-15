@@ -185,6 +185,8 @@ public class RootCommandHandler
                     fileDiscovery,
                     roslynParser,
                     locCalculator,
+                    new LogicalLocCalculator(),
+                    new PhysicalLocCalculator(),
                     loggerFactory.CreateLogger<MetricsAnalysisService>());
 
                 var metrics = await analysisService.AnalyzeAsync(inputPath, !noRecursive);
