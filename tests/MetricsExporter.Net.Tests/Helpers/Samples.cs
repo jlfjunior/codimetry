@@ -165,6 +165,17 @@ public static class Samples
         }
         """;
 
+    /// <summary>Sonda INC-08: o construtor estático não entra no WMC nem na LCOM (WMC = 1, LCOM = 0).</summary>
+    public const string StaticCtor = """
+        public class StaticCtor
+        {
+            static int x;
+            int y;
+            static StaticCtor() { x = 1; }
+            public int Get() => y;
+        }
+        """;
+
     public const string CkCbo = """
         namespace Samples.Cbo;
 

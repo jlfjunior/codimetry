@@ -101,6 +101,17 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(3, metrics["LcomFalse"].LCOM);   // INC-07: Nome of a Dto is not an attribute of LcomFalse
     }
 
+    [Fact]
+    public async Task Ck_StaticConstructor_IsNotAnInstanceMethod()
+    {
+        _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);
+
+        var metric = (await Analyzers.Ck(_dir.Path)).Single(m => m.ClassName == "StaticCtor");
+
+        Assert.Equal(1, metric.WMC);    // INC-08: static constructor follows the rule of static methods
+        Assert.Equal(0, metric.LCOM);
+    }
+
     // ---------- docs/misra.md ----------
 
     [Fact]

@@ -334,7 +334,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             ContainingClassKey = containingClass != null ? TypeKeys.Of(containingClass, _semanticModel) : null,
             StartLine = startLine,
             EndLine = endLine,
-            IsStatic = false,
+            IsStatic = node.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)),
             ReturnType = null
         };
 

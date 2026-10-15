@@ -236,4 +236,12 @@ public class CkSyntaxVisitorTests
         Assert.Equal(["Init"], ctorB.CalledMethods);
         Assert.Equal(["int"], ctorB.ParameterTypes);
     }
+
+    [Fact]
+    public void Constructors_IsStatic_ReflectsTheStaticModifier()
+    {
+        var visitor = Code.VisitCk("class C { static C() { } C() { } }");
+
+        Assert.Equal([true, false], visitor.GetMethods().Select(m => m.IsStatic));
+    }
 }
