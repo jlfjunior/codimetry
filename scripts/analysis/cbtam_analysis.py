@@ -264,8 +264,13 @@ def analyse(participants):
     correlations = {(a, b): pearson([s[a] for s in summaries], [s[b] for s in summaries])
                     for i, a in enumerate(corr_fields) for b in corr_fields[i + 1:]}
 
+    # LCOM is at most n(n−1)/2 over its own methods; v1 results have no LcomMethods column and
+    # computed LCOM over the same methods WMC counted
+    def lcom_methods(r):
+        return num(r, "LcomMethods" if "LcomMethods" in r else "WMC")
+
     lcom_equals_max_pairs = sum(1 for r in all_classes
-                                if num(r, "LCOM") == num(r, "WMC") * (num(r, "WMC") - 1) / 2)
+                                if num(r, "LCOM") == lcom_methods(r) * (lcom_methods(r) - 1) / 2)
 
     # DIT x NOC in metric_redundancy is a class-level correlation, unlike the others
     dit_noc_class_level = pearson([num(r, "DIT") for r in all_classes], [num(r, "NOC") for r in all_classes])
@@ -420,7 +425,7 @@ def render_report(r, label):
     L += ["", "## empirical_application", "",
           "Limiares absolutos (% Normal sobre todas as classes): " +
           ", ".join(f"{m} {fmt(v, 1)}%" for m, v in r["absolute_normal_pct"].items()), "",
-          f"LCOM = WMC(WMC−1)/2 em {fmt(r['lcom_equals_max_pairs_pct'])}% das classes.", "",
+          f"LCOM = n(n−1)/2 (n = métodos da LCOM; WMC na v1) em {fmt(r['lcom_equals_max_pairs_pct'])}% das classes.", "",
           "Limiares relativos (amostra combinada):", "", "| Métrica | População | P50 | P90 |", "|---|---:|---:|---:|"]
     for m, th in r["thresholds"].items():
         L.append(f"| {m} | {th['n']} | {fmt(th['p50'])} | {fmt(th['p90'])} |")

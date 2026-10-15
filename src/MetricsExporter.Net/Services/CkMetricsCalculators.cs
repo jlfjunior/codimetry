@@ -4,18 +4,41 @@ using MetricsExporter.Net.Services;
 namespace MetricsExporter.Net.Services;
 
 /// <summary>
+/// Weight c_i of each method in WMC.
+/// </summary>
+public enum WmcWeight
+{
+    /// <summary>c_i = 1: WMC is the number of methods.</summary>
+    Unit,
+    /// <summary>c_i = V(G) of the method.</summary>
+    Cyclomatic
+}
+
+/// <summary>
 /// Calculator for WMC (Weighted Methods per Class) metric.
 /// </summary>
 public class WmcCalculator
 {
+    private readonly WmcWeight _weight;
+    private readonly bool _excludeStatic;
+
+    /// <param name="weight">Weight of each method (--wmc-weight).</param>
+    /// <param name="excludeStatic">Leave static methods and constructors out, as v1 did (--wmc-exclude-static).</param>
+    public WmcCalculator(WmcWeight weight = WmcWeight.Unit, bool excludeStatic = false)
+    {
+        _weight = weight;
+        _excludeStatic = excludeStatic;
+    }
+
     /// <summary>
-    /// Calculates WMC as the count of methods in a class.
+    /// Calculates WMC = Σ c_i over the methods and constructors declared in the class, static ones
+    /// included unless excluded.
     /// </summary>
     public int CalculateWmc(string classKey, IReadOnlyList<CkMethodInfo> allMethods)
     {
-        return allMethods.Count(m => 
-            m.ContainingClassKey == classKey && 
-            !m.IsStatic); // Typically exclude static methods, but can be configurable
+        return allMethods
+            .Where(m => m.ContainingClassKey == classKey && !(_excludeStatic && m.IsStatic))
+            .Sum(m => _weight == WmcWeight.Cyclomatic ? m.CyclomaticComplexity : 1);
     }
 }
 
@@ -184,6 +207,12 @@ public class RfcCalculator
 public class LcomCalculator
 {
     /// <summary>
+    /// The methods LCOM is computed over: the instance methods of the class, without constructors.
+    /// </summary>
+    public static IEnumerable<CkMethodInfo> Methods(string classKey, IReadOnlyList<CkMethodInfo> allMethods) =>
+        allMethods.Where(m => m.ContainingClassKey == classKey && !m.IsStatic && !m.IsConstructor);
+
+    /// <summary>
     /// Calculates LCOM using the original Chidamber-Kemerer formula.
     /// LCOM = P - Q, where:
     /// P = number of method pairs that don't share instance variables
@@ -191,9 +220,7 @@ public class LcomCalculator
     /// </summary>
     public int CalculateLcom(string classKey, IReadOnlyList<CkMethodInfo> allMethods, IReadOnlyList<ClassDependency> dependencies)
     {
-        var classMethods = allMethods
-            .Where(m => m.ContainingClassKey == classKey && !m.IsStatic && !m.IsConstructor)
-            .ToList();
+        var classMethods = Methods(classKey, allMethods).ToList();
 
         if (classMethods.Count <= 1)
         {

@@ -6,7 +6,7 @@ A .NET command-line tool designed to extract software metrics from local .NET re
 
 - ✅ **Lines of Code (LOC) Calculation** - Counts effective lines of code excluding comments and empty lines
 - ✅ **CK Metrics (Chidamber-Kemerer)** - Calculates six object-oriented design metrics:
-  - **WMC** (Weighted Methods per Class) - Method count per class
+  - **WMC** (Weighted Methods per Class) - Method count per class, or sum of their cyclomatic complexity with `--wmc-weight cyclomatic`
   - **DIT** (Depth of Inheritance Tree) - Inheritance depth
   - **NOC** (Number of Children) - Immediate subclasses count
   - **CBO** (Coupling Between Objects) - Class coupling measure
@@ -92,6 +92,8 @@ You can analyze code using one of three input options:
 | `--cyclomatic` | `--cc` | Calculate and export Cyclomatic Complexity metrics | `false` |
 | `--mc-additive` | | MISRA: compute MC with the additive rule of v1 instead of the composition rule (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `false` |
 | `--ac-type-weights` | | MISRA: compute AC as v1 did, weighting attributes by type and counting `static`/`const` members (see [docs/misra.md](docs/misra.md#ac--attribute-complexity)) | `false` |
+| `--wmc-weight` | | CK: weight of each method in WMC, `unit` (c_i = 1) or `cyclomatic` (c_i = V(G)) (see [docs/ck.md](docs/ck.md#wmc--weighted-methods-per-class)) | `unit` |
+| `--wmc-exclude-static` | | CK: leave static methods and constructors out of WMC, as v1 did | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
@@ -224,26 +226,27 @@ src/Example.cs,,,12
 #### CSV Format
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods
 ```
 
 #### Columns
 
 - **FilePath**: Relative or absolute path to the source file
 - **ClassName**: Name of the class
-- **WMC**: Weighted Methods per Class (method count)
+- **WMC**: Weighted Methods per Class (method count, static methods included; sum of V(G) with `--wmc-weight cyclomatic`)
 - **DIT**: Depth of Inheritance Tree (inheritance depth; `System.Object` counts as one level, so a class with no explicit base has DIT = 1)
 - **NOC**: Number of Children (immediate subclasses count)
 - **CBO**: Coupling Between Objects (number of classes coupled to)
 - **RFC**: Response For a Class (methods in class + methods called)
 - **LCOM**: Lack of Cohesion of Methods (cohesion measure, lower is better)
+- **LcomMethods**: Number of methods LCOM is computed over (instance methods, constructors excluded)
 
 #### Example Output
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM
-src/Example.cs,ExampleClass,5,1,2,3,15,8
-src/Service.cs,UserService,8,0,0,5,25,12
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods
+src/Example.cs,ExampleClass,5,1,2,3,15,8,5
+src/Service.cs,UserService,8,0,0,5,25,12,7
 ```
 
 **Note:** CK metrics are calculated at the class level only (one row per class).

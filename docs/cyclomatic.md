@@ -145,7 +145,7 @@ What gets measured:
 - Lambdas and local functions declared inside a method are added to that method's complexity.
 - **Class rows** sum all the measured members of the class. **File rows** sum all the classes in the file.
 
-The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods-per-class). It differs from the `WMC` column of `metrics_ck.csv`, which counts methods ($c_i = 1$) and does not include property accessors.
+The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods-per-class). It differs from the `WMC` column of `metrics_ck.csv`, which by default counts methods ($c_i = 1$) and, even with `--wmc-weight cyclomatic`, does not include property accessors.
 
 ## Limitations
 

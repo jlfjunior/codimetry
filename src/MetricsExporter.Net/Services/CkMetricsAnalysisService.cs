@@ -28,12 +28,14 @@ public class CkMetricsAnalysisService
         RoslynParser roslynParser,
         ClassRelationshipBuilder relationshipBuilder,
         ILogger<CkMetricsAnalysisService>? logger = null,
-        CodebaseLoader? codebaseLoader = null)
+        CodebaseLoader? codebaseLoader = null,
+        WmcWeight wmcWeight = WmcWeight.Unit,
+        bool wmcExcludeStatic = false)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
         _relationshipBuilder = relationshipBuilder;
-        _wmcCalculator = new WmcCalculator();
+        _wmcCalculator = new WmcCalculator(wmcWeight, wmcExcludeStatic);
         _ditCalculator = new DitCalculator(relationshipBuilder);
         _nocCalculator = new NocCalculator(relationshipBuilder);
         _cboCalculator = new CboCalculator();
@@ -122,7 +124,8 @@ public class CkMetricsAnalysisService
                     NOC = noc,
                     CBO = cbo,
                     RFC = rfc,
-                    LCOM = lcom
+                    LCOM = lcom,
+                    LcomMethods = LcomCalculator.Methods(classKey, allMethods).Count()
                 };
 
                 allMetrics.Add(metric);

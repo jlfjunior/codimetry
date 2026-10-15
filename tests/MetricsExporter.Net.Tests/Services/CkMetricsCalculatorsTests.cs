@@ -6,7 +6,7 @@ namespace MetricsExporter.Net.Tests.Services;
 public class CkMetricsCalculatorsTests
 {
     private static CkMethodInfo Method(string name, string @class = "C", bool isStatic = false,
-        string[]? calls = null, string[]? fields = null, bool isConstructor = false) => new()
+        string[]? calls = null, string[]? fields = null, bool isConstructor = false, int complexity = 1) => new()
     {
         Name = name,
         Key = name,
@@ -14,6 +14,7 @@ public class CkMetricsCalculatorsTests
         ContainingClassKey = @class,
         IsStatic = isStatic,
         IsConstructor = isConstructor,
+        CyclomaticComplexity = complexity,
         CalledMethods = [.. calls ?? []],
         AccessedFields = [.. fields ?? []]
     };
@@ -28,11 +29,39 @@ public class CkMetricsCalculatorsTests
     // ---------- WMC ----------
 
     [Fact]
-    public void Wmc_CountsNonStaticMethodsOfTheClass()
+    public void Wmc_CountsStaticAndInstanceMethodsOfTheClass()
     {
         List<CkMethodInfo> methods = [Method("A"), Method("B"), Method("S", isStatic: true), Method("X", @class: "Other")];
 
-        Assert.Equal(2, new WmcCalculator().CalculateWmc("C", methods));
+        Assert.Equal(3, new WmcCalculator().CalculateWmc("C", methods));
+    }
+
+    [Fact]
+    public void Wmc_ExcludeStatic_LeavesStaticMethodsAndConstructorsOut()
+    {
+        List<CkMethodInfo> methods =
+        [
+            Method("A"),
+            Method("S", isStatic: true),
+            Method("C", isStatic: true, isConstructor: true)
+        ];
+
+        Assert.Equal(1, new WmcCalculator(excludeStatic: true).CalculateWmc("C", methods));
+    }
+
+    [Fact]
+    public void Wmc_CyclomaticWeight_SumsTheVgOfTheMethods()
+    {
+        List<CkMethodInfo> methods =
+        [
+            Method("C", isConstructor: true, complexity: 2),
+            Method("A", complexity: 1),
+            Method("S", isStatic: true, complexity: 3),
+            Method("X", @class: "Other", complexity: 5)
+        ];
+
+        Assert.Equal(2 + 1 + 3, new WmcCalculator(WmcWeight.Cyclomatic).CalculateWmc("C", methods));
+        Assert.Equal(3, new WmcCalculator(WmcWeight.Unit).CalculateWmc("C", methods));
     }
 
     // ---------- RFC ----------

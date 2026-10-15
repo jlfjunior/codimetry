@@ -255,4 +255,25 @@ public class CkSyntaxVisitorTests
         Assert.True(visitor.GetMethods().Single(m => m.Name == "C").IsConstructor);
         Assert.False(visitor.GetMethods().Single(m => m.Name == "M").IsConstructor);
     }
+
+    [Fact]
+    public void CyclomaticComplexity_IsTheVgOfEachMethodAndConstructor()
+    {
+        var visitor = Code.VisitCk("""
+            abstract class C
+            {
+                C(int x) { if (x > 0) { } }
+                int Sign(int x) => x > 0 ? 1 : 0;
+                void Loop() { for (;;) { if (true) { } } }
+                abstract void NoBody();
+            }
+            """);
+
+        var vg = visitor.GetMethods().ToDictionary(m => m.Name, m => m.CyclomaticComplexity);
+
+        Assert.Equal(2, vg["C"]);
+        Assert.Equal(2, vg["Sign"]);
+        Assert.Equal(3, vg["Loop"]);
+        Assert.Equal(1, vg["NoBody"]);   // no body: a single path
+    }
 }

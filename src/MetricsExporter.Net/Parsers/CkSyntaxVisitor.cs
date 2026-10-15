@@ -68,6 +68,10 @@ public class CkMethodInfo
     public bool IsStatic { get; set; }
     public bool IsConstructor { get; set; }
     public bool IsAbstract { get; set; }
+    /// <summary>
+    /// V(G) of the method, by the same visitor as metrics_cyclomatic.csv; 1 when it has no body.
+    /// </summary>
+    public int CyclomaticComplexity { get; set; } = 1;
     public List<CallInfo> Calls { get; set; } = new();
 
     /// <summary>
@@ -298,6 +302,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             EndLine = endLine,
             IsStatic = node.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)),
             IsAbstract = node.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)),
+            CyclomaticComplexity = CyclomaticComplexityOf((SyntaxNode?)node.Body ?? node.ExpressionBody),
             ReturnType = node.ReturnType?.ToString()
         };
 
@@ -337,6 +342,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             EndLine = endLine,
             IsStatic = node.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)),
             IsConstructor = true,
+            CyclomaticComplexity = CyclomaticComplexityOf((SyntaxNode?)node.Body ?? node.ExpressionBody),
             ReturnType = null
         };
 
@@ -374,6 +380,21 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         {
             MethodsWithoutSemanticModel++;
         }
+    }
+
+    /// <summary>
+    /// V(G) of a body; a method without one (abstract, interface, extern) has a single path.
+    /// </summary>
+    private static int CyclomaticComplexityOf(SyntaxNode? body)
+    {
+        if (body == null)
+        {
+            return 1;
+        }
+
+        var visitor = new CyclomaticComplexityVisitor();
+        visitor.Visit(body);
+        return visitor.GetComplexity();
     }
 
     private string MemberId(string kind, string name) => InstanceMemberIds.Of(kind, name, _semanticModel != null);

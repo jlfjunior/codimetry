@@ -48,7 +48,7 @@ public class CsvExporter
         var csv = new StringBuilder();
         
         // Write header
-        csv.AppendLine("FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM");
+        csv.AppendLine("FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods");
 
         // Write data rows
         foreach (var metric in metrics)
@@ -56,7 +56,7 @@ public class CsvExporter
             var filePath = EscapeCsvField(metric.FilePath);
             var className = EscapeCsvField(metric.ClassName);
             
-            csv.AppendLine($"{filePath},{className},{metric.WMC},{metric.DIT},{metric.NOC},{metric.CBO},{metric.RFC},{metric.LCOM}");
+            csv.AppendLine($"{filePath},{className},{metric.WMC},{metric.DIT},{metric.NOC},{metric.CBO},{metric.RFC},{metric.LCOM},{metric.LcomMethods}");
         }
 
         await File.WriteAllTextAsync(outputPath, csv.ToString());

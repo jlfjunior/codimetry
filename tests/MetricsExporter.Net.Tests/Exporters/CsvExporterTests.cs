@@ -31,10 +31,10 @@ public class CsvExporterTests : IDisposable
     public async Task Ck_WritesHeaderAndRows()
     {
         await _exporter.ExportCkMetricsAsync(
-            [new CkMetric { FilePath = "a.cs", ClassName = "A", WMC = 1, DIT = 2, NOC = 3, CBO = 4, RFC = 5, LCOM = 6 }],
+            [new CkMetric { FilePath = "a.cs", ClassName = "A", WMC = 1, DIT = 2, NOC = 3, CBO = 4, RFC = 5, LCOM = 6, LcomMethods = 4 }],
             _dir.Combine("metrics_ck.csv"));
 
-        Assert.Equal(["FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM", "a.cs,A,1,2,3,4,5,6"], Lines("metrics_ck.csv"));
+        Assert.Equal(["FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods", "a.cs,A,1,2,3,4,5,6,4"], Lines("metrics_ck.csv"));
     }
 
     [Fact]

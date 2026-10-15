@@ -22,8 +22,10 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --pat
 This produces `metrics_ck.csv` with **one row per class**:
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods
 ```
+
+`LcomMethods` is the number of methods LCOM is computed over (see [LCOM](#lcom--lack-of-cohesion-of-methods)). It is not a metric: it gives the maximum $n(n-1)/2$ that LCOM can reach, which is no longer derived from WMC now that WMC also counts static methods and constructors.
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options (solutions, projects, output directory).
 
@@ -79,9 +81,18 @@ public class Calculator
 
 ### How this tool computes it
 
-The `WMC` column uses **$c_i = 1$**. It counts the **non-static methods and constructors** declared in the class. Properties, static methods, static constructors, and local functions are not counted. For `Calculator` the tool reports **WMC = 3**.
+WMC is the sum of $c_i$ over the **methods and constructors** declared in the class (in any of its `partial` declarations), **static ones included**: a static method is still a method defined in the class, and Chidamber and Kemerer do not exclude class methods. A static constructor counts as a static method. Property accessors, operators, destructors, and local functions are not counted, so with $c_i = 1$ the column is the number of methods.
 
-To get a complexity-weighted view, run with `--cyclomatic` and look at the class-level rows of `metrics_cyclomatic.csv`. That value sums the cyclomatic complexity of every method in the class, which gives 4 for `Calculator`. Note that it also includes constructors and property accessors.
+`--wmc-weight` chooses $c_i$:
+
+- `unit` (default): **$c_i = 1$**. For `Calculator` the tool reports **WMC = 3**.
+- `cyclomatic`: **$c_i = V(G)$** of the method, computed by the same visitor as `metrics_cyclomatic.csv` (decisions inside lambdas and local functions count for the method that contains them). For `Calculator` the tool reports **WMC = 4**.
+
+A method without a body (abstract, interface, `extern`) has $c_i = 1$ in both variants: it counts once in `unit`, and it has a single path in `cyclomatic`.
+
+`--wmc-exclude-static` restores the rule of v1, which left static methods and static constructors out. With it, a utility class made only of static methods has WMC = 0.
+
+The class-level rows of `metrics_cyclomatic.csv` are not the same as `--wmc-weight cyclomatic`: they also add property accessors, including automatic ones.
 
 ---
 

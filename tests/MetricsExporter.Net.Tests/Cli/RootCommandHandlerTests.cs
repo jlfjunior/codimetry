@@ -90,6 +90,28 @@ public class RootCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task WmcOptions_ChangeTheCkWmc()
+    {
+        _dir.WriteFile("src/Util.cs", "public class Util { public static int A() => 1; public int B() => 2; }");
+
+        async Task<string[]> Ck(params string[] options)
+        {
+            Assert.Equal(0, await Run(["--path", Source, "--out", Output, "--ck", .. options]));
+            return File.ReadAllLines(Path.Combine(Output, "metrics_ck.csv"));
+        }
+
+        // Calculator: Add, Subtract (V(G) 1) and Multiply (V(G) 2); Util: one static and one instance method
+        var unit = await Ck();
+        var cyclomatic = await Ck("--wmc-weight", "cyclomatic");
+        var excludeStatic = await Ck("--wmc-exclude-static");
+
+        Assert.Contains(unit, l => l.Contains(",Calculator,3,"));
+        Assert.Contains(unit, l => l.Contains(",Util,2,"));
+        Assert.Contains(cyclomatic, l => l.Contains(",Calculator,4,"));
+        Assert.Contains(excludeStatic, l => l.Contains(",Util,1,"));
+    }
+
+    [Fact]
     public async Task NoInput_FailsValidation()
     {
         Assert.NotEqual(0, await Run("--out", Output));

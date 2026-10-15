@@ -70,6 +70,16 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "MISRA: compute AC as v1 did, weighting attributes by type (simple = 1, other = 2) and counting static and const members");
 
+        var wmcWeightOption = new Option<WmcWeight>(
+            aliases: new[] { "--wmc-weight" },
+            getDefaultValue: () => WmcWeight.Unit,
+            description: "CK: weight of each method in WMC, unit (c_i = 1) or cyclomatic (c_i = V(G))");
+
+        var wmcExcludeStaticOption = new Option<bool>(
+            aliases: new[] { "--wmc-exclude-static" },
+            getDefaultValue: () => false,
+            description: "CK: leave static methods and constructors out of WMC, as v1 did");
+
         var rootCommand = new RootCommand("MetricsExporter.Net - Extract LOC, CK, MISRA, and Cyclomatic Complexity metrics from .NET codebases")
         {
             pathOption,
@@ -83,7 +93,9 @@ public class RootCommandHandler
             misraOption,
             cyclomaticOption,
             mcAdditiveOption,
-            acTypeWeightsOption
+            acTypeWeightsOption,
+            wmcWeightOption,
+            wmcExcludeStaticOption
         };
 
         rootCommand.AddValidator(result =>
@@ -118,14 +130,16 @@ public class RootCommandHandler
             var cyclomatic = context.ParseResult.GetValueForOption(cyclomaticOption);
             var mcAdditive = context.ParseResult.GetValueForOption(mcAdditiveOption);
             var acTypeWeights = context.ParseResult.GetValueForOption(acTypeWeightsOption);
+            var wmcWeight = context.ParseResult.GetValueForOption(wmcWeightOption);
+            var wmcExcludeStatic = context.ParseResult.GetValueForOption(wmcExcludeStaticOption);
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -232,7 +246,9 @@ public class RootCommandHandler
                     fileDiscovery,
                     roslynParser,
                     relationshipBuilder,
-                    loggerFactory.CreateLogger<CkMetricsAnalysisService>());
+                    loggerFactory.CreateLogger<CkMetricsAnalysisService>(),
+                    wmcWeight: wmcWeight,
+                    wmcExcludeStatic: wmcExcludeStatic);
 
                 var ckMetricsResults = await ckAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 

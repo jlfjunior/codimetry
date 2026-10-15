@@ -16,8 +16,8 @@ public class CkMetric
     public string ClassName { get; set; } = string.Empty;
 
     /// <summary>
-    /// WMC (Weighted Methods per Class): Sum of complexity of all methods in a class.
-    /// For simplicity, this is the count of methods in the class.
+    /// WMC (Weighted Methods per Class): Sum of c_i over the methods and constructors declared in
+    /// the class, static ones included; c_i = 1 or V(G) (see <c>WmcWeight</c>).
     /// </summary>
     public int WMC { get; set; }
 
@@ -49,5 +49,11 @@ public class CkMetric
     /// Based on instance variable usage by methods.
     /// </summary>
     public int LCOM { get; set; }
+
+    /// <summary>
+    /// Number of methods LCOM is computed over (instance methods, no constructors), so that its
+    /// maximum n(n−1)/2 can be checked without assuming it equals WMC.
+    /// </summary>
+    public int LcomMethods { get; set; }
 }
 

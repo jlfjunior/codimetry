@@ -35,7 +35,7 @@ def headline(steps):
     rows = [
         ("Classes", lambda s: str(s["classes"])),
         ("Métodos (MC)", lambda s: str(s["methods"])),
-        ("LCOM = WMC(WMC−1)/2 (%)", lambda s: f(s["lcom_equals_max_pairs_pct"], 2)),
+        ("LCOM = n(n−1)/2 (%)", lambda s: f(s["lcom_equals_max_pairs_pct"], 2)),
         ("Acurácia (%)", lambda s: f(s["accuracy_pct"])),
         ("Linha de base (%)", lambda s: f(s["baseline_pct"])),
         ("ρ regra em estágios", lambda s: f(s["spearman_staged"], 3)),

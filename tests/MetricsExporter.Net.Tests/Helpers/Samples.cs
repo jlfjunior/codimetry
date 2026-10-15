@@ -183,7 +183,7 @@ public static class Samples
         }
         """;
 
-    /// <summary>Sonda INC-08: o construtor estático não entra no WMC nem na LCOM (WMC = 1, LCOM = 0).</summary>
+    /// <summary>Sonda INC-08: o construtor estático conta no WMC como método estático e não entra na LCOM (WMC = 2, LCOM = 0).</summary>
     public const string StaticCtor = """
         public class StaticCtor
         {
@@ -191,6 +191,23 @@ public static class Samples
             int y;
             static StaticCtor() { x = 1; }
             public int Get() => y;
+        }
+        """;
+
+    /// <summary>Sondas INC-05: métodos estáticos e construtores entram no WMC.</summary>
+    public const string WmcProbes = """
+        public class Mixed
+        {
+            public int Get() => 1;
+            public static int A() => 1;
+            public static int B() => 2;
+        }
+
+        public class WithCtor
+        {
+            int _x;
+            public WithCtor(int x) { if (x > 0) { _x = x; } }
+            public int Get() => _x;
         }
         """;
 

@@ -18,8 +18,9 @@ public static class Analyzers
         new CyclomaticComplexityAnalysisService(new FileDiscoveryService(), new RoslynParser())
             .AnalyzeAsync(path);
 
-    public static Task<List<CkMetric>> Ck(string path) =>
-        new CkMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder())
+    public static Task<List<CkMetric>> Ck(string path, WmcWeight wmcWeight = WmcWeight.Unit, bool wmcExcludeStatic = false) =>
+        new CkMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder(),
+                wmcWeight: wmcWeight, wmcExcludeStatic: wmcExcludeStatic)
             .AnalyzeAsync(path);
 
     public static Task<List<MisraMetric>> Misra(string path, bool additiveMc = false, bool acTypeWeights = false) =>

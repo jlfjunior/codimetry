@@ -1,4 +1,5 @@
 using MetricsExporter.Net.Tests.Helpers;
+using MetricsExporter.Net.Services;
 
 namespace MetricsExporter.Net.Tests.Integration;
 
@@ -118,8 +119,54 @@ public class DocumentationExamplesTests : IDisposable
 
         var metric = (await Analyzers.Ck(_dir.Path)).Single(m => m.ClassName == "StaticCtor");
 
-        Assert.Equal(1, metric.WMC);    // INC-08: static constructor follows the rule of static methods
+        Assert.Equal(2, metric.WMC);    // INC-05/INC-08: static constructor counts as a static method
         Assert.Equal(0, metric.LCOM);
+    }
+
+    [Theory]
+    [InlineData("Calculator", 3, 4)]   // Cap. 2: Add and Subtract V(G) 1, Multiply V(G) 2
+    [InlineData("Mixed", 3, 3)]        // 1 instance + 2 static methods, V(G) 1 each
+    [InlineData("WithCtor", 2, 3)]     // constructor V(G) 2 + 1 method V(G) 1
+    [InlineData("StaticCtor", 2, 2)]   // static C() + 1 method
+    public async Task Ck_Wmc_UnitAndCyclomaticWeights(string className, int unit, int cyclomatic)
+    {
+        _dir.WriteFile("Wmc.cs", Samples.CkWmc);
+        _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);
+        _dir.WriteFile("Inc05.cs", Samples.WmcProbes);
+
+        var byUnit = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
+        var byVg = (await Analyzers.Ck(_dir.Path, WmcWeight.Cyclomatic)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(unit, byUnit[className].WMC);
+        Assert.Equal(cyclomatic, byVg[className].WMC);
+    }
+
+    [Fact]
+    public async Task Ck_LcomMethods_CountsOnlyInstanceMethodsWithoutConstructors()
+    {
+        _dir.WriteFile("Wmc.cs", Samples.CkWmc);
+        _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);
+        _dir.WriteFile("Inc05.cs", Samples.WmcProbes);
+
+        var metrics = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(3, metrics["Calculator"].LcomMethods);
+        Assert.Equal(1, metrics["Mixed"].LcomMethods);      // WMC 3: two static methods
+        Assert.Equal(1, metrics["WithCtor"].LcomMethods);   // WMC 2: the constructor
+        Assert.Equal(1, metrics["StaticCtor"].LcomMethods); // WMC 2: the static constructor
+    }
+
+    [Fact]
+    public async Task Ck_WmcExcludeStatic_ReproducesV1()
+    {
+        _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);
+        _dir.WriteFile("Inc05.cs", Samples.WmcProbes);
+
+        var metrics = (await Analyzers.Ck(_dir.Path, wmcExcludeStatic: true)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(1, metrics["Mixed"].WMC);
+        Assert.Equal(1, metrics["StaticCtor"].WMC);
+        Assert.Equal(2, metrics["WithCtor"].WMC);
     }
 
     // ---------- docs/misra.md ----------
