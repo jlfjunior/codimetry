@@ -77,6 +77,7 @@ public class CkSyntaxVisitorTests
     public void DependentTypes_IncludeFieldPropertyReturnAndParameterTypes()
     {
         var visitor = Code.VisitCk("""
+            class A { } class B { } class D { } class E { }
             class C
             {
                 private A _a;
@@ -85,11 +86,46 @@ public class CkSyntaxVisitorTests
             }
             """);
 
-        var dependency = visitor.GetDependencies().Single();
+        var dependency = visitor.GetDependencies().Single(d => d.ClassName == "C");
 
-        Assert.Superset(new HashSet<string> { "A", "B", "D", "E" }, dependency.DependentTypes);
+        Assert.Superset(new HashSet<string> { "Test|A", "Test|B", "Test|D", "Test|E" }, dependency.DependentTypes);
+        Assert.Empty(dependency.UnresolvedTypeNames);
         Assert.Equal(["A"], dependency.FieldTypes);
         Assert.Equal(["B"], dependency.PropertyTypes);
+    }
+
+    [Fact]
+    public void DependentTypes_DecomposeGenericArgumentsArraysAndNullables()
+    {
+        var visitor = Code.VisitCk("""
+            using System.Collections.Generic;
+            class Item { }
+            struct Point { }
+            class C<T>
+            {
+                private Dictionary<string, List<Item[]>> _map;
+                private Point? _p;
+                private T _t;
+            }
+            """);
+
+        var dependency = visitor.GetDependencies().Single(d => d.ClassName == "C");
+
+        Assert.Contains("Test|Item", dependency.DependentTypes);
+        Assert.Contains("Test|Point", dependency.DependentTypes);
+        Assert.DoesNotContain(dependency.DependentTypes, k => k.EndsWith("|T"));
+    }
+
+    [Fact]
+    public void DependentTypes_WithoutSemanticModel_RecordSimpleNames()
+    {
+        var visitor = new CkSyntaxVisitor();
+        visitor.Visit(Code.Parse("class C { private N.Repo<Item>[] _r; public global::X.Logger? L { get; set; } }").GetRoot());
+
+        var dependency = visitor.GetDependencies().Single();
+
+        Assert.Empty(dependency.DependentTypes);
+        Assert.Equal(["Item", "Logger", "Repo"], dependency.UnresolvedTypeNames.Order());
     }
 
     [Fact]

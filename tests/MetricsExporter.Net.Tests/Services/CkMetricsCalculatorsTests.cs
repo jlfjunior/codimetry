@@ -145,24 +145,47 @@ public class CkMetricsCalculatorsTests
 
     // ---------- CBO ----------
 
-    [Fact]
-    public void Cbo_CountsOnlyAnalysedClasses_NormalisingTypeNames()
+    private static ClassRelationshipBuilder CboClasses()
     {
         var builder = new ClassRelationshipBuilder();
-        foreach (var name in new[] { "C", "Repo", "Logger", "Item" })
+        foreach (var (ns, name) in new[] { ("N", "C"), ("N", "Repo"), ("N", "Logger"), ("N", "BackgroundTask"), ("M", "Item"), ("N", "Item") })
         {
-            builder.AddClass(new CkCodeElement { Name = name, FullyQualifiedName = $"N.{name}" }, "f.cs");
+            builder.AddClass(new CkCodeElement { Name = name, ClassKey = $"App|{ns}.{name}", Namespace = ns }, "f.cs");
         }
 
+        return builder;
+    }
+
+    [Fact]
+    public void Cbo_CountsResolvedKeysOfAnalysedClasses_WithoutSelf()
+    {
         var dependency = new ClassDependency
         {
             ClassName = "C",
-            ClassKey = "N.C",
-            DependentTypes = ["Repo<Item>", "N.Logger", "Item[]", "Logger?", "string", "List<int>", "C", "void"]
+            ClassKey = "App|N.C",
+            Namespace = "N",
+            DependentTypes = ["App|N.Repo", "App|N.Logger", "System.Runtime|System.Threading.Tasks.Task", "System.Runtime|System.String", "App|N.C"]
         };
 
-        // Repo, Logger, Item; framework types and the class itself are excluded
-        Assert.Equal(3, new CboCalculator().CalculateCbo(dependency, builder.GetAllClasses()));
+        // Repo and Logger; Task does not match BackgroundTask, framework types and the class itself are excluded
+        Assert.Equal(2, new CboCalculator().CalculateCbo(dependency, CboClasses().GetAllClasses()));
+    }
+
+    [Fact]
+    public void Cbo_UnresolvedNames_MatchExactName_PreferringOwnNamespace()
+    {
+        var dependency = new ClassDependency
+        {
+            ClassName = "C",
+            ClassKey = "App|N.C",
+            Namespace = "N",
+            DependentTypes = ["App|N.Repo"],
+            UnresolvedTypeNames = ["Repo", "Task", "Item", "C"]
+        };
+        var classes = CboClasses().GetAllClasses();
+
+        // Repo (once), Item of namespace N; Task matches no class by exact name
+        Assert.Equal(2, new CboCalculator().CalculateCbo(dependency, classes));
     }
 
     // ---------- DIT / NOC ----------

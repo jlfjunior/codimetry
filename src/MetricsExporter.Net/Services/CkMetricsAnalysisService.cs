@@ -112,6 +112,8 @@ public class CkMetricsAnalysisService
         _logger?.LogInformation("Phase 2: Calculating CK metrics...");
         var allClassesMap = _relationshipBuilder.GetAllClasses();
         var dependencies = ClassDependency.MergeByClass(allDependencies);
+        _logger?.LogInformation("CBO type references: {Count} not resolved by the semantic model, matched by exact name",
+            CboCalculator.UnresolvedReferences(dependencies));
 
         foreach (var classElement in allClasses.GroupBy(c => c.ClassKey!).Select(g => g.First()))
         {

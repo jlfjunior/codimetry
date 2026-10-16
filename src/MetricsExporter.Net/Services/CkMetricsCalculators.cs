@@ -107,67 +107,39 @@ public class NocCalculator
 public class CboCalculator
 {
     /// <summary>
-    /// Calculates CBO as the number of classes to which a class is coupled.
+    /// Calculates CBO as the number of other classes of the analysed code the class references (INC-10):
+    /// resolved types are matched by key, so <c>Task</c> no longer couples to <c>BackgroundTask</c> and
+    /// homonymous classes stay apart. Unresolved type names are matched by exact simple name; among
+    /// homonyms, the one in the class's namespace is preferred, then the first by key.
     /// </summary>
     public int CalculateCbo(ClassDependency dependency, IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses)
     {
-        // Keys of the coupled classes in the relationship graph
-        var coupledClasses = new HashSet<string>();
+        var coupledClasses = dependency.DependentTypes.Where(allClasses.ContainsKey).ToHashSet();
 
-        // Get all types referenced by this class
-        foreach (var type in dependency.DependentTypes)
+        foreach (var name in dependency.UnresolvedTypeNames)
         {
-            var normalizedType = NormalizeTypeName(type);
-            
-            // Check if this type is a class in our codebase
-            if (allClasses.ContainsKey(normalizedType))
+            var match = allClasses
+                .Where(c => c.Value.Name == name)
+                .OrderBy(c => c.Value.Namespace == dependency.Namespace ? 0 : 1)
+                .ThenBy(c => c.Key, StringComparer.Ordinal)
+                .Select(c => c.Key)
+                .FirstOrDefault();
+            if (match != null)
             {
-                coupledClasses.Add(normalizedType);
-            }
-            else
-            {
-                // Check if it's a fully qualified name
-                var matchingClass = allClasses.FirstOrDefault(c => 
-                    c.Value.FullyQualifiedName?.EndsWith(normalizedType) == true ||
-                    c.Value.Name == normalizedType);
-                
-                if (matchingClass.Value != null)
-                {
-                    coupledClasses.Add(matchingClass.Key);
-                }
+                coupledClasses.Add(match);
             }
         }
 
-        // Exclude self
         coupledClasses.Remove(dependency.ClassKey);
 
         return coupledClasses.Count;
     }
 
-    private string NormalizeTypeName(string typeName)
-    {
-        // Remove generic parameters
-        var index = typeName.IndexOf('<');
-        if (index > 0)
-        {
-            typeName = typeName.Substring(0, index);
-        }
-
-        // Remove array brackets
-        typeName = typeName.Replace("[]", "").Trim();
-
-        // Remove nullable marker
-        typeName = typeName.TrimEnd('?');
-
-        // Extract class name from fully qualified name
-        var lastDot = typeName.LastIndexOf('.');
-        if (lastDot >= 0)
-        {
-            typeName = typeName.Substring(lastDot + 1);
-        }
-
-        return typeName.Trim();
-    }
+    /// <summary>
+    /// Number of type references matched by name, for the log.
+    /// </summary>
+    public static int UnresolvedReferences(IEnumerable<ClassDependency> dependencies) =>
+        dependencies.Sum(d => d.UnresolvedTypeNames.Count);
 }
 
 /// <summary>

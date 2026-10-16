@@ -119,7 +119,16 @@ public class ClassDependency
     public string ClassName { get; set; } = string.Empty;
     public string ClassKey { get; set; } = string.Empty;
     public string? Namespace { get; set; }
+    /// <summary>
+    /// Keys (see <see cref="TypeKeys"/>) of the types the class references, resolved by the semantic model;
+    /// generic arguments and array element types are included.
+    /// </summary>
     public HashSet<string> DependentTypes { get; set; } = new();
+    /// <summary>
+    /// Simple names of the referenced types the semantic model could not resolve (or all of them, without a
+    /// model); CBO matches them by exact name.
+    /// </summary>
+    public HashSet<string> UnresolvedTypeNames { get; set; } = new();
     public List<string> FieldTypes { get; set; } = new();
     public List<string> PropertyTypes { get; set; } = new();
     /// <summary>
@@ -140,6 +149,7 @@ public class ClassDependency
                 ClassKey = g.Key,
                 Namespace = g.First().Namespace,
                 DependentTypes = g.SelectMany(d => d.DependentTypes).ToHashSet(),
+                UnresolvedTypeNames = g.SelectMany(d => d.UnresolvedTypeNames).ToHashSet(),
                 FieldTypes = g.SelectMany(d => d.FieldTypes).ToList(),
                 PropertyTypes = g.SelectMany(d => d.PropertyTypes).ToList(),
                 InstanceMemberNames = g.SelectMany(d => d.InstanceMemberNames).ToHashSet()
@@ -296,7 +306,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         {
             var fieldType = field.Declaration.Type.ToString();
             dependency.FieldTypes.Add(fieldType);
-            dependency.DependentTypes.Add(fieldType);
+            AddDependentType(dependency, field.Declaration.Type);
 
             if (!IsStaticMember(field.Modifiers))
             {
@@ -312,7 +322,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         {
             var propertyType = property.Type.ToString();
             dependency.PropertyTypes.Add(propertyType);
-            dependency.DependentTypes.Add(propertyType);
+            AddDependentType(dependency, property.Type);
 
             if (!IsStaticMember(property.Modifiers))
             {
@@ -338,7 +348,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
                 {
                     var parameterType = parameter.Type?.ToString() ?? string.Empty;
                     dependency.PropertyTypes.Add(parameterType);
-                    dependency.DependentTypes.Add(parameterType);
+                    AddDependentType(dependency, parameter.Type);
                     dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Property, name));
                 }
             }
@@ -351,14 +361,81 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         // Collect method parameter and return types
         foreach (var method in node.Members.OfType<MethodDeclarationSyntax>())
         {
-            dependency.DependentTypes.Add(method.ReturnType.ToString());
+            AddDependentType(dependency, method.ReturnType);
             foreach (var param in method.ParameterList.Parameters)
             {
-                dependency.DependentTypes.Add(param.Type?.ToString() ?? string.Empty);
+                AddDependentType(dependency, param.Type);
             }
         }
 
         _dependencies.Add(dependency);
+    }
+
+    /// <summary>
+    /// Records the types a type reference names (INC-10): with the semantic model, the key of each named type,
+    /// decomposing generic arguments, array elements and nullables (<c>Dictionary&lt;string, List&lt;Item&gt;&gt;</c>
+    /// gives Dictionary, string, List and Item); without it, or when a type does not resolve, its simple name.
+    /// </summary>
+    private void AddDependentType(ClassDependency dependency, TypeSyntax? type)
+    {
+        if (type == null)
+        {
+            return;
+        }
+
+        if (_semanticModel?.GetTypeInfo(type).Type is { } symbol)
+        {
+            AddDependentType(dependency, symbol);
+            return;
+        }
+
+        foreach (var name in type.DescendantNodesAndSelf().OfType<SimpleNameSyntax>().Where(IsTypeName))
+        {
+            dependency.UnresolvedTypeNames.Add(name.Identifier.Text);
+        }
+    }
+
+    private static void AddDependentType(ClassDependency dependency, ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+                AddDependentType(dependency, array.ElementType);
+                break;
+            case IPointerTypeSymbol pointer:
+                AddDependentType(dependency, pointer.PointedAtType);
+                break;
+            case INamedTypeSymbol { TypeKind: TypeKind.Error } error:
+                dependency.UnresolvedTypeNames.Add(error.Name);
+                break;
+            case INamedTypeSymbol named:
+                dependency.DependentTypes.Add(TypeKeys.Of(named));
+                foreach (var argument in named.TypeArguments)
+                {
+                    AddDependentType(dependency, argument);
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// A simple name inside a type reference names a type unless it is a qualifier (the <c>N</c> of <c>N.Logger</c>).
+    /// </summary>
+    private static bool IsTypeName(SimpleNameSyntax name)
+    {
+        SyntaxNode node = name;
+        while (node.Parent is NameSyntax parent and (QualifiedNameSyntax or AliasQualifiedNameSyntax))
+        {
+            if (parent is QualifiedNameSyntax { Left: var left } && left == node
+                || parent is AliasQualifiedNameSyntax { Alias: var alias } && alias == node)
+            {
+                return false;
+            }
+
+            node = parent;
+        }
+
+        return true;
     }
 
     public override void VisitMethodDeclaration(MethodDeclarationSyntax node)

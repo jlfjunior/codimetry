@@ -272,7 +272,15 @@ public class PaymentService
 
 ### How this tool computes it
 
-The tool collects the types that appear in the class's **field types, property types, method return types, and method parameter types**. It keeps only the types **declared in the analysed code**, so framework types such as `string`, `List<T>`, or `ILogger<T>` are ignored, and it excludes the class itself. Generic arguments, array brackets, and `?` are stripped before matching.
+The tool collects the types that appear in the class's **field types, property types, method return types, and method parameter types**. It keeps only the types **declared in the analysed code**, so framework types such as `string`, `List<T>`, or `ILogger<T>` are ignored, and it excludes the class itself.
+
+Each type is resolved by the semantic model and compared by its identity (project, namespace, enclosing types, name and arity), not by its name:
+
+- `Task` does not couple to a class `BackgroundTask`, nor `Order` to `PurchaseOrder`;
+- two classes `Pedido` in different namespaces or projects stay apart: a field `A.Pedido` couples only to `A.Pedido`;
+- generic arguments, array element types and nullable types are looked into: `Dictionary<string, List<Item[]>>` couples to `Item`.
+
+A type the semantic model cannot resolve is matched by its **exact** simple name; among homonyms, the class in the same namespace is preferred. The log reports how many references were matched this way.
 
 The following do **not** contribute to the value:
 
