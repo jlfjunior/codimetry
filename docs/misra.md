@@ -28,7 +28,7 @@ This produces `metrics_misra.csv`, which has rows at three levels:
 FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
 src/Order.cs,Order,CalculateDiscount,3,0,0,0,0,class   <- method row: only MC is filled
 src/Order.cs,Order,,0,3,6,0,0,class                    <- class row: AC, CLC and CWC
-,,,0,0,0,0,41,                                         <- one codebase row: CC (= CoC)
+,,,0,0,0,0,44,                                         <- one codebase row: CC (= CoC)
 ```
 
 `Kind` is the kind of the type of the row: `class`, `record`, `struct` or `record struct` (see [which types are measured](README.md#which-types-are-measured)).
@@ -109,9 +109,22 @@ The rule is recursive over statement lists:
 - a ternary is a branch over its two expressions (a nested ternary is a structure of that layer) and adds to the layer where it appears; the statement that contains it still counts as a simple statement;
 - an expression-bodied method (`=> ...`) is a list with one simple statement; an empty body (`{ }`) weighs 0; methods without a body (abstract, interface) have no MC row.
 
-For the `Process` method above, the tool reports **MC = 2 × (3 × (2 × 1)) = 12**: the outer `if` (2) contains the `for` (3), which contains the inner `if` (2), whose body is one sequence (1).
+For the `Process` method above, the tool reports **MC = 2 × (3 × (2 × 1)) = 12** (`Console.WriteLine` is a library call and adds nothing): the outer `if` (2) contains the `for` (3), which contains the inner `if` (2), whose body is one sequence (1).
 
-Not modelled yet: method calls add no weight (planned: 2 + MC of the called method, only for methods of the analysed code); lambda bodies are not looked into; `switch` weighs 2 instead of the Case weight 3; parallelism and interrupts (weight 4) have no reliable syntactic marker in C#.
+**Calls** (Cap. 2: "a call to another method contributes the call weight (2) plus the MC of the called method"). A call adds to the layer where it appears, like a structure; a call in the condition of an `if` belongs to the layer that contains the `if`:
+
+| Call | Adds |
+|------|------|
+| to a method or constructor of the analysed code, own class included | 2 + MC of the called method |
+| inside a recursion, direct (`F` calls `F`) or mutual (a cycle in the call graph) | 2 |
+| to an abstract or interface method | 2 + MC of its implementation when the analysed code has exactly one; otherwise 2 + 1 |
+| to a library method (`Console.WriteLine`, LINQ, `string.Compare`...) | 0 (`--mc-library-call-weight N` sets it) |
+| unresolved by the semantic model | 2 + 1 |
+| invoking a delegate, a lambda or a local function; `nameof` | 0 |
+
+Object creation (`new X()`) is not a call. The MC of the called method is computed with the same rules, so it includes its own calls. All the methods of a recursion are treated alike, whichever is computed first. In the article's example, `CheckSupportedSw` = 1 + (2 + MC(`IsAppropriate`) = 7) + 2 × 1 = **12**. The log reports how many calls fell in each row of the table.
+
+Not modelled yet: lambda bodies are not looked into; `switch` weighs 2 instead of the Case weight 3; parallelism and interrupts (weight 4) have no reliable syntactic marker in C#.
 
 Example of the tool's calculation:
 
@@ -130,7 +143,7 @@ public class PriceCalculator
 - the two simple statements of the method body form one sequence (1), and the `if` adds 2 × 1
 - **MC = 2 + 1 = 3**, which is what the tool reports
 
-`--mc-additive` restores the rule of v1, which adds the weights at any depth and counts each statement and each call: $MC = 1 \cdot N_{seq} + 2 \cdot N_{branch} + 3 \cdot N_{iter} + 2 \cdot N_{call}$, where each `else` is one more branch. With it, `Process` is 10 and `Total` is 9.
+`--mc-additive` restores the rule of v1 (every call, library ones included, weighs 2 and the MC of the called method does not enter), which adds the weights at any depth and counts each statement and each call: $MC = 1 \cdot N_{seq} + 2 \cdot N_{branch} + 3 \cdot N_{iter} + 2 \cdot N_{call}$, where each `else` is one more branch. With it, `Process` is 10 and `Total` is 9.
 
 Because the two models differ, **MC values from this tool are not comparable** with Campbell/SonarQube cognitive complexity values.
 
@@ -354,7 +367,7 @@ $$
 CC_{tool} = \sum_{k} CLC_k + \left\lfloor \frac{\sum_{k} CWC_k}{2} \right\rfloor
 $$
 
-summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 32$ and $\sum CWC = 18$, so **CC = 32 + 9 = 41**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods.
+summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 35$ and $\sum CWC = 18$, so **CC = 35 + 9 = 44**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
 
 ---
 

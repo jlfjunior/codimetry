@@ -13,7 +13,9 @@ namespace MetricsExporter.Net.Parsers;
 /// <item>Blocks, try/catch/finally, using, lock, checked, unsafe, fixed and labels are transparent: their
 /// statements belong to the list that contains them.</item>
 /// </list>
-/// Calls are not structures yet, and lambda bodies are not looked into (INC-16, INC-17).
+/// A call adds the weight given by the caller of <see cref="Calculate"/> to the layer where it appears
+/// (<see cref="MethodComplexityGraph"/>: 2 + MC of the called method of the analysed code). Lambda bodies are
+/// not looked into (INC-17).
 /// </summary>
 public static class MethodComplexityCalculator
 {
@@ -25,164 +27,175 @@ public static class MethodComplexityCalculator
     /// MC of a method or constructor, or null when it has no body (abstract, interface, extern, partial).
     /// An expression body is a list with one simple statement.
     /// </summary>
-    public static int? Calculate(BaseMethodDeclarationSyntax method)
+    /// <param name="callWeight">Weight of each invocation, added to the layer where it appears; calls weigh
+    /// nothing when it is not given.</param>
+    public static int? Calculate(BaseMethodDeclarationSyntax method, Func<InvocationExpressionSyntax, int>? callWeight = null) =>
+        new Composer(callWeight ?? (_ => 0)).Method(method);
+
+    private sealed class Composer(Func<InvocationExpressionSyntax, int> callWeight)
     {
-        if (method.Body != null)
+        public int? Method(BaseMethodDeclarationSyntax method)
         {
-            return Layer(method.Body.Statements);
-        }
-
-        if (method.ExpressionBody != null)
-        {
-            return 1 + Expressions(method.ExpressionBody.Expression);
-        }
-
-        return null;
-    }
-
-    private static int Layer(IEnumerable<StatementSyntax> statements)
-    {
-        var layer = new LayerWeight();
-        foreach (var statement in statements)
-        {
-            layer.Add(statement);
-        }
-
-        return layer.Total;
-    }
-
-    /// <summary>
-    /// Weight of the layer nested in a structure. A structure with an empty body still exists, so the
-    /// layer counts at least 1 and the structure keeps its own weight.
-    /// </summary>
-    private static int Inner(IEnumerable<StatementSyntax?> statements) =>
-        Math.Max(1, Layer(statements.OfType<StatementSyntax>()));
-
-    private sealed class LayerWeight
-    {
-        private int _structures;
-        private bool _hasSimpleStatement;
-
-        public int Total => _structures + (_hasSimpleStatement ? 1 : 0);
-
-        public void Add(StatementSyntax statement)
-        {
-            switch (statement)
+            if (method.Body != null)
             {
-                case IfStatementSyntax ifStatement:
-                    // else if is an if nested in the else branch, as written
-                    _structures += Expressions(ifStatement.Condition) +
-                        BranchWeight * Inner([ifStatement.Statement, ifStatement.Else?.Statement]);
-                    break;
-                case SwitchStatementSyntax switchStatement:
-                    _structures += Expressions(switchStatement.Expression) +
-                        SwitchWeight * Inner(switchStatement.Sections.SelectMany(s => s.Statements));
-                    break;
-                case ForStatementSyntax forStatement:
-                    _structures += Expressions(forStatement.Declaration) +
-                        forStatement.Initializers.Sum(Expressions) +
-                        Expressions(forStatement.Condition) +
-                        forStatement.Incrementors.Sum(Expressions) +
-                        IterationWeight * Inner([forStatement.Statement]);
-                    break;
-                case CommonForEachStatementSyntax forEach:
-                    _structures += Expressions(forEach.Expression) + IterationWeight * Inner([forEach.Statement]);
-                    break;
-                case WhileStatementSyntax whileStatement:
-                    _structures += Expressions(whileStatement.Condition) + IterationWeight * Inner([whileStatement.Statement]);
-                    break;
-                case DoStatementSyntax doStatement:
-                    _structures += Expressions(doStatement.Condition) + IterationWeight * Inner([doStatement.Statement]);
-                    break;
-                case BreakStatementSyntax or EmptyStatementSyntax:
-                    // Syntactic terminators, not sequences
-                    break;
-                case BlockSyntax:
-                    AddChildren(statement);
-                    break;
-                default:
-                    if (statement.ChildNodes().Any(child => child is StatementSyntax or CatchClauseSyntax or FinallyClauseSyntax))
-                    {
-                        // try/catch/finally, using, lock, checked, unsafe, fixed, labeled, local function...
-                        AddChildren(statement);
-                    }
-                    else
-                    {
-                        _hasSimpleStatement = true;
-                        _structures += Expressions(statement);
-                    }
-                    break;
+                return Layer(method.Body.Statements);
             }
+
+            if (method.ExpressionBody != null)
+            {
+                return 1 + Expressions(method.ExpressionBody.Expression);
+            }
+
+            return null;
         }
 
-        private void AddChildren(SyntaxNode node)
+        private int Layer(IEnumerable<StatementSyntax> statements)
         {
-            foreach (var child in node.ChildNodes())
+            var layer = new LayerWeight(this);
+            foreach (var statement in statements)
             {
-                switch (child)
+                layer.Add(statement);
+            }
+
+            return layer.Total;
+        }
+
+        /// <summary>
+        /// Weight of the layer nested in a structure. A structure with an empty body still exists, so the
+        /// layer counts at least 1 and the structure keeps its own weight.
+        /// </summary>
+        private int Inner(IEnumerable<StatementSyntax?> statements) =>
+            Math.Max(1, Layer(statements.OfType<StatementSyntax>()));
+
+        private sealed class LayerWeight(Composer composer)
+        {
+            private int _structures;
+            private bool _hasSimpleStatement;
+
+            public int Total => _structures + (_hasSimpleStatement ? 1 : 0);
+
+            public void Add(StatementSyntax statement)
+            {
+                switch (statement)
                 {
-                    case StatementSyntax childStatement:
-                        Add(childStatement);
+                    case IfStatementSyntax ifStatement:
+                        // else if is an if nested in the else branch, as written
+                        _structures += composer.Expressions(ifStatement.Condition) +
+                            BranchWeight * composer.Inner([ifStatement.Statement, ifStatement.Else?.Statement]);
                         break;
-                    case CatchClauseSyntax or FinallyClauseSyntax:
-                        AddChildren(child);
+                    case SwitchStatementSyntax switchStatement:
+                        _structures += composer.Expressions(switchStatement.Expression) +
+                            SwitchWeight * composer.Inner(switchStatement.Sections.SelectMany(s => s.Statements));
+                        break;
+                    case ForStatementSyntax forStatement:
+                        _structures += composer.Expressions(forStatement.Declaration) +
+                            forStatement.Initializers.Sum(composer.Expressions) +
+                            composer.Expressions(forStatement.Condition) +
+                            forStatement.Incrementors.Sum(composer.Expressions) +
+                            IterationWeight * composer.Inner([forStatement.Statement]);
+                        break;
+                    case CommonForEachStatementSyntax forEach:
+                        _structures += composer.Expressions(forEach.Expression) + IterationWeight * composer.Inner([forEach.Statement]);
+                        break;
+                    case WhileStatementSyntax whileStatement:
+                        _structures += composer.Expressions(whileStatement.Condition) + IterationWeight * composer.Inner([whileStatement.Statement]);
+                        break;
+                    case DoStatementSyntax doStatement:
+                        _structures += composer.Expressions(doStatement.Condition) + IterationWeight * composer.Inner([doStatement.Statement]);
+                        break;
+                    case BreakStatementSyntax or EmptyStatementSyntax:
+                        // Syntactic terminators, not sequences
+                        break;
+                    case BlockSyntax:
+                        AddChildren(statement);
                         break;
                     default:
-                        // Resources, catch declarations and filters belong to this layer
-                        _structures += Expressions(child);
+                        if (statement.ChildNodes().Any(child => child is StatementSyntax or CatchClauseSyntax or FinallyClauseSyntax))
+                        {
+                            // try/catch/finally, using, lock, checked, unsafe, fixed, labeled, local function...
+                            AddChildren(statement);
+                        }
+                        else
+                        {
+                            _hasSimpleStatement = true;
+                            _structures += composer.Expressions(statement);
+                        }
                         break;
                 }
             }
-        }
-    }
 
-    /// <summary>
-    /// Weight of the ternaries in an expression, which add to the layer where the expression is.
-    /// Lambda bodies and local functions are left out.
-    /// </summary>
-    private static int Expressions(SyntaxNode? node)
-    {
-        switch (node)
+            private void AddChildren(SyntaxNode node)
+            {
+                foreach (var child in node.ChildNodes())
+                {
+                    switch (child)
+                    {
+                        case StatementSyntax childStatement:
+                            Add(childStatement);
+                            break;
+                        case CatchClauseSyntax or FinallyClauseSyntax:
+                            AddChildren(child);
+                            break;
+                        default:
+                            // Resources, catch declarations and filters belong to this layer
+                            _structures += composer.Expressions(child);
+                            break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Weight of the ternaries and calls in an expression, which add to the layer where the expression
+        /// is. Lambda bodies and local functions are left out.
+        /// </summary>
+        public int Expressions(SyntaxNode? node)
         {
-            case null:
-            case AnonymousFunctionExpressionSyntax:
-            case LocalFunctionStatementSyntax:
-                return 0;
-            case ConditionalExpressionSyntax conditional:
-                return Ternary(conditional);
-            default:
-                return node.ChildNodes().Sum(Expressions);
+            switch (node)
+            {
+                case null:
+                case AnonymousFunctionExpressionSyntax:
+                case LocalFunctionStatementSyntax:
+                    return 0;
+                case ConditionalExpressionSyntax conditional:
+                    return Ternary(conditional);
+                case InvocationExpressionSyntax invocation:
+                    // The receiver and the arguments may hold calls of their own: f(g(x)), a.B().C()
+                    return callWeight(invocation) + node.ChildNodes().Sum(Expressions);
+                default:
+                    return node.ChildNodes().Sum(Expressions);
+            }
         }
-    }
 
-    /// <summary>
-    /// A ternary is a branch of weight 2 × the layer of its two expressions: a nested ternary is a
-    /// structure of that layer, any other expression a simple statement.
-    /// </summary>
-    private static int Ternary(ConditionalExpressionSyntax conditional)
-    {
-        var structures = 0;
-        var hasSimpleExpression = false;
-        foreach (var branch in new[] { conditional.WhenTrue, conditional.WhenFalse })
+        /// <summary>
+        /// A ternary is a branch of weight 2 × the layer of its two expressions: a nested ternary is a
+        /// structure of that layer, any other expression a simple statement.
+        /// </summary>
+        private int Ternary(ConditionalExpressionSyntax conditional)
         {
-            var expression = branch;
-            while (expression is ParenthesizedExpressionSyntax parenthesized)
+            var structures = 0;
+            var hasSimpleExpression = false;
+            foreach (var branch in new[] { conditional.WhenTrue, conditional.WhenFalse })
             {
-                expression = parenthesized.Expression;
+                var expression = branch;
+                while (expression is ParenthesizedExpressionSyntax parenthesized)
+                {
+                    expression = parenthesized.Expression;
+                }
+
+                if (expression is ConditionalExpressionSyntax nested)
+                {
+                    structures += Ternary(nested);
+                }
+                else
+                {
+                    hasSimpleExpression = true;
+                    structures += Expressions(branch);
+                }
             }
 
-            if (expression is ConditionalExpressionSyntax nested)
-            {
-                structures += Ternary(nested);
-            }
-            else
-            {
-                hasSimpleExpression = true;
-                structures += Expressions(branch);
-            }
+            return Expressions(conditional.Condition) +
+                BranchWeight * Math.Max(1, structures + (hasSimpleExpression ? 1 : 0));
         }
-
-        return Expressions(conditional.Condition) +
-            BranchWeight * Math.Max(1, structures + (hasSimpleExpression ? 1 : 0));
     }
 }

@@ -23,6 +23,7 @@ public class MisraMetricsAnalysisService
     private readonly bool _additiveMc;
     private readonly bool _acTypeWeights;
     private readonly TypeScope? _typeScope;
+    private readonly int _libraryCallWeight;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
@@ -33,7 +34,8 @@ public class MisraMetricsAnalysisService
         CodebaseLoader? codebaseLoader = null,
         bool additiveMc = false,
         bool acTypeWeights = false,
-        TypeScope? typeScope = null)
+        TypeScope? typeScope = null,
+        int libraryCallWeight = 0)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -47,6 +49,7 @@ public class MisraMetricsAnalysisService
         _additiveMc = additiveMc;
         _acTypeWeights = acTypeWeights;
         _typeScope = typeScope;
+        _libraryCallWeight = libraryCallWeight;
         _logger = logger;
     }
 
@@ -61,7 +64,7 @@ public class MisraMetricsAnalysisService
         _logger?.LogInformation("Discovered {Count} C# files for MISRA metrics analysis", files.Count);
         _logger?.LogInformation("MC rule: {Rule}", _additiveMc
             ? "additive, v1 (--mc-additive)"
-            : "composition, Eq. 23 (sum per layer, product along nesting)");
+            : $"composition, Eq. 23 (sum per layer, product along nesting); a call to the analysed code adds 2 + MC, a library call adds {_libraryCallWeight}");
         _logger?.LogInformation("AC rule: {Rule}", _acTypeWeights
             ? "fields and properties weighted by type, static and const included, v1 (--ac-type-weights)"
             : "one per instance attribute (Eq. 25)");
@@ -78,11 +81,12 @@ public class MisraMetricsAnalysisService
         // One compilation per project, so that class keys match across files
         var codebase = _codebaseLoader.Load(files, Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path)));
         var implementations = codebase.AbstractImplementations();
+        var mcGraph = _additiveMc ? null : new MethodComplexityGraph(codebase.Documents, implementations, _libraryCallWeight);
 
         foreach (var document in codebase.Documents)
         {
             var filePath = document.FilePath;
-            var fileData = AnalyzeFileForMisraMetrics(document);
+            var fileData = AnalyzeFileForMisraMetrics(document, mcGraph);
             if (fileData != null)
             {
                 allClasses.AddRange(fileData.Classes);
@@ -120,6 +124,11 @@ public class MisraMetricsAnalysisService
 
         _logger?.LogInformation("Built relationship graph with {Count} classes", allClasses.Count);
         _logger?.LogInformation("Collected BCS information for {Count} methods", allBcsInfo.Count);
+        if (mcGraph != null)
+        {
+            _logger?.LogInformation("MC calls: {System} to the analysed code, {Recursive} recursive, {Abstract} abstract without a single implementation, {Library} to libraries, {Unresolved} unresolved",
+                mcGraph.SystemCalls, mcGraph.RecursiveCalls, mcGraph.AbstractCalls, mcGraph.LibraryCalls, mcGraph.UnresolvedCalls);
+        }
 
         // Phase 2: Calculate method-level metrics (MC)
         _logger?.LogInformation("Phase 2: Calculating method-level metrics (MC)...");
@@ -231,7 +240,7 @@ public class MisraMetricsAnalysisService
         return allMetrics;
     }
 
-    private FileMisraAnalysisData? AnalyzeFileForMisraMetrics(SourceDocument document)
+    private FileMisraAnalysisData? AnalyzeFileForMisraMetrics(SourceDocument document, MethodComplexityGraph? mcGraph)
     {
         var filePath = document.FilePath;
         try
@@ -244,7 +253,7 @@ public class MisraMetricsAnalysisService
             ckVisitor.Visit(syntaxTree.GetRoot());
 
             // Use MISRA visitor for BCS info and attributes
-            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc, _acTypeWeights, _typeScope);
+            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc, _acTypeWeights, _typeScope, mcGraph);
             misraVisitor.Visit(syntaxTree.GetRoot());
 
             return new FileMisraAnalysisData

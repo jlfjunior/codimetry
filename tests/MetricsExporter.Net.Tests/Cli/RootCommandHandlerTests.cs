@@ -160,6 +160,20 @@ public class RootCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task McLibraryCallWeight_ChangesTheMcOfLibraryCalls()
+    {
+        _dir.WriteFile("src/Log.cs", "public class Log { public void Write() { System.Console.WriteLine(1); } }");
+
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra"));
+        var byDefault = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra", "--mc-library-call-weight", "2"));
+        var weighted = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
+
+        Assert.Contains(byDefault, l => l.EndsWith(",Log,Write,1,0,0,0,0,class"));
+        Assert.Contains(weighted, l => l.EndsWith(",Log,Write,3,0,0,0,0,class"));
+    }
+
+    [Fact]
     public async Task NoInput_FailsValidation()
     {
         Assert.NotEqual(0, await Run("--out", Output));

@@ -62,6 +62,7 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     private readonly bool _additiveMc;
     private readonly bool _acTypeWeights;
     private readonly TypeScope _scope;
+    private readonly MethodComplexityGraph? _mcGraph;
 
     /// <summary>
     /// Keys follow <see cref="TypeKeys"/>: "{classKey}::{methodKey}" for methods and the class key for
@@ -71,10 +72,12 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     /// <param name="acTypeWeights">Collect the attributes as v1 did, every field and property including
     /// static and const ones (--ac-type-weights), instead of the instance attributes.</param>
     /// <param name="scope">Which types are measured (--classes-only).</param>
+    /// <param name="mcGraph">MC with the weight of calls, over the whole analysed code; without it, calls weigh nothing.</param>
     public MisraSyntaxVisitor(SemanticModel? semanticModel = null, bool additiveMc = false, bool acTypeWeights = false,
-        TypeScope? scope = null)
+        TypeScope? scope = null, MethodComplexityGraph? mcGraph = null)
         : base(SyntaxWalkerDepth.Node)
     {
+        _mcGraph = mcGraph;
         _scope = scope ?? TypeScope.Default;
         _semanticModel = semanticModel;
         _additiveMc = additiveMc;
@@ -222,7 +225,7 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
 
     private BcsInfo NewBcsInfo(BaseMethodDeclarationSyntax node)
     {
-        var mc = MethodComplexityCalculator.Calculate(node);
+        var mc = _mcGraph != null ? _mcGraph.Mc(node) : MethodComplexityCalculator.Calculate(node);
         return new BcsInfo { HasBody = mc != null, ComposedMc = _additiveMc ? null : mc };
     }
 

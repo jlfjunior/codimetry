@@ -98,6 +98,7 @@ You can analyze code using one of three input options:
 | `--cc-legacy-operators` | | Cyclomatic: operator rule of v1 (`??` and `goto` count; `??=`, `?.`, `or`/`and` do not) | `false` |
 | `--classes-only` | | Measure only classes, as v1 did; by default records, structs and record structs are measured too (see [docs/README.md](docs/README.md#which-types-are-measured)) | `false` |
 | `--cc-include-auto-accessors` | | Cyclomatic: give automatic property accessors a row with V(G) = 1 and add them to the class and file sums, as v1 did (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
+| `--mc-library-call-weight` | | MISRA: weight of a call to a library method in MC (default 0; 2 reproduces v1 for these calls). Calls to the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `0` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**

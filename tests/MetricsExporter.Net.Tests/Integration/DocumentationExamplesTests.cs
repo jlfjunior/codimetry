@@ -195,7 +195,8 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(3, @class["Order"].AC);
         Assert.Equal(6, @class["Order"].CLC);
         Assert.Equal(6, @class["CartService"].CWC);
-        Assert.Equal(41, codebase.CC);   // record Product is measured: AC 1, CLC 1
+        Assert.Equal(5, method["Checkout"].MC);    // INC-16: the condition calls IsAvailable, 2 + MC 1
+        Assert.Equal(44, codebase.CC);   // record Product is measured (CLC 1); Checkout adds 2 + 1
     }
 
     [Fact]

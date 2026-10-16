@@ -26,8 +26,8 @@ public static class Analyzers
             .AnalyzeAsync(path);
 
     public static Task<List<MisraMetric>> Misra(string path, bool additiveMc = false, bool acTypeWeights = false,
-        TypeScope? typeScope = null) =>
+        TypeScope? typeScope = null, int libraryCallWeight = 0) =>
         new MisraMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder(),
-                additiveMc: additiveMc, acTypeWeights: acTypeWeights, typeScope: typeScope)
+                additiveMc: additiveMc, acTypeWeights: acTypeWeights, typeScope: typeScope, libraryCallWeight: libraryCallWeight)
             .AnalyzeAsync(path);
 }

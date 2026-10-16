@@ -6,7 +6,8 @@ namespace MetricsExporter.Net.Tests.Parsers;
 
 /// <summary>
 /// MC by the composition rule of Eq. 23 (INC-14): sum per layer, product along nesting, one sequence
-/// per layer. Calls are not weighted until INC-16, so the expected values leave them out.
+/// per layer. The calculator is used here without a call weight, so the expected values leave calls out;
+/// the weight of calls (INC-16) is covered by McCallsTests.
 /// </summary>
 public class MethodComplexityCalculatorTests
 {
@@ -72,7 +73,7 @@ public class MethodComplexityCalculatorTests
     [Fact]
     public void CheckSupportedSw_WithoutTheCallWeight()
     {
-        // 1 + (2 × 1); the call to IsAppropriate (2 + 7) is added by INC-16, giving the article's 12
+        // 1 + (2 × 1); with the call graph, the call to IsAppropriate adds 2 + 7, giving the article's 12
         Assert.Equal(1 + (2 * 1), Article("CheckSupportedSw"));
     }
 

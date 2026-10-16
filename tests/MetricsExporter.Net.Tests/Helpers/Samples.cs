@@ -284,6 +284,10 @@ public static class Samples
     // ---------- docs/misra.md ----------
 
     public const string MisraMc = """
+        using System;
+        using System.Collections.Generic;
+        using System.Linq;
+
         namespace Samples.Mc;
 
         public class Processor
@@ -341,6 +345,10 @@ public static class Samples
         """;
 
     public const string MisraCwc = """
+        using System;
+        using System.Collections.Generic;
+        using System.Linq;
+
         namespace Samples.Cwc;
 
         public record Product(string Sku);
