@@ -188,13 +188,13 @@ Independentemente da recoleta, corrigir na versão defendida os achados da Fase 
 
 | Decisão | Opções | Recomendação | Decisão tomada |
 |---|---|---|---|
-| p29/p33 idênticos | Manter os dois; manter só um; investigar a origem | Investigar a origem; se for duplicata, manter um e rodar os dois como sensibilidade | _pendente_ |
-| Código de teste | Incluir; excluir | Excluir; incluir como sensibilidade | _pendente_ |
-| Código gerado (`Migrations/`, `*.Designer.cs`, `obj/`, `bin/`) | Incluir; excluir | Excluir | _pendente_ |
-| Classes parciais e homônimas | Consolidar no script; consolidar na ferramenta | Consolidar na ferramenta por FQN | _pendente_ |
-| Tipos analisados | `class`; + `record class`; + `struct`/`record struct` | `class` + `record class` | _pendente_ |
-| Propriedades com lógica e funções locais | Ignorar; contar como métodos | _a discutir_ | _pendente_ |
-| Construtores em WMC e LCOM | Incluir; excluir; parametrizar | Parametrizar | _pendente_ |
+| p29/p33 idênticos | Manter os dois; manter só um; investigar a origem | Investigar a origem; se for duplicata, manter um e rodar os dois como sensibilidade | **Manter os dois** (n = 48, como na v1); a duplicata é declarada no Cap. 4 e a sensibilidade sem p33 continua no relatório (15/10/2026) |
+| Código de teste | Incluir; excluir | Excluir; incluir como sensibilidade | **Incluir**, como na v1 (15/10/2026) |
+| Código gerado (`Migrations/`, `*.Designer.cs`, `obj/`, `bin/`) | Incluir; excluir | Excluir | **Incluir**, como na v1 (15/10/2026) |
+| Classes parciais e homônimas | Consolidar no script; consolidar na ferramenta | Consolidar na ferramenta por FQN | **Na ferramenta**, por projeto + nome completo (`bf45bac`) |
+| Tipos analisados | `class`; + `record class`; + `struct`/`record struct` | `class` + `record class` | **`class`, `record`, `struct` e `record struct`** (INC-13, D19, `d1cab02`); `--classes-only` reproduz a v1 |
+| Propriedades com lógica e funções locais | Ignorar; contar como métodos | _a discutir_ | **Decidido pelas INCs:** acessores com corpo entram na V(G) agregada (D18, INC-04), mas não no WMC; lambdas e funções locais somam na V(G) e na MC do método que as contém (D21, D11; INC-04, INC-17) |
+| Construtores em WMC e LCOM | Incluir; excluir; parametrizar | Parametrizar | **WMC inclui** (D3, INC-05; `--wmc-exclude-static` reproduz a v1); **LCOM exclui**, sem opção (D4, INC-09) |
 | Destino dos resultados | Versão final depositada; artigo + errata | Depende do prazo pós-defesa | _pendente_ |
 
 ## 5. Gates de validação
