@@ -2,12 +2,12 @@
 
 **Cyclomatic complexity** was proposed by Thomas J. McCabe in 1976. It measures the logical complexity of a method from the structure of its **control flow**. It is the number of linearly independent paths through the method, and therefore the minimum number of test cases needed to exercise every decision at least once (*basis path testing*).
 
-This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **MetricsExporter.Net** computes the values in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.4.
+This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the values in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.4.
 
 ## Collecting the metric
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --cyclomatic   # or --cc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --cyclomatic   # or --cc
 ```
 
 This produces `metrics_cyclomatic.csv`, which has rows at three levels:

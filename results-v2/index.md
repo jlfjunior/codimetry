@@ -1,7 +1,7 @@
 # Metrics Summary — Artefatos Mestrado
 
-> Generated: 2026-10-15  
-> Tool: [net-metrics-collector](../../net-metrics-collector)  
+> Generated: 2026-10-16  
+> Tool: [Codimetry](https://github.com/jlfjunior/codimetry)  
 > Participants: 48
 
 ---

@@ -22,8 +22,11 @@ cd "$root"
 git worktree add --detach --quiet "$worktree" "$commit"
 trap 'git worktree remove --force "$worktree"' EXIT
 
-dotnet build "$worktree/src/MetricsExporter.Net/MetricsExporter.Net.csproj" -c Release --nologo -v quiet -o "$worktree/out" >/dev/null
-dll="$worktree/out/MetricsExporter.Net.dll"
+# The tool was called MetricsExporter.Net before it became Codimetry; older commits keep the old name
+project="$worktree/src/Codimetry/Codimetry.csproj"
+[ -f "$project" ] || project="$worktree/src/MetricsExporter.Net/MetricsExporter.Net.csproj"
+dotnet build "$project" -c Release --nologo -v quiet -o "$worktree/out" >/dev/null
+dll="$worktree/out/$(basename "$project" .csproj).dll"
 
 mkdir -p "$results"
 for dir in "$artefatos"/p*/; do

@@ -1,6 +1,6 @@
-# Collecting Metrics with MetricsExporter.Net
+# Collecting Metrics with Codimetry
 
-A practical guide for building and running MetricsExporter.Net, with examples, advanced scenarios, and troubleshooting tips. For a full CLI reference and metric definitions, see [README.md](../README.md).
+A practical guide for building and running Codimetry, with examples, advanced scenarios, and troubleshooting tips. For a full CLI reference and metric definitions, see [README.md](../README.md).
 
 ## Table of Contents
 
@@ -25,18 +25,18 @@ A practical guide for building and running MetricsExporter.Net, with examples, a
 ### Debug build
 
 ```bash
-dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj
+dotnet build src/Codimetry/Codimetry.csproj
 ```
 
 ### Release build (recommended for large codebases)
 
 ```bash
-dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj --configuration Release
+dotnet build src/Codimetry/Codimetry.csproj --configuration Release
 ```
 
 Compiled binaries:
-- Debug: `src/MetricsExporter.Net/bin/Debug/net10.0/MetricsExporter.Net`
-- Release: `src/MetricsExporter.Net/bin/Release/net10.0/MetricsExporter.Net`
+- Debug: `src/Codimetry/bin/Debug/net10.0/Codimetry`
+- Release: `src/Codimetry/bin/Release/net10.0/Codimetry`
 
 ---
 
@@ -45,7 +45,7 @@ Compiled binaries:
 ### All metrics (default)
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src
 ```
 
 Generates the four metric CSV files in `./.metrics/`, plus `metrics_coc.csv` (CoC per inheritance hierarchy) next to `metrics_misra.csv`.
@@ -54,35 +54,35 @@ Generates the four metric CSV files in `./.metrics/`, plus `metrics_coc.csv` (Co
 
 ```bash
 # LOC only
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc
 
 # CK metrics only
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --ck
 
 # MISRA only
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --misra
 
 # Cyclomatic Complexity only
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --cyclomatic
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --cyclomatic
 
 # Combine as needed
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --ck
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --ck
 ```
 
 ### Analyze a solution or project file
 
 ```bash
 # Solution file
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --solution MySolution.sln
+dotnet run --project src/Codimetry/Codimetry.csproj -- --solution MySolution.sln
 
 # Specific project
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --project ./src/MyProject/MyProject.csproj
+dotnet run --project src/Codimetry/Codimetry.csproj -- --project ./src/MyProject/MyProject.csproj
 ```
 
 ### Custom output directory with verbose logging
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
+dotnet run --project src/Codimetry/Codimetry.csproj -- \
   --path ./src \
   --out ./results \
   --verbose
@@ -91,7 +91,7 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
 ### Using the compiled executable
 
 ```bash
-./src/MetricsExporter.Net/bin/Release/net10.0/MetricsExporter.Net --path ./src --out ./results
+./src/Codimetry/bin/Release/net10.0/Codimetry --path ./src --out ./results
 ```
 
 ---
@@ -102,7 +102,7 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
 
 ```bash
 OUTPUT_DIR="./.metrics/$(date +%Y-%m-%d_%H-%M-%S)"
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
+dotnet run --project src/Codimetry/Codimetry.csproj -- \
   --path ./src \
   --out "$OUTPUT_DIR"
 ```
@@ -112,7 +112,7 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
 ```bash
 #!/bin/bash
 for project in ProjectA ProjectB ProjectC; do
-  dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
+  dotnet run --project src/Codimetry/Codimetry.csproj -- \
     --path "./src/$project" \
     --out "./.metrics/$project"
 done
@@ -122,11 +122,11 @@ done
 
 ```bash
 # Baseline
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
+dotnet run --project src/Codimetry/Codimetry.csproj -- \
   --path ./src --out ./.metrics/baseline
 
 # After changes
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
+dotnet run --project src/Codimetry/Codimetry.csproj -- \
   --path ./src --out ./.metrics/current
 
 diff ./.metrics/baseline/metrics_loc.csv ./.metrics/current/metrics_loc.csv
@@ -154,7 +154,7 @@ jobs:
 
       - name: Collect Metrics
         run: |
-          dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- \
+          dotnet run --project src/Codimetry/Codimetry.csproj -- \
             --path ./src \
             --out ./.metrics
 

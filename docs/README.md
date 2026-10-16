@@ -1,6 +1,6 @@
 # Documentation
 
-Documentation for **MetricsExporter.Net**, a command-line tool that extracts software metrics from .NET (C#) code and exports them to CSV.
+Documentation for **Codimetry**, a command-line tool that extracts software metrics from .NET (C#) code and exports them to CSV.
 
 ## Using the tool
 

@@ -144,7 +144,7 @@ def main():
         f"# Metrics Summary — Artefatos Mestrado",
         "",
         f"> Generated: {date.today()}  ",
-        f"> Tool: [net-metrics-collector](../../net-metrics-collector)  ",
+        f"> Tool: [Codimetry](https://github.com/jlfjunior/codimetry)  ",
         f"> Participants: {len(data)}",
         "",
         "---",

@@ -2,7 +2,7 @@
 
 The **CK metrics** were proposed by Shyam R. Chidamber and Chris F. Kemerer in 1994 as a suite of six measures for object-oriented design. McCabe's cyclomatic complexity works at the method level and ignores how classes relate to each other. The CK suite looks at the structure of the **class** instead: its internal complexity, its coupling to other classes, its cohesion, and where it sits in the inheritance hierarchy.
 
-This page explains what each metric means, gives its formal definition, shows a worked example in modern C#, and states how **MetricsExporter.Net** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.5 (see [References](#references)).
+This page explains what each metric means, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.5 (see [References](#references)).
 
 | Metric | Name | Dimension | Interpretation |
 |--------|------|-----------|----------------|
@@ -16,7 +16,7 @@ This page explains what each metric means, gives its formal definition, shows a 
 ## Collecting the metrics
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --ck
 ```
 
 This produces `metrics_ck.csv` with **one row per class**:

@@ -4,7 +4,7 @@ The **Suite of Object-Oriented Cognitive Complexity Metrics** was proposed by Sa
 
 > **Naming note.** "Misra" here is the surname of the first author. These metrics are **not** related to the MISRA C/C++ coding guidelines. The tool's CLI flag and output file still use the uppercase `--misra` / `metrics_misra.csv`.
 
-This page explains what each metric means, gives its definition, shows a worked example in modern C#, and states how **MetricsExporter.Net** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.6 (see [References](#references)).
+This page explains what each metric means, gives its definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.6 (see [References](#references)).
 
 | Metric | Name | Level | Interpretation |
 |--------|------|-------|----------------|
@@ -19,7 +19,7 @@ The dissertation uses the acronym **CoC** for *Code Complexity* to avoid confusi
 ## Collecting the metrics
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --misra
 ```
 
 This produces `metrics_misra.csv`, which has rows at three levels:

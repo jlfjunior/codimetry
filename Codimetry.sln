@@ -1,0 +1,63 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codimetry", "src\Codimetry\Codimetry.csproj", "{171F6FC1-8558-427E-96A1-FD36B2644DFC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1370C9E3-721E-4818-AB8B-FA3E505B2E07}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{9EBAE586-A621-4B73-B837-E2F1B3073DA9}"
+	ProjectSection(SolutionItems) = preProject
+		docs\COLLECTING_METRICS.md = docs\COLLECTING_METRICS.md
+		docs\ck.md = docs\ck.md
+		docs\misra.md = docs\misra.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codimetry.Tests", "tests\Codimetry.Tests\Codimetry.Tests.csproj", "{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Debug|x64.Build.0 = Debug|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Debug|x86.Build.0 = Debug|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Release|x64.ActiveCfg = Release|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Release|x64.Build.0 = Release|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Release|x86.ActiveCfg = Release|Any CPU
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC}.Release|x86.Build.0 = Release|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Debug|x64.Build.0 = Debug|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Debug|x86.Build.0 = Debug|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Release|x64.ActiveCfg = Release|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Release|x64.Build.0 = Release|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Release|x86.ActiveCfg = Release|Any CPU
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{171F6FC1-8558-427E-96A1-FD36B2644DFC} = {1370C9E3-721E-4818-AB8B-FA3E505B2E07}
+		{AECCA9A6-112A-48D4-A9C8-2E912B2C94EC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+	EndGlobalSection
+EndGlobal

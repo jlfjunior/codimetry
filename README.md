@@ -1,6 +1,6 @@
-# MetricsExporter.Net
+# Codimetry
 
-A .NET command-line tool designed to extract software metrics from local .NET repositories. This tool calculates **Lines of Code (LOC)** metrics, **Chidamber-Kemerer (CK)** object-oriented design metrics, **Misra's cognitive complexity** metrics (not related to the MISRA C/C++ guidelines), and **Cyclomatic Complexity** metrics to help analyze code quality and maintainability.
+*Codimetry* (*code* + *-metry*, the measurement of code; formerly MetricsExporter.Net) is a .NET command-line tool designed to extract software metrics from local .NET repositories. This tool calculates **Lines of Code (LOC)** metrics, **Chidamber-Kemerer (CK)** object-oriented design metrics, **Misra's cognitive complexity** metrics (not related to the MISRA C/C++ guidelines), and **Cyclomatic Complexity** metrics to help analyze code quality and maintainability.
 
 ## Features
 
@@ -38,9 +38,9 @@ A .NET command-line tool designed to extract software metrics from local .NET re
 ### Build from Source
 
 ```bash
-git clone https://github.com/jlfjunior/net-metrics-collector.git
-cd net-metrics-collector
-dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj
+git clone https://github.com/jlfjunior/codimetry.git
+cd codimetry
+dotnet build src/Codimetry/Codimetry.csproj
 ```
 
 ## Documentation
@@ -122,74 +122,74 @@ You can analyze code using one of three input options:
 
 **Analyze a directory (all metrics - default):**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src
 ```
 
 **Calculate only LOC metrics:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc
 ```
 
 **Calculate only CK metrics:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --ck
 ```
 
 **Calculate only MISRA metrics:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --misra
 ```
 
 **Calculate only Cyclomatic Complexity metrics:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --cyclomatic
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --cyclomatic
 # or using the short form
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --cc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --cc
 ```
 
 **Calculate specific metric combinations:**
 ```bash
 # LOC and CK metrics
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --ck
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --ck
 
 # LOC and MISRA metrics
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --misra
 
 # CK and MISRA metrics
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --ck --misra
 
 # All metrics explicitly
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --ck --misra --cyclomatic
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --ck --misra --cyclomatic
 
 # LOC and Cyclomatic Complexity
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --cc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --cc
 ```
 
 **Analyze a solution file:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --solution MySolution.sln
+dotnet run --project src/Codimetry/Codimetry.csproj -- --solution MySolution.sln
 ```
 
 **Analyze a project file:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --project ./src/MyProject/MyProject.csproj
+dotnet run --project src/Codimetry/Codimetry.csproj -- --project ./src/MyProject/MyProject.csproj
 ```
 
 **Specify custom output directory:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --out ./results
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --out ./results
 ```
 
 **Non-recursive analysis with verbose logging:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --no-recursive --verbose
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --no-recursive --verbose
 ```
 
 **Get help information:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --help
+dotnet run --project src/Codimetry/Codimetry.csproj -- --help
 # or
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- -h
+dotnet run --project src/Codimetry/Codimetry.csproj -- -h
 ```
 
 ## Output Format
@@ -365,7 +365,7 @@ The tool's implementation differs from the textbook definitions in some places, 
 
 ## Running Tests
 
-The test suite lives in `tests/MetricsExporter.Net.Tests` (xUnit). It covers the parsers, metric calculators, analysis services, CSV exporter, and CLI. It also checks every worked example in `docs/*.md`, so the documentation and the implementation cannot drift apart unnoticed.
+The test suite lives in `tests/Codimetry.Tests` (xUnit). It covers the parsers, metric calculators, analysis services, CSV exporter, and CLI. It also checks every worked example in `docs/*.md`, so the documentation and the implementation cannot drift apart unnoticed.
 
 ```bash
 dotnet test

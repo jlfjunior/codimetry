@@ -2,7 +2,7 @@
 
 > **Scope.** This guide is specific to the case study in the master's dissertation *Avaliação da Experiência do Desenvolvedor de Software Por Meio de Métricas Orientadas a Objetos* (Silva Junior, UFS, 2026). It depends on the private `artefatos-mestrado` repository of participant artefacts. To use the tool on your own code, see [COLLECTING_METRICS.md](../COLLECTING_METRICS.md).
 >
-> **Version.** The dissertation reports the values of the tag `v1` of this tool, run with the default options against `artefatos-mestrado@40a6044` after `dotnet restore` of the artefacts (see [protocolo-recoleta.md](protocolo-recoleta.md), Fase 3): the output is the archived data in [`results-v2/`](../../results-v2/), and [`scripts/collect_snapshot.sh`](../../scripts/collect_snapshot.sh) reproduces it (`scripts/collect_snapshot.sh v1 <results> <analysis>`). The earlier collection, before the metric fixes, is archived in [`results-v1/`](../../results-v1/) and is reproduced byte for byte by commit `0bc0f89`; it is kept only to track the effect of the fixes ([analysis/comparacao-v1-v2.md](../../analysis/comparacao-v1-v2.md)).
+> **Version.** The dissertation reports the values of the tag `v1` of this tool, run with the default options against `artefatos-mestrado@40a6044` after `dotnet restore` of the artefacts (see [protocolo-recoleta.md](protocolo-recoleta.md), Fase 3): the output is the archived data in [`results-v2/`](../../results-v2/), and [`scripts/collect_snapshot.sh`](../../scripts/collect_snapshot.sh) reproduces it (`scripts/collect_snapshot.sh v1 <results> <analysis>`). The earlier collection, before the metric fixes, is archived in [`results-v1/`](../../results-v1/) and is reproduced byte for byte by commit `0bc0f89` (where the tool was still called MetricsExporter.Net, project `src/MetricsExporter.Net/MetricsExporter.Net.csproj`); it is kept only to track the effect of the fixes ([analysis/comparacao-v1-v2.md](../../analysis/comparacao-v1-v2.md)).
 
 All commands below are run from the root of this repository.
 
@@ -19,7 +19,7 @@ This document explains how to re-run the full metrics collection process for all
 From the root of this repository:
 
 ```bash
-dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj -c Release
+dotnet build src/Codimetry/Codimetry.csproj -c Release
 ```
 
 ## Step 2 — Run Metrics on All Participants
@@ -27,7 +27,7 @@ dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj -c Release
 This script collects all metrics and outputs each participant's CSVs to `results/{participant}/`:
 
 ```bash
-COLLECTOR="$(pwd)/src/MetricsExporter.Net/MetricsExporter.Net.csproj"
+COLLECTOR="$(pwd)/src/Codimetry/Codimetry.csproj"
 ARTEFATOS="../artefatos-mestrado"
 OUTPUT_BASE="$(pwd)/results"
 
@@ -76,7 +76,7 @@ Steps 2 and 3 combined as a single script:
 #!/usr/bin/env bash
 set -e
 
-COLLECTOR="$(pwd)/src/MetricsExporter.Net/MetricsExporter.Net.csproj"
+COLLECTOR="$(pwd)/src/Codimetry/Codimetry.csproj"
 ARTEFATOS="../artefatos-mestrado"
 OUTPUT_BASE="$(pwd)/results"
 

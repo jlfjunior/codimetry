@@ -44,6 +44,20 @@ Fonte de todos os números novos: [`analysis/fase4/14-coc-v2/report.md`](../../a
 
 ---
 
+## 1.1 Nome da ferramenta
+
+A ferramenta passou a se chamar **Codimetry** (*code* + *-metry*, a medição de código) em 16/10/2026, e o repositório, `github.com/jlfjunior/codimetry`. O nome antigo, MetricsExporter.Net, aparece 5 vezes; o endereço antigo, uma vez:
+
+| Arquivo | Linha | Hoje | Passa a ser |
+|---|---|---|---|
+| `Conteudo/01_Introducao.tex` | 75 | `\textbf{Ferramenta MetricsExporter.Net:}` | `\textbf{Ferramenta Codimetry:}` |
+| `Conteudo/05_Customizacao.tex` | 15 | `com a ferramenta \textit{MetricsExporter.Net}, desenvolvida neste trabalho` | `com a ferramenta \textit{Codimetry}, desenvolvida neste trabalho`, junto com as demais mudanças da linha (seção 6.1) |
+| `Conteudo/06_Conclusao.tex` | 52 | `a \textbf{ferramenta MetricsExporter.Net}` | `a \textbf{ferramenta Codimetry}` |
+| `Conteudo/06_Conclusao.tex` | 55 | `\section{A Ferramenta \textit{MetricsExporter.Net}}` | `\section{A Ferramenta \textit{Codimetry}}` |
+| `Conteudo/06_Conclusao.tex` | 58 | `a ferramenta \textit{MetricsExporter.Net}, desenvolvida para viabilizar…`; nota com `\url{https://github.com/jlfjunior/net-metrics-collector}`, acesso em 12 out. 2026 | `a ferramenta \textit{Codimetry} (de *code* + *-metry*, a medição de código), desenvolvida…`; nota com `\url{https://github.com/jlfjunior/codimetry}` e a data de acesso da versão final |
+
+A primeira menção (Cap. 1, linha 75) é um bom lugar para explicar a origem do nome, se a seção 6.1 não o fizer.
+
 ## 2. `Pre_Textual/Resumo.tex` e `Pre_Textual/Abstract.tex`
 
 | Linha | Hoje | Mudança |
@@ -346,7 +360,7 @@ Valem mesmo que a v2 não seja adotada (Fase 1 do protocolo):
 
 ## 9. Conferência final
 
-- [ ] `grep` em `master-thesis/Conteudo` e `Pre_Textual` não encontra mais: `51,1\% de acurácia` como valor do modelo, `0{,}286`, `2.657`, `6.839`, `94,2`, `99,40`, `uma unidade maiores`, `metade da soma`, `CWC--CC`, `0bc0f89`, `coleta-v1-dissertacao`, `coleta-v2`.
+- [ ] `grep` em `master-thesis/Conteudo` e `Pre_Textual` não encontra mais: `51,1\% de acurácia` como valor do modelo, `0{,}286`, `2.657`, `6.839`, `94,2`, `99,40`, `uma unidade maiores`, `metade da soma`, `CWC--CC`, `0bc0f89`, `coleta-v1-dissertacao`, `coleta-v2`, `MetricsExporter`, `net-metrics-collector`.
 - [ ] Resumo e Abstract dizem o mesmo que o Cap. 4 e a Conclusão.
 - [ ] `tab:formulas_coleta` e o Cap. 2 descrevem a mesma regra para cada métrica.
 - [ ] O PDF compila (`make`) sem referências quebradas.
