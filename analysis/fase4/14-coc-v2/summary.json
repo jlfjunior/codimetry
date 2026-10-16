@@ -1,0 +1,117 @@
+{
+ "label": "14-coc-v2",
+ "participants": 48,
+ "classes_raw": 3376,
+ "classes": 3373,
+ "methods": 6876,
+ "by_kind": {
+  "class": 3004,
+  "record": 358,
+  "record struct": 9,
+  "struct": 2
+ },
+ "lcom_equals_max_pairs_pct": 82.41921138452416,
+ "accuracy_pct": 46.808510638297875,
+ "baseline_pct": 51.06382978723404,
+ "spearman_staged": 0.11123920036129163,
+ "spearman_mean_pct": 0.3604693510172372,
+ "errors": {
+  "total": 26,
+  "adjacent": 23,
+  "two_or_more": 3
+ },
+ "thresholds": {
+  "WMC": [
+   1.0,
+   5.0
+  ],
+  "DIT": [
+   0.0,
+   1.0
+  ],
+  "NOC": [
+   0.0,
+   0.0
+  ],
+  "LCOM": [
+   0.0,
+   1.0
+  ],
+  "AC": [
+   1.0,
+   5.0
+  ],
+  "CWC": [
+   0.0,
+   41.80000000000018
+  ],
+  "MC": [
+   3.0,
+   43.0
+  ]
+ },
+ "by_level": {
+  "Beginner": {
+   "wmc_avg": 1.8571428571428572,
+   "lcom_avg": 0.2857142857142857,
+   "mc_per_class": 9.857142857142858,
+   "ac_per_class": 0.8571428571428571,
+   "cwc_per_class": 1.9523809523809523,
+   "loc": 254.0,
+   "classes": 21.0
+  },
+  "Mid-Level": {
+   "wmc_avg": 2.2533193702782444,
+   "lcom_avg": 1.4226578732375421,
+   "mc_per_class": 38.721105250474125,
+   "ac_per_class": 1.9997712236184961,
+   "cwc_per_class": 30.229843409956192,
+   "loc": 990.8461538461538,
+   "classes": 53.92307692307692
+  },
+  "Senior": {
+   "wmc_avg": 2.1839422352679843,
+   "lcom_avg": 1.507206821948959,
+   "mc_per_class": 36.52254855722768,
+   "ac_per_class": 1.7783632456554692,
+   "cwc_per_class": 22.38630985119815,
+   "loc": 1160.875,
+   "classes": 69.0
+  },
+  "Expert": {
+   "wmc_avg": 1.6664985886468382,
+   "lcom_avg": 0.5649930581724245,
+   "mc_per_class": 27.61285167819624,
+   "ac_per_class": 1.5926253087352182,
+   "cwc_per_class": 17.480487785509663,
+   "loc": 1418.9,
+   "classes": 99.5
+  }
+ },
+ "confusion": {
+  "Beginner": {
+   "Beginner": 0,
+   "Mid-Level": 0,
+   "Senior": 0,
+   "Expert": 1
+  },
+  "Mid-Level": {
+   "Beginner": 0,
+   "Mid-Level": 2,
+   "Senior": 9,
+   "Expert": 2
+  },
+  "Senior": {
+   "Beginner": 0,
+   "Mid-Level": 2,
+   "Senior": 17,
+   "Expert": 5
+  },
+  "Expert": {
+   "Beginner": 0,
+   "Mid-Level": 0,
+   "Senior": 7,
+   "Expert": 3
+  }
+ }
+}
