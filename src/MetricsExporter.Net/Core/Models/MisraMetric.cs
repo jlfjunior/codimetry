@@ -48,10 +48,19 @@ public class MisraMetric
     public int CWC { get; set; }
 
     /// <summary>
-    /// CC (Code Complexity): Overall complexity of the codebase, aggregating complexities 
-    /// from all classes and their interactions. Only populated for codebase-level entries.
+    /// CoC (Code Complexity, Eq. 27): CLC of classes in the same level of an inheritance hierarchy add, levels
+    /// multiply, hierarchies add. Only populated for codebase-level entries.
     /// </summary>
-    public int CC { get; set; }
+    public long CoC { get; set; }
+
+    /// <summary>
+    /// The former name of <see cref="CoC"/>, kept in the CSV with the same value for one version (RF-6 of INC-20).
+    /// </summary>
+    public long CC
+    {
+        get => CoC;
+        set => CoC = value;
+    }
 
     /// <summary>
     /// Kind of the type of the row (class, record, struct or record struct). Empty for the codebase row.

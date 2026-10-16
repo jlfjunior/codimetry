@@ -375,6 +375,31 @@ public static class Samples
 
     // ---------- Misra et al. (2018), appendix, ported to C# (docs/research/plano-correcao-metricas.md) ----------
 
+    /// <summary>
+    /// Cap. 2, CoC: a hierarchy of two levels, CLC 2 each, CoC = 2 × 2 = 4.
+    /// </summary>
+    public const string Cap2Coc = """
+        using System;
+
+        namespace Samples.Coc;
+
+        public class Usuario
+        {
+            public string Nome;
+            public string Email;
+        }
+
+        public class Cliente : Usuario
+        {
+            public string CPF;
+
+            public void RealizarCompra()
+            {
+                Console.WriteLine("Compra realizada");
+            }
+        }
+        """;
+
     public const string MisraArticle = """
         using System;
 

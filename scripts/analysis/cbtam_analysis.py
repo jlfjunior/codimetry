@@ -146,7 +146,8 @@ def load_participant(directory):
         # Tamanho = LLOC (Park, 1992); resultados v1 sem a coluna caem na LOC antiga
         "loc": int(sum(num(r, "LLOC" if "LLOC" in r else "LOC") for r in file_level(loc))),
         "cyclomatic": int(sum(num(r, "Complexity") for r in file_level(cyc))),
-        "coc": int(num(codebase_rows[0], "CC")) if codebase_rows else 0,
+        # CoC since INC-20; collections before it (results-v1) only have the CC column
+        "coc": int(num(codebase_rows[0], "CoC" if "CoC" in codebase_rows[0] else "CC")) if codebase_rows else 0,
     }
 
 

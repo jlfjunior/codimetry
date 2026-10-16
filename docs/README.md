@@ -18,7 +18,7 @@ Each page explains what the metric measures, gives its formal definition, works 
 | [loc.md](loc.md) | Lines of Code | `--loc` | `metrics_loc.csv` | method, class, file |
 | [cyclomatic.md](cyclomatic.md) | Cyclomatic Complexity | `--cyclomatic` / `--cc` | `metrics_cyclomatic.csv` | method, class, file |
 | [ck.md](ck.md) | WMC, RFC, LCOM, CBO, DIT, NOC | `--ck` | `metrics_ck.csv` | class |
-| [misra.md](misra.md) | MC, AC, CLC, CWC, CoC | `--misra` | `metrics_misra.csv` | method, class, codebase |
+| [misra.md](misra.md) | MC, AC, CLC, CWC, CoC | `--misra` | `metrics_misra.csv`, `metrics_coc.csv` | method, class, codebase; hierarchy |
 
 ## Which types are measured
 

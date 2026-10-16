@@ -32,20 +32,20 @@ public class RootCommandHandlerTests : IDisposable
         var exitCode = await Run("--path", Source, "--out", Output);
 
         Assert.Equal(0, exitCode);
-        Assert.Equal(["metrics_ck.csv", "metrics_cyclomatic.csv", "metrics_loc.csv", "metrics_misra.csv"], OutputFiles());
+        Assert.Equal(["metrics_ck.csv", "metrics_coc.csv", "metrics_cyclomatic.csv", "metrics_loc.csv", "metrics_misra.csv"], OutputFiles());
     }
 
     [Theory]
     [InlineData("--loc", "metrics_loc.csv")]
     [InlineData("--ck", "metrics_ck.csv")]
-    [InlineData("--misra", "metrics_misra.csv")]
+    [InlineData("--misra", "metrics_coc.csv,metrics_misra.csv")]   // CoC per inheritance hierarchy, with MISRA
     [InlineData("--cc", "metrics_cyclomatic.csv")]
-    public async Task SingleMetricFlag_ExportsOnlyThatFile(string flag, string expectedFile)
+    public async Task SingleMetricFlag_ExportsOnlyThatFile(string flag, string expectedFiles)
     {
         var exitCode = await Run("--path", Source, "--out", Output, flag);
 
         Assert.Equal(0, exitCode);
-        Assert.Equal([expectedFile], OutputFiles());
+        Assert.Equal(expectedFiles.Split(','), OutputFiles());
     }
 
     [Fact]
@@ -70,8 +70,8 @@ public class RootCommandHandlerTests : IDisposable
         var additive = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
 
         // Composition: 2 × 3 = 6; additive: 2 + 3 = 5
-        Assert.Contains(composed, l => l.EndsWith(",Nested,M,6,0,0,0,0,class"));
-        Assert.Contains(additive, l => l.EndsWith(",Nested,M,5,0,0,0,0,class"));
+        Assert.Contains(composed, l => l.EndsWith(",Nested,M,6,0,0,0,0,0,class"));
+        Assert.Contains(additive, l => l.EndsWith(",Nested,M,5,0,0,0,0,0,class"));
     }
 
     [Fact]
@@ -85,8 +85,8 @@ public class RootCommandHandlerTests : IDisposable
         var weighted = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
 
         // One per instance attribute: _item, _n = 2; v1: Max (1) + Item (2) + int (1) = 4
-        Assert.Contains(counted, l => l.EndsWith(",Holder,,0,2,2,0,0,class"));
-        Assert.Contains(weighted, l => l.EndsWith(",Holder,,0,4,4,0,0,class"));
+        Assert.Contains(counted, l => l.EndsWith(",Holder,,0,2,2,0,0,0,class"));
+        Assert.Contains(weighted, l => l.EndsWith(",Holder,,0,4,4,0,0,0,class"));
     }
 
     [Fact]
@@ -206,8 +206,8 @@ public class RootCommandHandlerTests : IDisposable
         Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra", "--mc-library-call-weight", "2"));
         var weighted = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
 
-        Assert.Contains(byDefault, l => l.EndsWith(",Log,Write,1,0,0,0,0,class"));
-        Assert.Contains(weighted, l => l.EndsWith(",Log,Write,3,0,0,0,0,class"));
+        Assert.Contains(byDefault, l => l.EndsWith(",Log,Write,1,0,0,0,0,0,class"));
+        Assert.Contains(weighted, l => l.EndsWith(",Log,Write,3,0,0,0,0,0,class"));
     }
 
     [Fact]
@@ -220,8 +220,8 @@ public class RootCommandHandlerTests : IDisposable
         Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra", "--mc-lambdas", "ignore"));
         var ignore = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
 
-        Assert.Contains(full, l => l.EndsWith(",Each,Run,3,0,0,0,0,class"));
-        Assert.Contains(ignore, l => l.EndsWith(",Each,Run,1,0,0,0,0,class"));
+        Assert.Contains(full, l => l.EndsWith(",Each,Run,3,0,0,0,0,0,class"));
+        Assert.Contains(ignore, l => l.EndsWith(",Each,Run,1,0,0,0,0,0,class"));
     }
 
     [Fact]

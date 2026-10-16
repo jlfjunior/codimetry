@@ -48,7 +48,7 @@ Compiled binaries:
 dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src
 ```
 
-Generates all four CSV files in `./.metrics/`.
+Generates the four metric CSV files in `./.metrics/`, plus `metrics_coc.csv` (CoC per inheritance hierarchy) next to `metrics_misra.csv`.
 
 ### Specific metrics
 

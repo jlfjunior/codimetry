@@ -25,11 +25,13 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --pat
 This produces `metrics_misra.csv`, which has rows at three levels:
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
-src/Order.cs,Order,CalculateDiscount,2,0,0,0,0,class   <- method row: only MC is filled
-src/Order.cs,Order,,0,3,5,0,0,class                    <- class row: AC, CLC and CWC
-,,,0,0,0,0,35,                                         <- one codebase row: CC (= CoC)
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CoC,CC,Kind
+src/Order.cs,Order,CalculateDiscount,2,0,0,0,0,0,class   <- method row: only MC is filled
+src/Order.cs,Order,,0,3,5,0,0,0,class                    <- class row: AC, CLC and CWC
+,,,0,0,0,0,34,34,                                        <- one codebase row: CoC (CC repeats it)
 ```
+
+It also produces `metrics_coc.csv`, with the CoC of each inheritance hierarchy (see [CoC](#coc--code-complexity)).
 
 `Kind` is the kind of the type of the row: `class`, `record`, `struct` or `record struct` (see [which types are measured](README.md#which-types-are-measured)).
 
@@ -347,7 +349,7 @@ CoC is a single system-wide number. It is useful for following how a codebase ev
 
 ### Example
 
-This is the dissertation's simplified example:
+This is the example of the dissertation (Cap. 2):
 
 ```csharp
 public class User
@@ -364,21 +366,45 @@ public class Customer : User
 }
 ```
 
-- `User`: AC = 2, MC = 0 → CLC = 2
-- `Customer`: AC = 1, MC = 1 → CLC = 2, at level 2 of the hierarchy
-- **CoC = CLC(User) + 2 × CLC(Customer) = 2 + 4 = 6**
+- `User` (level 1): AC = 2, MC = 0 → CLC = 2
+- `Customer` (level 2): AC = 1, MC = 1 → CLC = 2
+- **CoC = CLC(User) × CLC(Customer) = 2 × 2 = 4**
 
-The full formulation by Misra et al. accounts for the complete depth of the inheritance tree. The example above trades that detail for clarity.
+When a project has more than one hierarchy, their values are added.
 
 ### How this tool computes it
 
-The tool **ignores the inheritance hierarchy**. It produces one codebase-level value, in the `CC` column:
+Eq. 27 of Misra et al. (2018) multiplies, over the levels of a hierarchy, the sum of the CLC of each level. The worked example of the same paper, however, does not follow it literally: for COMPUTER → {SOFTWARE, HARDWARE → {DESKTOP, NOTEBOOK}}, with CLC 4, 14, 20, 3 and 3, it gets
 
 $$
-CC_{tool} = \sum_{k} CLC_k + \left\lfloor \frac{\sum_{k} CWC_k}{2} \right\rfloor
+CoC = 4 \times (14 + 20 \times (3 + 3)) = 536
 $$
 
-summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 34$ and $\sum CWC = 3$, so **CC = 34 + 1 = 35**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
+which multiplies each class by its own subclasses only. Read level by level, Eq. 27 would give $4 \times (14 + 20) \times (3 + 3) = 816$, multiplying `Software` by the subclasses of `Hardware`. The tool follows the paper's example (D1) by default:
+
+$$
+CoC(c) = \begin{cases} CLC(c) & \text{if } c \text{ has no subclasses in the analysed code} \\ CLC(c) \times \sum_{d \,\in\, \text{subclasses}(c)} CoC(d) & \text{otherwise} \end{cases}
+\qquad
+CoC = \sum_{r \,\in\, \text{roots}} CoC(r)
+$$
+
+- A **root** is a type whose base class is not in the analysed code: no base class, `System.Object`, or a base class from the framework or a package (`class E : Exception`), as for [DIT](ck.md#dit--depth-of-inheritance-tree). A type without subclasses or base class in the code is a hierarchy of its own, so CoC is $\sum CLC$ when nothing inherits.
+- Records and structs are hierarchies like classes (records can inherit from records; structs cannot inherit).
+- CWC does not enter.
+- The value is a 64-bit integer: with CLC in the hundreds and hierarchies of 3–4 levels, CoC reaches $10^8$–$10^{10}$, so compare codebases on a logarithmic scale. If a hierarchy overflows 64 bits, the log warns and the value is reported as the largest 64-bit integer.
+
+The value goes in the `CoC` column of the codebase row of `metrics_misra.csv`. The `CC` column repeats it for one version, so that scripts written for v1 keep working. `metrics_coc.csv` has one row per hierarchy, named by its root:
+
+```csv
+FilePath,ClassName,Classes,Levels,CoC,Kind
+src/Computer.cs,Computer,5,3,536,class
+```
+
+`--coc-formula levels` uses Eq. 27 read level by level (816 for the example of the paper). The two agree when every level above the last has a single class, as in `User`/`Customer` (4) or a class with two subclasses that have none; they differ as soon as a level has several classes and one of them has subclasses.
+
+`--coc-legacy` restores the rule of v1, which ignored the hierarchy and added half of the CWC: $\sum_k CLC_k + \lfloor \sum_k CWC_k / 2 \rfloor$.
+
+The samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) do not inherit from each other, so each is a hierarchy of its own and **CoC = $\sum CLC$ = 34**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
 
 ---
 

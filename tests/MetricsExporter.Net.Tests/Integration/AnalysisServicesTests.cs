@@ -190,7 +190,7 @@ public class AnalysisServicesTests : IDisposable
 
         Assert.Equal(1, method.MC);
         Assert.Equal((1, 2, 0), (@class.AC, @class.CLC, @class.CWC));
-        Assert.Equal(2, codebase.CC);
+        Assert.Equal(2, codebase.CoC);
     }
 
     [Fact]

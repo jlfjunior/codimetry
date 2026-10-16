@@ -29,9 +29,9 @@ public static class Analyzers
 
     public static Task<List<MisraMetric>> Misra(string path, bool additiveMc = false, bool acTypeWeights = false,
         TypeScope? typeScope = null, int libraryCallWeight = 0, McLambdaRule lambdaRule = McLambdaRule.Full,
-        int cwcLibraryCallWeight = 0) =>
+        int cwcLibraryCallWeight = 0, CocFormula cocFormula = CocFormula.Tree, bool cocLegacy = false) =>
         new MisraMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder(),
                 additiveMc: additiveMc, acTypeWeights: acTypeWeights, typeScope: typeScope, libraryCallWeight: libraryCallWeight,
-                lambdaRule: lambdaRule, cwcLibraryCallWeight: cwcLibraryCallWeight)
+                lambdaRule: lambdaRule, cwcLibraryCallWeight: cwcLibraryCallWeight, cocFormula: cocFormula, cocLegacy: cocLegacy)
             .AnalyzeAsync(path);
 }

@@ -135,6 +135,16 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "CK: leave constructor calls (new, base(...)) out of RFC, as v1 did");
 
+        var cocFormulaOption = new Option<CocFormula>(
+            aliases: new[] { "--coc-formula" },
+            getDefaultValue: () => CocFormula.Tree,
+            description: "MISRA: how CoC combines the CLC of an inheritance hierarchy: tree (CLC of a class × Σ CoC of its subclasses, as in the example of Misra et al.) or levels (Π over levels of Σ CLC, Eq. 27 read literally)");
+
+        var cocLegacyOption = new Option<bool>(
+            aliases: new[] { "--coc-legacy" },
+            getDefaultValue: () => false,
+            description: "MISRA: compute CoC as v1 did, Σ CLC + Σ CWC / 2, without the inheritance hierarchy");
+
         var classesOnlyOption = new Option<bool>(
             aliases: new[] { "--classes-only" },
             getDefaultValue: () => false,
@@ -167,7 +177,9 @@ public class RootCommandHandler
             ditResolveFrameworkOption,
             cboDeclaredTypesOnlyOption,
             cboBidirectionalOption,
-            rfcExcludeConstructorsOption
+            rfcExcludeConstructorsOption,
+            cocFormulaOption,
+            cocLegacyOption
         };
 
         rootCommand.AddValidator(result =>
@@ -222,15 +234,17 @@ public class RootCommandHandler
                 DeclaredTypesOnly: context.ParseResult.GetValueForOption(cboDeclaredTypesOnlyOption),
                 Bidirectional: context.ParseResult.GetValueForOption(cboBidirectionalOption));
             var rfcExcludeConstructors = context.ParseResult.GetValueForOption(rfcExcludeConstructorsOption);
+            var cocFormula = context.ParseResult.GetValueForOption(cocFormulaOption);
+            var cocLegacy = context.ParseResult.GetValueForOption(cocLegacyOption);
             var typeScope = new Parsers.TypeScope(ClassesOnly: context.ParseResult.GetValueForOption(classesOnlyOption));
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight, ditOptions, cboOptions, rfcExcludeConstructors);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight, ditOptions, cboOptions, rfcExcludeConstructors, cocFormula, cocLegacy);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight, Parsers.DitOptions ditOptions, Parsers.CboOptions cboOptions, bool rfcExcludeConstructors)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight, Parsers.DitOptions ditOptions, Parsers.CboOptions cboOptions, bool rfcExcludeConstructors, CocFormula cocFormula, bool cocLegacy)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -387,7 +401,9 @@ public class RootCommandHandler
                     libraryCallWeight: mcLibraryCallWeight,
                     lambdaRule: mcLambdas,
                     cwcLibraryCallWeight: cwcLibraryWeight,
-                    ditOptions: ditOptions);
+                    ditOptions: ditOptions,
+                    cocFormula: cocFormula,
+                    cocLegacy: cocLegacy);
 
                 var misraMetricsResults = await misraAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 
@@ -398,6 +414,10 @@ public class RootCommandHandler
 
                     logger.LogInformation("MISRA metrics exported successfully to: {OutputPath}", misraOutputPath);
                     logger.LogInformation("Total MISRA entries: {Count}", misraMetricsResults.Count);
+
+                    var cocOutputPath = Path.Combine(output, "metrics_coc.csv");
+                    await csvExporter.ExportCocHierarchiesAsync(misraAnalysisService.Hierarchies, cocOutputPath);
+                    logger.LogInformation("CoC per inheritance hierarchy exported to: {OutputPath}", cocOutputPath);
                 }
                 else
                 {

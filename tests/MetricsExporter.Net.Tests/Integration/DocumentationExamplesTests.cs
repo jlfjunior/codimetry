@@ -196,7 +196,7 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(5, @class["Order"].CLC);
         Assert.Equal(2 + 1, @class["CartService"].CWC);   // INC-19: IsAvailable only; Console.WriteLine does not count
         Assert.Equal(5, method["Checkout"].MC);    // INC-16: the condition calls IsAvailable, 2 + MC 1
-        Assert.Equal(34 + 3 / 2, codebase.CC);   // ΣCLC 34; ΣCWC 3 (INC-19: only CartService → IsAvailable)
+        Assert.Equal(34, codebase.CoC);   // INC-20: no sample inherits from another, so each is a hierarchy and CoC = ΣCLC
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public class DocumentationExamplesTests : IDisposable
         _dir.WriteFile("Cwc.cs", Samples.MisraCwc);
 
         var metrics = await Analyzers.Misra(_dir.Path, additiveMc: true, acTypeWeights: true, typeScope: new TypeScope(ClassesOnly: true),
-            libraryCallWeight: 2, cwcLibraryCallWeight: 3);
+            libraryCallWeight: 2, cwcLibraryCallWeight: 3, cocLegacy: true);
         var method = metrics.Where(m => m.MethodName != "").ToDictionary(m => m.MethodName);
         var @class = metrics.Where(m => m.ClassName != "" && m.MethodName == "").ToDictionary(m => m.ClassName);
 

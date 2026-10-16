@@ -76,7 +76,7 @@ public class CsvExporter
         var csv = new StringBuilder();
         
         // Write header
-        csv.AppendLine("FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind");
+        csv.AppendLine("FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CoC,CC,Kind");
 
         // Write data rows
         foreach (var metric in metrics)
@@ -85,7 +85,28 @@ public class CsvExporter
             var className = EscapeCsvField(metric.ClassName);
             var methodName = EscapeCsvField(metric.MethodName);
             
-            csv.AppendLine($"{filePath},{className},{methodName},{metric.MC},{metric.AC},{metric.CLC},{metric.CWC},{metric.CC},{EscapeCsvField(metric.Kind)}");
+            csv.AppendLine($"{filePath},{className},{methodName},{metric.MC},{metric.AC},{metric.CLC},{metric.CWC},{metric.CoC},{metric.CC},{EscapeCsvField(metric.Kind)}");
+        }
+
+        await File.WriteAllTextAsync(outputPath, csv.ToString());
+    }
+
+    /// <summary>
+    /// Exports the CoC of each inheritance hierarchy to a CSV file.
+    /// </summary>
+    public async Task ExportCocHierarchiesAsync(IEnumerable<CocHierarchyMetric> hierarchies, string outputPath)
+    {
+        var outputDirectory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+
+        var csv = new StringBuilder();
+        csv.AppendLine("FilePath,ClassName,Classes,Levels,CoC,Kind");
+        foreach (var hierarchy in hierarchies)
+        {
+            csv.AppendLine($"{EscapeCsvField(hierarchy.FilePath)},{EscapeCsvField(hierarchy.ClassName)},{hierarchy.Classes},{hierarchy.Levels},{hierarchy.CoC},{EscapeCsvField(hierarchy.Kind)}");
         }
 
         await File.WriteAllTextAsync(outputPath, csv.ToString());

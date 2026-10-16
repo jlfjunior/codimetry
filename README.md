@@ -17,7 +17,7 @@ A .NET command-line tool designed to extract software metrics from local .NET re
   - **AC** (Attribute Complexity) - Complexity introduced by class attributes
   - **CLC** (Class Complexity) - Overall complexity of classes
   - **CWC** (Coupling Weight for a Class) - Complexity due to inter-class interactions
-  - **CC** (Code Complexity, *CoC* in the docs) - Overall complexity of the codebase
+  - **CoC** (Code Complexity) - Overall complexity of the codebase, following the inheritance hierarchies
 - ✅ **Cyclomatic Complexity Metrics** - Measures code complexity by counting decision points:
   - Calculates complexity for methods, classes, and files
   - Formula: CC = 1 + number of decision points (if, switch, loops, catch, operators)
@@ -106,6 +106,8 @@ You can analyze code using one of three input options:
 | `--cbo-bidirectional` | | CK: CBO also counts the types that use the class (CK 1994), each coupled type once (see [docs/ck.md](docs/ck.md#cbo--coupling-between-objects)) | `false` |
 | `--cbo-declared-types-only` | | CK: CBO counts only the types of fields, properties and method signatures, and only classes, as v1 did | `false` |
 | `--rfc-exclude-constructors` | | CK: leave constructor calls (`new`, `base(...)`) out of RFC, as v1 did (see [docs/ck.md](docs/ck.md#rfc--response-for-a-class)) | `false` |
+| `--coc-formula <tree\|levels>` | | MISRA: CoC of a hierarchy by subtree (CLC × Σ CoC of the subclasses, as in the example of Misra et al.) or by level (Eq. 27 read literally) (see [docs/misra.md](docs/misra.md#coc--code-complexity)) | `tree` |
+| `--coc-legacy` | | MISRA: CoC as v1 computed it, Σ CLC + Σ CWC / 2, without the hierarchy | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
@@ -197,6 +199,7 @@ The tool generates CSV files in the specified output directory. The files genera
 - **`metrics_loc.csv`** - Generated when LOC metrics are calculated
 - **`metrics_ck.csv`** - Generated when CK metrics are calculated
 - **`metrics_misra.csv`** - Generated when MISRA metrics are calculated
+- **`metrics_coc.csv`** - Generated with `metrics_misra.csv`: the CoC of each inheritance hierarchy
 - **`metrics_cyclomatic.csv`** - Generated when Cyclomatic Complexity metrics are calculated
 
 ### LOC Metrics Output (`metrics_loc.csv`)
@@ -269,7 +272,7 @@ src/Service.cs,UserService,8,0,0,5,25,12,7,class
 #### CSV Format
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CoC,CC,Kind
 ```
 
 #### Columns
@@ -281,7 +284,8 @@ FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
 - **AC**: Attribute Complexity - Complexity from class attributes (class-level only)
 - **CLC**: Class Complexity - Overall complexity of the class (class-level only)
 - **CWC**: Coupling Weight for a Class - Complexity from inter-class interactions (class-level only)
-- **CC**: Code Complexity - Overall complexity of the codebase (codebase-level only)
+- **CoC**: Code Complexity - Overall complexity of the codebase, by inheritance hierarchy (codebase-level only)
+- **CC**: the former name of CoC, with the same value; kept for one version so that v1 scripts keep working
 - **Kind**: Kind of the type of the row: `class`, `record`, `struct` or `record struct` (empty for the codebase row)
 
 #### Output Levels
@@ -290,22 +294,24 @@ The CSV includes metrics at three levels:
 
 1. **Method Level**: Individual methods with their MC (Method Complexity)
 2. **Class Level**: Aggregated metrics for each class (AC, CLC, CWC)
-3. **Codebase Level**: Overall codebase complexity (CC)
+3. **Codebase Level**: Overall codebase complexity (CoC)
+
+The CoC of each inheritance hierarchy goes to `metrics_coc.csv` (`FilePath,ClassName,Classes,Levels,CoC,Kind`, one row per root class).
 
 #### Example Output
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
-src/Example.cs,ExampleClass,SimpleMethod,3,0,0,0,0,class
-src/Example.cs,ExampleClass,ComplexMethod,8,0,0,0,0,class
-src/Example.cs,ExampleClass,,0,6,25,15,0,class
-,,,0,0,0,0,45,
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CoC,CC,Kind
+src/Example.cs,ExampleClass,SimpleMethod,3,0,0,0,0,0,class
+src/Example.cs,ExampleClass,ComplexMethod,8,0,0,0,0,0,class
+src/Example.cs,ExampleClass,,0,6,25,15,0,0,class
+,,,0,0,0,0,25,25,
 ```
 
 **Note:** 
 - Method-level entries show MC values only
 - Class-level entries show AC, CLC, and CWC values (MC is 0)
-- Codebase-level entry shows CC value only (all other fields are empty)
+- Codebase-level entry shows CoC (and CC, with the same value) only
 
 ### Cyclomatic Complexity Metrics Output (`metrics_cyclomatic.csv`)
 
@@ -353,7 +359,7 @@ See [cyclomatic.md](docs/cyclomatic.md#interpretation) for reference thresholds 
 | LOC | Non-blank, non-comment lines of each method and constructor. Classes and files sum their methods | [loc.md](docs/loc.md) |
 | Cyclomatic Complexity | 1 + number of decision points (`if`, `case`, loops, `catch`, `?:`, `&&`, `\|\|`, `or`/`and`…) | [cyclomatic.md](docs/cyclomatic.md) |
 | WMC, RFC, LCOM, CBO, DIT, NOC | Chidamber & Kemerer object-oriented design metrics | [ck.md](docs/ck.md) |
-| MC, AC, CLC, CWC, CC | Misra et al. cognitive complexity metrics, using Basic Control Structure weights | [misra.md](docs/misra.md) |
+| MC, AC, CLC, CWC, CoC | Misra et al. cognitive complexity metrics, using Basic Control Structure weights | [misra.md](docs/misra.md) |
 
 The tool's implementation differs from the textbook definitions in some places, for example in how WMC weights methods or how MC treats nesting. Each page documents these differences, so read the "How this tool computes it" section before comparing values with other tools or with published studies.
 

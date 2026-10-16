@@ -255,9 +255,8 @@ public class CcCalculator
     }
 
     /// <summary>
-    /// Calculates CC (Code Complexity) for the entire codebase.
-    /// CC = Σ(CLC for all classes) + Σ(CWC for all classes) / 2
-    /// The division by 2 avoids double-counting coupling (each coupling affects two classes).
+    /// The CoC of v1 (--coc-legacy): Σ(CLC for all classes) + Σ(CWC for all classes) / 2, without the inheritance
+    /// hierarchy. See <see cref="CocCalculator"/> for Eq. 27.
     /// </summary>
     public int CalculateCc(
         IReadOnlyList<string> allClassNames,
@@ -288,3 +287,125 @@ public class CcCalculator
     }
 }
 
+/// <summary>
+/// How CoC combines the CLC of the classes of an inheritance hierarchy (D1).
+/// </summary>
+public enum CocFormula
+{
+    /// <summary>Recursive, as in the example of Misra et al. (2018): CoC(c) = CLC(c) × Σ CoC(child), or CLC(c) for a leaf.</summary>
+    Tree,
+    /// <summary>Eq. 27 read level by level: the product, over the levels of the hierarchy, of the Σ CLC of each level.</summary>
+    Levels
+}
+
+/// <summary>
+/// CoC of one inheritance hierarchy: its root, the number of classes and levels, and its CoC.
+/// </summary>
+public sealed record CocHierarchy(string RootKey, int Classes, int Levels, long CoC);
+
+/// <summary>
+/// Calculator for CoC (Code Complexity, Eq. 27 of Misra et al., 2018): CLC of classes in the same level add, levels of
+/// a hierarchy multiply, distinct hierarchies add (INC-20). CWC does not enter.
+/// </summary>
+public class CocCalculator
+{
+    private readonly CocFormula _formula;
+
+    public CocCalculator(CocFormula formula = CocFormula.Tree)
+    {
+        _formula = formula;
+    }
+
+    /// <summary>
+    /// Number of hierarchies whose CoC exceeded 64 bits; their CoC is reported as <see cref="long.MaxValue"/>.
+    /// </summary>
+    public int Overflows { get; private set; }
+
+    /// <summary>
+    /// The CoC of each hierarchy of the measured types. A root is a type whose base class is not in the analysed
+    /// code (an external base class or System.Object, as for DIT); a type without subclasses or base class in the
+    /// code is a hierarchy of its own.
+    /// </summary>
+    /// <param name="clc">CLC of each measured type, by class key.</param>
+    /// <param name="baseClass">Base class key of each measured type, or null.</param>
+    /// <param name="children">Subclasses of a type in the analysed code.</param>
+    public List<CocHierarchy> Hierarchies(
+        IReadOnlyDictionary<string, int> clc,
+        Func<string, string?> baseClass,
+        Func<string, IEnumerable<string>> children)
+    {
+        IEnumerable<string> Children(string key) => children(key).Where(clc.ContainsKey).Distinct();
+
+        var roots = clc.Keys
+            .Where(key => baseClass(key) is not { } b || !clc.ContainsKey(b))
+            .OrderBy(key => key, StringComparer.Ordinal);
+
+        var hierarchies = new List<CocHierarchy>();
+        foreach (var root in roots)
+        {
+            var levels = Levels(root, Children);
+            long coc;
+            try
+            {
+                coc = _formula == CocFormula.Tree
+                    ? Tree(root, clc, Children, new HashSet<string>())
+                    : levels.Aggregate(1L, (product, level) => checked(product * level.Sum(key => (long)clc[key])));
+            }
+            catch (OverflowException)
+            {
+                Overflows++;
+                coc = long.MaxValue;
+            }
+
+            hierarchies.Add(new CocHierarchy(root, levels.Sum(level => level.Count), levels.Count, coc));
+        }
+
+        return hierarchies;
+    }
+
+    /// <summary>
+    /// CoC of the analysed code: the sum of the CoC of its hierarchies (<see cref="long.MaxValue"/> on overflow).
+    /// </summary>
+    public long CalculateCoc(IEnumerable<CocHierarchy> hierarchies)
+    {
+        try
+        {
+            return hierarchies.Aggregate(0L, (sum, h) => checked(sum + h.CoC));
+        }
+        catch (OverflowException)
+        {
+            Overflows++;
+            return long.MaxValue;
+        }
+    }
+
+    private static long Tree(string key, IReadOnlyDictionary<string, int> clc, Func<string, IEnumerable<string>> children,
+        HashSet<string> visiting)
+    {
+        if (!visiting.Add(key))
+        {
+            return 0; // not valid C#, but never loop
+        }
+
+        var below = children(key).ToList();
+        var coc = below.Count == 0
+            ? clc[key]
+            : checked(clc[key] * below.Aggregate(0L, (sum, child) => checked(sum + Tree(child, clc, children, visiting))));
+        visiting.Remove(key);
+        return coc;
+    }
+
+    private static List<List<string>> Levels(string root, Func<string, IEnumerable<string>> children)
+    {
+        var levels = new List<List<string>>();
+        var seen = new HashSet<string> { root };
+        var level = new List<string> { root };
+        while (level.Count > 0)
+        {
+            levels.Add(level);
+            level = level.SelectMany(children).Where(seen.Add).ToList();
+        }
+
+        return levels;
+    }
+}

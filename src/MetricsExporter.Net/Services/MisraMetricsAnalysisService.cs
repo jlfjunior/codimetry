@@ -27,6 +27,8 @@ public class MisraMetricsAnalysisService
     private readonly McLambdaRule _lambdaRule;
     private readonly int _cwcLibraryCallWeight;
     private readonly DitOptions? _ditOptions;
+    private readonly CocFormula _cocFormula;
+    private readonly bool _cocLegacy;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
@@ -41,8 +43,12 @@ public class MisraMetricsAnalysisService
         int libraryCallWeight = 0,
         McLambdaRule lambdaRule = McLambdaRule.Full,
         int cwcLibraryCallWeight = 0,
-        DitOptions? ditOptions = null)
+        DitOptions? ditOptions = null,
+        CocFormula cocFormula = CocFormula.Tree,
+        bool cocLegacy = false)
     {
+        _cocFormula = cocFormula;
+        _cocLegacy = cocLegacy;
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
         _relationshipBuilder = relationshipBuilder;
@@ -63,6 +69,11 @@ public class MisraMetricsAnalysisService
     }
 
     /// <summary>
+    /// The CoC of each inheritance hierarchy of the last analysis, root first by key.
+    /// </summary>
+    public IReadOnlyList<CocHierarchyMetric> Hierarchies { get; private set; } = [];
+
+    /// <summary>
     /// Analyzes code and calculates MISRA metrics for all classes and methods.
     /// </summary>
     public async Task<List<MisraMetric>> AnalyzeAsync(string path, bool recursive = true)
@@ -79,6 +90,11 @@ public class MisraMetricsAnalysisService
             : "one per instance attribute (Eq. 25)");
         _logger?.LogInformation("CWC rule: 2 + MC per call to another type of the analysed code (Eq. 24); a library call adds {Weight}",
             _cwcLibraryCallWeight);
+        _logger?.LogInformation("CoC rule: {Rule}", _cocLegacy
+            ? "Σ CLC + Σ CWC / 2, v1 (--coc-legacy)"
+            : _cocFormula == CocFormula.Tree
+                ? "Eq. 27 by subtree, as in the example of Misra et al.: CLC of a class × Σ CoC of its subclasses; hierarchies add"
+                : "Eq. 27 by level (--coc-formula levels): Π over levels of Σ CLC of the level; hierarchies add");
 
         // Phase 1: Build class relationship graph and collect BCS information
         _logger?.LogInformation("Phase 1: Building class relationship graph and collecting BCS information...");
@@ -186,6 +202,7 @@ public class MisraMetricsAnalysisService
         // Phase 3: Calculate class-level metrics (AC, CLC, CWC)
         _logger?.LogInformation("Phase 3: Calculating class-level metrics (AC, CLC, CWC)...");
         var classMetrics = new List<MisraMetric>();
+        var clcByClass = new Dictionary<string, int>();
 
         // One row per class, joining partial declarations
         var distinctClasses = allClasses.GroupBy(c => c.ClassKey!).Select(g => g.First()).ToList();
@@ -213,6 +230,7 @@ public class MisraMetricsAnalysisService
                 };
 
                 classMetrics.Add(metric);
+                clcByClass[classKey] = clc;
             }
             catch (Exception ex)
             {
@@ -225,17 +243,48 @@ public class MisraMetricsAnalysisService
         _logger?.LogInformation("CWC: {Calls} unresolved calls in {Classes} classes, not counted", unresolved.Sum(), unresolved.Count);
         _logger?.LogInformation("Calculated class-level metrics for {Count} classes", classMetrics.Count);
 
-        // Phase 4: Calculate codebase-level metric (CC)
-        _logger?.LogInformation("Phase 4: Calculating codebase-level metric (CC)...");
-        var allClassKeys = distinctClasses.Select(c => c.ClassKey!).ToList();
-        var cc = _ccCalculator.CalculateCc(
-            allClassKeys,
-            allBcsInfo,
-            allClassAttributes,
-            allClassAttributeTypes,
-            allMethods,
-            allClassesMap,
-            implementations);
+        // Phase 4: Calculate codebase-level metric (CoC)
+        _logger?.LogInformation("Phase 4: Calculating codebase-level metric (CoC)...");
+        var cocCalculator = new CocCalculator(_cocFormula);
+        var hierarchies = cocCalculator.Hierarchies(
+            clcByClass,
+            key => allClassesMap.TryGetValue(key, out var info) ? info.BaseClass : null,
+            _relationshipBuilder.GetChildren);
+        Hierarchies = hierarchies
+            .Select(h => new CocHierarchyMetric
+            {
+                FilePath = allClassesMap.TryGetValue(h.RootKey, out var info) ? info.FilePath : string.Empty,
+                ClassName = allClassesMap.TryGetValue(h.RootKey, out var root) ? root.Name : h.RootKey,
+                Classes = h.Classes,
+                Levels = h.Levels,
+                CoC = h.CoC,
+                Kind = kinds.GetValueOrDefault(h.RootKey, string.Empty)
+            })
+            .ToList();
+
+        long cc;
+        if (_cocLegacy)
+        {
+            cc = _ccCalculator.CalculateCc(
+                distinctClasses.Select(c => c.ClassKey!).ToList(),
+                allBcsInfo,
+                allClassAttributes,
+                allClassAttributeTypes,
+                allMethods,
+                allClassesMap,
+                implementations);
+        }
+        else
+        {
+            cc = cocCalculator.CalculateCoc(hierarchies);
+        }
+
+        _logger?.LogInformation("CoC: {Hierarchies} inheritance hierarchies, {Inheriting} of them with subclasses, deepest {Levels} levels",
+            hierarchies.Count, hierarchies.Count(h => h.Levels > 1), hierarchies.Count == 0 ? 0 : hierarchies.Max(h => h.Levels));
+        if (cocCalculator.Overflows > 0)
+        {
+            _logger?.LogWarning("CoC overflowed 64 bits in {Count} places; reported as {Max}", cocCalculator.Overflows, long.MaxValue);
+        }
 
         // Add codebase-level metric
         var codebaseMetric = new MisraMetric
@@ -243,11 +292,11 @@ public class MisraMetricsAnalysisService
             FilePath = string.Empty,
             ClassName = string.Empty,
             MethodName = string.Empty,
-            CC = cc
+            CoC = cc
         };
 
         allMetrics.Add(codebaseMetric);
-        _logger?.LogInformation("Calculated codebase complexity (CC): {CC}", cc);
+        _logger?.LogInformation("Calculated codebase complexity (CoC): {CoC}", cc);
 
         _logger?.LogInformation("MISRA metrics analysis complete. Total metrics: {Count}", allMetrics.Count);
 
