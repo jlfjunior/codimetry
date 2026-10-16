@@ -4,6 +4,19 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace MetricsExporter.Net.Parsers;
 
 /// <summary>
+/// How MC treats the code of lambdas, anonymous methods and local functions (D11, --mc-lambdas).
+/// </summary>
+public enum McLambdaRule
+{
+    /// <summary>Their body is a layer nested where they are written: its structures, sequence and calls count.</summary>
+    Full,
+    /// <summary>The rule before INC-17: lambdas contribute only their calls, local function bodies are inlined.</summary>
+    Calls,
+    /// <summary>Their bodies are left out.</summary>
+    Ignore
+}
+
+/// <summary>
 /// MC by the composition rule of Misra et al. (Eq. 23): structures in the same layer are summed,
 /// nested layers are multiplied, and the simple statements of a layer form one sequence of weight 1.
 /// <list type="bullet">
@@ -14,8 +27,11 @@ namespace MetricsExporter.Net.Parsers;
 /// statements belong to the list that contains them.</item>
 /// </list>
 /// A call adds the weight given by the caller of <see cref="Calculate"/> to the layer where it appears
-/// (<see cref="MethodComplexityGraph"/>: 2 + MC of the called method of the analysed code). Lambda bodies are
-/// not looked into (INC-17).
+/// (<see cref="MethodComplexityGraph"/>: 2 + MC of the called method of the analysed code).
+/// <para>The body of a lambda, anonymous method or local function is a layer nested where it is written, of
+/// weight 1 × its layer, added to the structures of that layer (D11). An expression body has no sequence of
+/// its own: <c>x => x > 0</c> adds nothing, <c>x => x > 0 ? 1 : 0</c> adds its ternary. A call to a local
+/// function adds nothing, since its body is already counted.</para>
 /// </summary>
 public static class MethodComplexityCalculator
 {
@@ -29,11 +45,15 @@ public static class MethodComplexityCalculator
     /// </summary>
     /// <param name="callWeight">Weight of each invocation, added to the layer where it appears; calls weigh
     /// nothing when it is not given.</param>
-    public static int? Calculate(BaseMethodDeclarationSyntax method, Func<InvocationExpressionSyntax, int>? callWeight = null) =>
-        new Composer(callWeight ?? (_ => 0)).Method(method);
+    /// <param name="lambdas">How lambdas and local functions are treated (--mc-lambdas).</param>
+    public static int? Calculate(BaseMethodDeclarationSyntax method, Func<InvocationExpressionSyntax, int>? callWeight = null,
+        McLambdaRule lambdas = McLambdaRule.Full) =>
+        new Composer(callWeight ?? (_ => 0), lambdas).Method(method);
 
-    private sealed class Composer(Func<InvocationExpressionSyntax, int> callWeight)
+    private sealed class Composer(Func<InvocationExpressionSyntax, int> callWeight, McLambdaRule lambdas)
     {
+        public McLambdaRule Lambdas => lambdas;
+
         public int? Method(BaseMethodDeclarationSyntax method)
         {
             if (method.Body != null)
@@ -109,6 +129,10 @@ public static class MethodComplexityCalculator
                     case BlockSyntax:
                         AddChildren(statement);
                         break;
+                    case LocalFunctionStatementSyntax localFunction when composer.Lambdas != McLambdaRule.Calls:
+                        // A layer of its own, written here; it is not a simple statement of this layer
+                        _structures += composer.LocalFunction(localFunction);
+                        break;
                     default:
                         if (statement.ChildNodes().Any(child => child is StatementSyntax or CatchClauseSyntax or FinallyClauseSyntax))
                         {
@@ -154,9 +178,10 @@ public static class MethodComplexityCalculator
             switch (node)
             {
                 case null:
-                case AnonymousFunctionExpressionSyntax:
                 case LocalFunctionStatementSyntax:
                     return 0;
+                case AnonymousFunctionExpressionSyntax lambda:
+                    return Lambda(lambda);
                 case ConditionalExpressionSyntax conditional:
                     return Ternary(conditional);
                 case InvocationExpressionSyntax invocation:
@@ -166,6 +191,27 @@ public static class MethodComplexityCalculator
                     return node.ChildNodes().Sum(Expressions);
             }
         }
+
+        /// <summary>
+        /// Weight of a lambda or anonymous method in the layer where it is written (D11).
+        /// </summary>
+        private int Lambda(AnonymousFunctionExpressionSyntax lambda) => lambdas switch
+        {
+            McLambdaRule.Full => lambda.Block != null ? Layer(lambda.Block.Statements) : Expressions(lambda.ExpressionBody),
+            McLambdaRule.Calls => lambda.Body.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Sum(callWeight),
+            _ => 0
+        };
+
+        /// <summary>
+        /// Weight of a local function in the layer where it is declared: its body, like a lambda's (D11).
+        /// </summary>
+        public int LocalFunction(LocalFunctionStatementSyntax localFunction) => lambdas switch
+        {
+            McLambdaRule.Full => localFunction.Body != null
+                ? Layer(localFunction.Body.Statements)
+                : Expressions(localFunction.ExpressionBody?.Expression),
+            _ => 0
+        };
 
         /// <summary>
         /// A ternary is a branch of weight 2 × the layer of its two expressions: a nested ternary is a

@@ -11,7 +11,8 @@ namespace MetricsExporter.Net.Tests.Parsers;
 /// </summary>
 public class MethodComplexityCalculatorTests
 {
-    private static int? Mc(string body, string signature = "void M(bool a, bool b, bool c, bool d, int[] l)") =>
+    private static int? Mc(string body, string signature = "void M(bool a, bool b, bool c, bool d, int[] l)",
+        McLambdaRule lambdas = McLambdaRule.Full) =>
         MethodComplexityCalculator.Calculate(Code.Method($$"""
             class C
             {
@@ -23,7 +24,7 @@ public class MethodComplexityCalculatorTests
                 void x() { }
                 void y() { }
             }
-            """, "M"));
+            """, "M"), lambdas: lambdas);
 
     private static int? Article(string name) =>
         MethodComplexityCalculator.Calculate(
@@ -178,11 +179,23 @@ public class MethodComplexityCalculatorTests
         Assert.Equal((2 * 1) + (2 * 1), Mc("if (a ? b : c) x();"));
     }
 
-    [Fact]
-    public void LambdaBodies_AreNotLookedInto()
+    // ---------- INC-17: lambdas and local functions (D11) ----------
+
+    [Theory]
+    [InlineData("System.Array.ForEach(l, i => { if (i > 0) x(); });", 1 + (2 * 1), 1, 1)]
+    [InlineData("var ok = System.Array.Exists(l, i => i > 0);", 1, 1, 1)]                  // expression lambda: no sequence
+    [InlineData("System.Func<int, int> f = i => i > 0 ? 1 : 0;", 1 + (2 * 1), 1, 1)]          // its ternary counts
+    [InlineData("System.Action f = () => { };", 1, 1, 1)]                                    // empty body adds nothing
+    [InlineData("System.Action f = delegate { for (;;) { x(); } };", 1 + (3 * 1), 1, 1)]     // anonymous method
+    [InlineData("void P(int i) { if (i > 0) x(); } P(1);", 1 + (2 * 1), 1 + (2 * 1), 1)]   // local function with if, called
+    [InlineData("void P() { x(); } P(); y();", 1 + 1, 1, 1)]                               // its own sequence (inlined by calls)
+    [InlineData("int P(int i) => i > 0 ? i : 0; P(1);", 1 + (2 * 1), 1, 1)]
+    [InlineData("if (a) System.Array.ForEach(l, i => { if (i > 0) x(); });", 2 * (1 + (2 * 1)), 2 * 1, 2 * 1)] // nested in the if's layer
+    public void LambdasAndLocalFunctions_ByRule(string body, int full, int calls, int ignore)
     {
-        // INC-17 decides how lambdas count
-        Assert.Equal(1, Mc("System.Array.ForEach(l, i => { if (i > 0) x(); });"));
+        Assert.Equal(full, Mc(body, lambdas: McLambdaRule.Full));
+        Assert.Equal(calls, Mc(body, lambdas: McLambdaRule.Calls));
+        Assert.Equal(ignore, Mc(body, lambdas: McLambdaRule.Ignore));
     }
 
     [Fact]

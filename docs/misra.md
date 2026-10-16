@@ -124,7 +124,11 @@ For the `Process` method above, the tool reports **MC = 2 × (3 × (2 × 1)) = 1
 
 Object creation (`new X()`) is not a call. The MC of the called method is computed with the same rules, so it includes its own calls. All the methods of a recursion are treated alike, whichever is computed first. In the article's example, `CheckSupportedSw` = 1 + (2 + MC(`IsAppropriate`) = 7) + 2 × 1 = **12**. The log reports how many calls fell in each row of the table.
 
-Not modelled yet: lambda bodies are not looked into; `switch` weighs 2 instead of the Case weight 3; parallelism and interrupts (weight 4) have no reliable syntactic marker in C#.
+**Lambdas and local functions** (D11). The code of a lambda, anonymous method or local function written in a method is read as part of it: its body is a layer nested where it is written, of weight 1 × that layer, added to the structures of the enclosing layer. An expression body has no sequence of its own, so `l.Any(x => x > 0)` adds nothing, while `x => x > 0 ? 1 : 0` adds its ternary. The statement that holds the lambda is still a simple statement, and a local function declaration is not one. Calls inside follow the table above; a call to the local function adds nothing, since its body is already counted. For example, `l.ForEach(x => { if (x > 0) Console.WriteLine(x); });` = 1 + (2 × 1) = **3**, and a local function with an `if`, called once, also gives 3.
+
+`--mc-lambdas` chooses another treatment: `calls` (the rule before this change: a lambda contributes only its calls, a local function body is inlined into the enclosing layer) or `ignore` (their bodies are left out).
+
+Not modelled yet: `switch` weighs 2 instead of the Case weight 3; parallelism and interrupts (weight 4) have no reliable syntactic marker in C#.
 
 Example of the tool's calculation:
 

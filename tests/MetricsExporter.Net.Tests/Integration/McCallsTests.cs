@@ -1,3 +1,4 @@
+using MetricsExporter.Net.Parsers;
 using MetricsExporter.Net.Tests.Helpers;
 
 namespace MetricsExporter.Net.Tests.Integration;
@@ -12,10 +13,11 @@ public class McCallsTests : IDisposable
 
     public void Dispose() => _dir.Dispose();
 
-    private async Task<Dictionary<string, int>> Mc(string code, int libraryCallWeight = 0)
+    private async Task<Dictionary<string, int>> Mc(string code, int libraryCallWeight = 0,
+        McLambdaRule lambdas = McLambdaRule.Full)
     {
         _dir.WriteFile("Code.cs", "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\n" + code);
-        var metrics = await Analyzers.Misra(_dir.Path, libraryCallWeight: libraryCallWeight);
+        var metrics = await Analyzers.Misra(_dir.Path, libraryCallWeight: libraryCallWeight, lambdaRule: lambdas);
         return metrics.Where(m => m.MethodName != "").ToDictionary(m => $"{m.ClassName}.{m.MethodName}", m => m.MC);
     }
 
@@ -154,5 +156,37 @@ public class McCallsTests : IDisposable
         var mc = await Mc("public class U { public void M() { Missing(); } }");
 
         Assert.Equal(1 + 2 + 1, mc["U.M"]);
+    }
+
+    // ---------- INC-17: lambdas and local functions (D11) ----------
+
+    private const string Lambdas = """
+        public class L
+        {
+            private List<int> _items = new();
+            private bool _c;
+
+            public void ForEach() => _items.ForEach(x => { if (x > 0) Console.WriteLine(x); });
+            public void Calls() => _items.ForEach(i => B());
+            public void B() { if (_c) _c = false; }
+            public int Local(int v)
+            {
+                int Clamp(int n) { if (n < 0) return 0; return n; }
+                return Clamp(v);
+            }
+        }
+        """;
+
+    [Theory]
+    [InlineData(McLambdaRule.Full, 1 + (2 * 1), 1 + (2 + 2), (2 * 1) + 1 + 1)]
+    [InlineData(McLambdaRule.Calls, 1, 1 + (2 + 2), (2 * 1) + 1)]
+    [InlineData(McLambdaRule.Ignore, 1, 1, 1)]
+    public async Task Lambdas_ByRule(McLambdaRule rule, int forEach, int calls, int local)
+    {
+        var mc = await Mc(Lambdas, lambdas: rule);
+
+        Assert.Equal(forEach, mc["L.ForEach"]);   // INC-17 acceptance: library calls add nothing
+        Assert.Equal(calls, mc["L.Calls"]);       // a call in a lambda adds 2 + MC(B)
+        Assert.Equal(local, mc["L.Local"]);       // the call to the local function adds nothing
     }
 }

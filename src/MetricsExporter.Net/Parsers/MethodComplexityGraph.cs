@@ -13,8 +13,9 @@ namespace MetricsExporter.Net.Parsers;
 /// code has exactly one, and 2 + 1 otherwise (D14);</item>
 /// <item>a call to a library method adds the library call weight, 0 by default (D10);</item>
 /// <item>an unresolved call adds 2 + 1;</item>
-/// <item>invoking a delegate, a lambda or a local function, and <c>nameof</c>, add nothing; object creation
-/// is not a call (D20).</item>
+/// <item>invoking a delegate, a lambda or a local function, and <c>nameof</c>, add nothing (the body of a
+/// lambda or local function written in the method is already counted, INC-17); object creation is not a
+/// call (D20).</item>
 /// </list>
 /// Each strongly connected component of the call graph is a recursion: calls between its methods weigh 2
 /// whichever method is computed first, and every other call goes to a component computed before.
@@ -40,15 +41,19 @@ public sealed class MethodComplexityGraph
     private readonly Dictionary<InvocationExpressionSyntax, Call> _calls = new();
     private readonly IReadOnlyDictionary<string, IReadOnlyList<string>> _implementations;
     private readonly int _libraryCallWeight;
+    private readonly McLambdaRule _lambdas;
 
     /// <param name="implementations">Abstract or interface method key → keys of its implementations
     /// (<see cref="Codebase.AbstractImplementations"/>).</param>
     /// <param name="libraryCallWeight">Weight of a call to a referenced library (--mc-library-call-weight).</param>
+    /// <param name="lambdas">How lambdas and local functions are treated (--mc-lambdas).</param>
     public MethodComplexityGraph(
         IEnumerable<SourceDocument> documents,
         IReadOnlyDictionary<string, IReadOnlyList<string>> implementations,
-        int libraryCallWeight = 0)
+        int libraryCallWeight = 0,
+        McLambdaRule lambdas = McLambdaRule.Full)
     {
+        _lambdas = lambdas;
         _implementations = implementations;
         _libraryCallWeight = libraryCallWeight;
 
@@ -79,7 +84,7 @@ public sealed class MethodComplexityGraph
                 }
 
                 return 0;
-            });
+            }, _lambdas);
             return targets;
         });
 
@@ -96,7 +101,7 @@ public sealed class MethodComplexityGraph
     /// MC of a method or constructor of the analysed code, or null when it has no body.
     /// </summary>
     public int? Mc(BaseMethodDeclarationSyntax method) =>
-        _keyOf.TryGetValue(method, out var key) ? Mc(key) : MethodComplexityCalculator.Calculate(method);
+        _keyOf.TryGetValue(method, out var key) ? Mc(key) : MethodComplexityCalculator.Calculate(method, lambdas: _lambdas);
 
     private int Mc(string key)
     {
@@ -106,7 +111,7 @@ public sealed class MethodComplexityGraph
         }
 
         var (node, model) = _methods[key];
-        mc = MethodComplexityCalculator.Calculate(node, invocation => Weight(invocation, model, key)) ?? 0;
+        mc = MethodComplexityCalculator.Calculate(node, invocation => Weight(invocation, model, key), _lambdas) ?? 0;
         _mc[key] = mc;
         return mc;
     }

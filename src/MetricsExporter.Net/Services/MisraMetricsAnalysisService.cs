@@ -24,6 +24,7 @@ public class MisraMetricsAnalysisService
     private readonly bool _acTypeWeights;
     private readonly TypeScope? _typeScope;
     private readonly int _libraryCallWeight;
+    private readonly McLambdaRule _lambdaRule;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
@@ -35,7 +36,8 @@ public class MisraMetricsAnalysisService
         bool additiveMc = false,
         bool acTypeWeights = false,
         TypeScope? typeScope = null,
-        int libraryCallWeight = 0)
+        int libraryCallWeight = 0,
+        McLambdaRule lambdaRule = McLambdaRule.Full)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -50,6 +52,7 @@ public class MisraMetricsAnalysisService
         _acTypeWeights = acTypeWeights;
         _typeScope = typeScope;
         _libraryCallWeight = libraryCallWeight;
+        _lambdaRule = lambdaRule;
         _logger = logger;
     }
 
@@ -64,7 +67,7 @@ public class MisraMetricsAnalysisService
         _logger?.LogInformation("Discovered {Count} C# files for MISRA metrics analysis", files.Count);
         _logger?.LogInformation("MC rule: {Rule}", _additiveMc
             ? "additive, v1 (--mc-additive)"
-            : $"composition, Eq. 23 (sum per layer, product along nesting); a call to the analysed code adds 2 + MC, a library call adds {_libraryCallWeight}");
+            : $"composition, Eq. 23 (sum per layer, product along nesting); a call to the analysed code adds 2 + MC, a library call adds {_libraryCallWeight}; lambdas and local functions: {_lambdaRule.ToString().ToLowerInvariant()}");
         _logger?.LogInformation("AC rule: {Rule}", _acTypeWeights
             ? "fields and properties weighted by type, static and const included, v1 (--ac-type-weights)"
             : "one per instance attribute (Eq. 25)");
@@ -81,7 +84,7 @@ public class MisraMetricsAnalysisService
         // One compilation per project, so that class keys match across files
         var codebase = _codebaseLoader.Load(files, Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path)));
         var implementations = codebase.AbstractImplementations();
-        var mcGraph = _additiveMc ? null : new MethodComplexityGraph(codebase.Documents, implementations, _libraryCallWeight);
+        var mcGraph = _additiveMc ? null : new MethodComplexityGraph(codebase.Documents, implementations, _libraryCallWeight, _lambdaRule);
 
         foreach (var document in codebase.Documents)
         {

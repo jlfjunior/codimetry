@@ -174,6 +174,20 @@ public class RootCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task McLambdas_ChangesTheMcOfLambdaBodies()
+    {
+        _dir.WriteFile("src/Each.cs", "public class Each { public void Run(int[] l) => System.Array.ForEach(l, i => { if (i > 0) { } }); }");
+
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra"));
+        var full = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra", "--mc-lambdas", "ignore"));
+        var ignore = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
+
+        Assert.Contains(full, l => l.EndsWith(",Each,Run,3,0,0,0,0,class"));
+        Assert.Contains(ignore, l => l.EndsWith(",Each,Run,1,0,0,0,0,class"));
+    }
+
+    [Fact]
     public async Task NoInput_FailsValidation()
     {
         Assert.NotEqual(0, await Run("--out", Output));
