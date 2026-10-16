@@ -87,9 +87,9 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(4, metrics["User"].LCOM);
         Assert.Equal(2, metrics["PaymentService"].CBO);
         Assert.Equal(0, metrics["PaymentService"].LCOM);
-        Assert.Equal(1, metrics["Entity"].DIT);
-        Assert.Equal(2, metrics["Person"].DIT);
-        Assert.Equal(3, metrics["Employee"].DIT);
+        Assert.Equal(0, metrics["Entity"].DIT);    // INC-12: System.Object does not count
+        Assert.Equal(1, metrics["Person"].DIT);
+        Assert.Equal(2, metrics["Employee"].DIT);
         Assert.Equal(2, metrics["Animal"].NOC);
         Assert.Equal(0, metrics["Cat"].NOC);
     }

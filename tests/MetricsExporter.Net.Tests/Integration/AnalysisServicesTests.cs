@@ -170,7 +170,7 @@ public class AnalysisServicesTests : IDisposable
 
         var metrics = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
 
-        Assert.Equal(2, metrics["Child"].DIT);
+        Assert.Equal(1, metrics["Child"].DIT);
         Assert.Equal(1, metrics["Base"].NOC);
         Assert.EndsWith("Child.cs", metrics["Child"].FilePath);
     }

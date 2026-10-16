@@ -315,16 +315,20 @@ public class Employee : Person
 }
 ```
 
-- `Entity` → `object` (implicit)
-- `Person` → `Entity` → `object`
-- `Employee` → `Person` → `Entity` → `object`
-- **DIT(Entity) = 1, DIT(Person) = 2, DIT(Employee) = 3**
+- `Entity` declares no base class (`System.Object` is implicit and is not counted)
+- `Person` → `Entity`
+- `Employee` → `Person` → `Entity`
+- **DIT(Entity) = 0, DIT(Person) = 1, DIT(Employee) = 2**
 
 ### How this tool computes it
 
-The tool counts how many levels there are above the class, following `BaseList` entries in the analysed code. When Roslyn's semantic model resolves the base type, the implicit `System.Object` counts as one level. That is why a class with no explicit base gets **DIT = 1**, and the tool reports the values shown above.
+DIT is the number of **declared** inheritance edges above the class (D7): the tool follows the base classes while they are in the analysed code. `System.Object`, implicit or written (`class E : object`), never counts, so a class with no explicit base has **DIT = 0**, and the tool reports the values shown above.
 
-A base class from outside the analysed code, such as `ControllerBase` or `DbContext`, counts as one level, but its own ancestors are not resolved. So DIT is a lower bound for classes that extend framework types. Interfaces are not part of the inheritance tree.
+A base class from outside the analysed code, such as `Exception`, `ControllerBase` or `DbContext`, counts as one level, and its own ancestors are not followed: `class D : Controller` has DIT = 1. `--dit-resolve-framework` follows them too, through the referenced assemblies, counting every edge except the one that reaches `System.Object`: `D : Controller` is then D → Controller → ControllerBase = 2. An ancestor that cannot be resolved (a missing reference) ends the count.
+
+`System.Object` is not part of the inheritance tree either, so NOC sees no artificial root. Interfaces are not part of the tree.
+
+`--dit-count-object` restores the rule of v1: `System.Object` counts as one level, so a class with no explicit base has DIT = 1. In v1 this held only for hierarchies entirely in the code: a class whose root extends `Exception` got the same DIT as if it extended `object`.
 
 A record follows the same rule as a class (`record Student(...) : Person(...)` is one level below `Person`). A struct or record struct has no base class, so its DIT and NOC are 0.
 

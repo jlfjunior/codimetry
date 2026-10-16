@@ -23,6 +23,10 @@ public class ClassRelationshipBuilder
         public string FilePath { get; set; } = string.Empty;
         public bool IsAbstract { get; set; }
         public bool IsSealed { get; set; }
+        /// <summary>
+        /// Ancestors of the base class above it, System.Object excluded (see <see cref="CkCodeElement.BaseAncestors"/>).
+        /// </summary>
+        public int BaseAncestors { get; set; }
     }
 
     /// <summary>
@@ -39,7 +43,8 @@ public class ClassRelationshipBuilder
             Namespace = classElement.Namespace,
             FilePath = filePath,
             IsAbstract = classElement.IsAbstract,
-            IsSealed = classElement.IsSealed
+            IsSealed = classElement.IsSealed,
+            BaseAncestors = classElement.BaseAncestors
         };
 
         // A partial class is added once per declaration: keep the file of the first one

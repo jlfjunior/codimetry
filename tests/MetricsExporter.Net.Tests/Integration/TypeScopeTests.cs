@@ -53,8 +53,8 @@ public class TypeScopeTests : IDisposable
 
         var ck = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
 
-        // System.Object still counts as one level until INC-12: Pessoa 1, Aluno 2
-        Assert.Equal(ck["Pessoa"].DIT + 1, ck["Aluno"].DIT);
+        Assert.Equal(0, ck["Pessoa"].DIT);
+        Assert.Equal(1, ck["Aluno"].DIT);
         Assert.Equal(1, ck["Pessoa"].NOC);
         Assert.Equal(0, ck["Aluno"].NOC);
     }

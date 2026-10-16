@@ -48,29 +48,34 @@ public class WmcCalculator
 public class DitCalculator
 {
     private readonly ClassRelationshipBuilder _relationshipBuilder;
+    private readonly bool _resolveFramework;
 
-    public DitCalculator(ClassRelationshipBuilder relationshipBuilder)
+    /// <param name="resolveFramework">Count the ancestors of an external base class too (--dit-resolve-framework).</param>
+    public DitCalculator(ClassRelationshipBuilder relationshipBuilder, bool resolveFramework = false)
     {
         _relationshipBuilder = relationshipBuilder;
+        _resolveFramework = resolveFramework;
     }
 
     /// <summary>
-    /// Calculates DIT as the depth of a class in the inheritance hierarchy.
+    /// Calculates DIT as the number of declared inheritance edges above the class (D7): the base classes
+    /// in the analysed code, plus one for a base class outside it (Exception, ControllerBase). System.Object
+    /// is not a base class, so a class without an explicit base has DIT = 0.
     /// </summary>
     public int CalculateDit(string className)
     {
+        // The chain runs from the class through its bases in the code, ending with an external base if any
         var chain = _relationshipBuilder.GetInheritanceChain(className);
-        
-        // DIT is the number of levels from the class to System.Object
-        // If chain has the class itself, subtract 1
-        // If no base class, DIT = 0 (directly inherits from Object)
-        if (chain.Count <= 1)
+        var dit = chain.Count - 1;
+
+        var classes = _relationshipBuilder.GetAllClasses();
+        if (_resolveFramework && dit > 0 && !classes.ContainsKey(chain[^1]) &&
+            classes.TryGetValue(chain[^2], out var lastInCode))
         {
-            return 0; // No inheritance or only self
+            dit += lastInCode.BaseAncestors;
         }
 
-        // Count levels excluding the class itself
-        return chain.Count - 1;
+        return dit;
     }
 }
 

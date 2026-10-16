@@ -5,6 +5,18 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace MetricsExporter.Net.Parsers;
 
 /// <summary>
+/// How DIT treats the ancestors outside the analysed code (D7).
+/// </summary>
+/// <param name="CountObject">System.Object is the base of a class without an explicit one and counts as one
+/// level, as in v1 (--dit-count-object).</param>
+/// <param name="ResolveFramework">Also count the ancestors of an external base class, except System.Object
+/// (--dit-resolve-framework): <c>D : Controller</c> is D → Controller → ControllerBase = 2.</param>
+public sealed record DitOptions(bool CountObject = false, bool ResolveFramework = false)
+{
+    public static DitOptions Default { get; } = new();
+}
+
+/// <summary>
 /// Extended code element information for CK metrics calculation.
 /// </summary>
 public class CkCodeElement
@@ -31,6 +43,11 @@ public class CkCodeElement
     /// class, record, struct or record struct (see <see cref="TypeScope.KindOf"/>).
     /// </summary>
     public string Kind { get; set; } = "class";
+    /// <summary>
+    /// Ancestors of the base class above it, System.Object excluded (Controller → ControllerBase = 1); used
+    /// for DIT when the base class is outside the analysed code and --dit-resolve-framework is on.
+    /// </summary>
+    public int BaseAncestors { get; set; }
 }
 
 /// <summary>
@@ -139,14 +156,18 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     private readonly List<CkMethodInfo> _methods = new();
     private readonly CyclomaticOptions _cyclomaticOptions;
     private readonly TypeScope _scope;
+    private readonly DitOptions _ditOptions;
     private readonly List<ClassDependency> _dependencies = new();
     private readonly SemanticModel? _semanticModel;
 
     /// <param name="cyclomaticOptions">Operator rule for the V(G) of each method (WMC with c_i = V(G)).</param>
     /// <param name="scope">Which types are measured (--classes-only).</param>
-    public CkSyntaxVisitor(SemanticModel? semanticModel = null, CyclomaticOptions? cyclomaticOptions = null, TypeScope? scope = null)
+    /// <param name="ditOptions">Whether System.Object is recorded as a base class (--dit-count-object).</param>
+    public CkSyntaxVisitor(SemanticModel? semanticModel = null, CyclomaticOptions? cyclomaticOptions = null, TypeScope? scope = null,
+        DitOptions? ditOptions = null)
         : base(SyntaxWalkerDepth.Node)
     {
+        _ditOptions = ditOptions ?? DitOptions.Default;
         _scope = scope ?? TypeScope.Default;
         _cyclomaticOptions = cyclomaticOptions ?? CyclomaticOptions.Default;
         _semanticModel = semanticModel;
@@ -200,11 +221,13 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
 
         // Get base class (a struct has none: its base list holds only interfaces)
         string? baseClass = null;
+        var baseAncestors = 0;
         if (node.BaseList != null && !isValueType)
         {
             var baseType = node.BaseList.Types
                 .FirstOrDefault(t => t.Type is IdentifierNameSyntax || t.Type is QualifiedNameSyntax);
-            if (baseType != null)
+            // class E : System.Object is the same as no base class
+            if (baseType != null && baseType.Type.ToString() is not ("Object" or "System.Object" or "global::System.Object"))
             {
                 baseClass = baseType.Type.ToString();
             }
@@ -234,7 +257,12 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             if (symbol != null)
             {
                 fullyQualifiedName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                baseClass = symbol.BaseType != null && !isValueType ? TypeKeys.Of(symbol.BaseType) : null;
+                // Only declared inheritance counts (D7): the implicit or explicit System.Object is no base class
+                var isObject = symbol.BaseType?.SpecialType == SpecialType.System_Object;
+                baseClass = symbol.BaseType != null && !isValueType && (!isObject || _ditOptions.CountObject)
+                    ? TypeKeys.Of(symbol.BaseType)
+                    : null;
+                baseAncestors = Ancestors(symbol.BaseType);
             }
         }
 
@@ -251,7 +279,8 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             IsSealed = node.Modifiers.Any(m => m.IsKind(SyntaxKind.SealedKeyword)),
             Namespace = namespaceName,
             FullyQualifiedName = fullyQualifiedName,
-            Kind = TypeScope.KindOf(node)
+            Kind = TypeScope.KindOf(node),
+            BaseAncestors = isValueType ? 0 : baseAncestors
         });
 
         // Collect dependencies for this class
@@ -444,6 +473,21 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var visitor = new CyclomaticComplexityVisitor(_cyclomaticOptions);
         visitor.Visit(body);
         return visitor.GetComplexity();
+    }
+
+    /// <summary>
+    /// Ancestors of a base type above it, System.Object excluded. Types from referenced assemblies are
+    /// followed too; an unresolved ancestor ends the count.
+    /// </summary>
+    private static int Ancestors(INamedTypeSymbol? baseType)
+    {
+        var count = 0;
+        for (var type = baseType?.BaseType; type != null && type.SpecialType != SpecialType.System_Object && type.TypeKind != TypeKind.Error; type = type.BaseType)
+        {
+            count++;
+        }
+
+        return count;
     }
 
     private string MemberId(string kind, string name) => InstanceMemberIds.Of(kind, name, _semanticModel != null);

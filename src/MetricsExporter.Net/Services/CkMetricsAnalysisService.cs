@@ -23,6 +23,7 @@ public class CkMetricsAnalysisService
     private readonly CodebaseLoader _codebaseLoader;
     private readonly CyclomaticOptions? _cyclomaticOptions;
     private readonly TypeScope? _typeScope;
+    private readonly DitOptions _ditOptions;
     private readonly ILogger<CkMetricsAnalysisService>? _logger;
 
     public CkMetricsAnalysisService(
@@ -34,7 +35,8 @@ public class CkMetricsAnalysisService
         WmcWeight wmcWeight = WmcWeight.Unit,
         bool wmcExcludeStatic = false,
         CyclomaticOptions? cyclomaticOptions = null,
-        TypeScope? typeScope = null)
+        TypeScope? typeScope = null,
+        DitOptions? ditOptions = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -42,7 +44,8 @@ public class CkMetricsAnalysisService
         _wmcCalculator = new WmcCalculator(wmcWeight, wmcExcludeStatic);
         _cyclomaticOptions = cyclomaticOptions;
         _typeScope = typeScope;
-        _ditCalculator = new DitCalculator(relationshipBuilder);
+        _ditOptions = ditOptions ?? DitOptions.Default;
+        _ditCalculator = new DitCalculator(relationshipBuilder, _ditOptions.ResolveFramework);
         _nocCalculator = new NocCalculator(relationshipBuilder);
         _cboCalculator = new CboCalculator();
         _rfcCalculator = new RfcCalculator();
@@ -60,6 +63,11 @@ public class CkMetricsAnalysisService
         var files = _fileDiscoveryService.DiscoverFiles(path, recursive).ToList();
 
         _logger?.LogInformation("Discovered {Count} C# files for CK metrics analysis", files.Count);
+        _logger?.LogInformation("DIT rule: {Rule}", _ditOptions.CountObject
+            ? "System.Object counts as a level, v1 (--dit-count-object)"
+            : _ditOptions.ResolveFramework
+                ? "declared inheritance, with the ancestors of external base classes (--dit-resolve-framework)"
+                : "declared inheritance; an external base class counts 1, System.Object does not count");
 
         // Phase 1: Build class relationship graph
         _logger?.LogInformation("Phase 1: Building class relationship graph...");
@@ -155,7 +163,7 @@ public class CkMetricsAnalysisService
     {
         try
         {
-            var visitor = new CkSyntaxVisitor(semanticModel, _cyclomaticOptions, _typeScope);
+            var visitor = new CkSyntaxVisitor(semanticModel, _cyclomaticOptions, _typeScope, _ditOptions);
             visitor.Visit(syntaxTree.GetRoot());
 
             return new FileAnalysisData

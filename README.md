@@ -101,6 +101,8 @@ You can analyze code using one of three input options:
 | `--mc-library-call-weight` | | MISRA: weight of a call to a library method in MC (default 0; 2 reproduces v1 for these calls). Calls to the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `0` |
 | `--mc-lambdas` | | MISRA: code of lambdas and local functions in MC: `full` (a nested layer), `calls` (only their calls), `ignore` (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `full` |
 | `--cwc-library-weight` | | MISRA: weight of a call to a library method or delegate in CWC (default 0; 3 reproduces v1). Calls to other types of the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#cwc--coupling-weight-for-a-class)) | `0` |
+| `--dit-resolve-framework` | | CK: count the ancestors of a base class from a library too, except `System.Object` (`D : Controller` = 2) (see [docs/ck.md](docs/ck.md#dit--depth-of-inheritance-tree)) | `false` |
+| `--dit-count-object` | | CK: count `System.Object` as a level of DIT, as v1 did | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
@@ -241,7 +243,7 @@ FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind
 - **FilePath**: Relative or absolute path to the source file
 - **ClassName**: Name of the class
 - **WMC**: Weighted Methods per Class (method count, static methods included; sum of V(G) with `--wmc-weight cyclomatic`)
-- **DIT**: Depth of Inheritance Tree (inheritance depth; `System.Object` counts as one level, so a class with no explicit base has DIT = 1)
+- **DIT**: Depth of Inheritance Tree (declared inheritance edges; `System.Object` does not count, so a class with no explicit base has DIT = 0, and a base class from a library counts 1)
 - **NOC**: Number of Children (immediate subclasses count)
 - **CBO**: Coupling Between Objects (number of classes coupled to)
 - **RFC**: Response For a Class (methods in class + methods called)

@@ -26,6 +26,7 @@ public class MisraMetricsAnalysisService
     private readonly int _libraryCallWeight;
     private readonly McLambdaRule _lambdaRule;
     private readonly int _cwcLibraryCallWeight;
+    private readonly DitOptions? _ditOptions;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
@@ -39,7 +40,8 @@ public class MisraMetricsAnalysisService
         TypeScope? typeScope = null,
         int libraryCallWeight = 0,
         McLambdaRule lambdaRule = McLambdaRule.Full,
-        int cwcLibraryCallWeight = 0)
+        int cwcLibraryCallWeight = 0,
+        DitOptions? ditOptions = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -50,6 +52,7 @@ public class MisraMetricsAnalysisService
         _cwcCalculator = new CwcCalculator(cwcLibraryCallWeight);
         _ccCalculator = new CcCalculator(acTypeWeights, cwcLibraryCallWeight);
         _cwcLibraryCallWeight = cwcLibraryCallWeight;
+        _ditOptions = ditOptions;
         _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _additiveMc = additiveMc;
         _acTypeWeights = acTypeWeights;
@@ -260,7 +263,7 @@ public class MisraMetricsAnalysisService
             var semanticModel = document.SemanticModel;
 
             // Use CK visitor for class/method/dependency info
-            var ckVisitor = new CkSyntaxVisitor(semanticModel, scope: _typeScope);
+            var ckVisitor = new CkSyntaxVisitor(semanticModel, scope: _typeScope, ditOptions: _ditOptions);
             ckVisitor.Visit(syntaxTree.GetRoot());
 
             // Use MISRA visitor for BCS info and attributes

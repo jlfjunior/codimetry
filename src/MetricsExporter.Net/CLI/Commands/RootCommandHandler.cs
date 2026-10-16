@@ -110,6 +110,16 @@ public class RootCommandHandler
             getDefaultValue: () => 0,
             description: "MISRA: weight of a call to a library method or delegate in CWC (3 reproduces the library rule of v1); calls to other types of the analysed code add 2 + MC");
 
+        var ditCountObjectOption = new Option<bool>(
+            aliases: new[] { "--dit-count-object" },
+            getDefaultValue: () => false,
+            description: "CK: count System.Object as a level of DIT, as v1 did (a class without an explicit base has DIT = 1)");
+
+        var ditResolveFrameworkOption = new Option<bool>(
+            aliases: new[] { "--dit-resolve-framework" },
+            getDefaultValue: () => false,
+            description: "CK: count the ancestors of a base class from a library too (D : Controller = 2), except System.Object");
+
         var classesOnlyOption = new Option<bool>(
             aliases: new[] { "--classes-only" },
             getDefaultValue: () => false,
@@ -137,7 +147,9 @@ public class RootCommandHandler
             ccIncludeAutoAccessorsOption,
             mcLibraryCallWeightOption,
             mcLambdasOption,
-            cwcLibraryWeightOption
+            cwcLibraryWeightOption,
+            ditCountObjectOption,
+            ditResolveFrameworkOption
         };
 
         rootCommand.AddValidator(result =>
@@ -185,15 +197,18 @@ public class RootCommandHandler
             var mcLibraryCallWeight = context.ParseResult.GetValueForOption(mcLibraryCallWeightOption);
             var mcLambdas = context.ParseResult.GetValueForOption(mcLambdasOption);
             var cwcLibraryWeight = context.ParseResult.GetValueForOption(cwcLibraryWeightOption);
+            var ditOptions = new Parsers.DitOptions(
+                CountObject: context.ParseResult.GetValueForOption(ditCountObjectOption),
+                ResolveFramework: context.ParseResult.GetValueForOption(ditResolveFrameworkOption));
             var typeScope = new Parsers.TypeScope(ClassesOnly: context.ParseResult.GetValueForOption(classesOnlyOption));
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight, ditOptions);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight, Parsers.DitOptions ditOptions)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -312,7 +327,8 @@ public class RootCommandHandler
                     wmcWeight: wmcWeight,
                     wmcExcludeStatic: wmcExcludeStatic,
                     cyclomaticOptions: cyclomaticOptions,
-                    typeScope: typeScope);
+                    typeScope: typeScope,
+                    ditOptions: ditOptions);
 
                 var ckMetricsResults = await ckAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 
@@ -346,7 +362,8 @@ public class RootCommandHandler
                     typeScope: typeScope,
                     libraryCallWeight: mcLibraryCallWeight,
                     lambdaRule: mcLambdas,
-                    cwcLibraryCallWeight: cwcLibraryWeight);
+                    cwcLibraryCallWeight: cwcLibraryWeight,
+                    ditOptions: ditOptions);
 
                 var misraMetricsResults = await misraAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 

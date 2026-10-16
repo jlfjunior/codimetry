@@ -107,7 +107,7 @@ public class ClassIdentityTests : IDisposable
 
         var ck = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
 
-        Assert.Equal(2, ck["Customer"].DIT);
+        Assert.Equal(1, ck["Customer"].DIT);   // Entity is in another project of the analysed code
         Assert.Equal(1, ck["Entity"].NOC);
     }
 

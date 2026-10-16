@@ -20,9 +20,10 @@ public static class Analyzers
             .AnalyzeAsync(path);
 
     public static Task<List<CkMetric>> Ck(string path, WmcWeight wmcWeight = WmcWeight.Unit, bool wmcExcludeStatic = false,
-        CyclomaticOptions? cyclomaticOptions = null, TypeScope? typeScope = null) =>
+        CyclomaticOptions? cyclomaticOptions = null, TypeScope? typeScope = null, DitOptions? ditOptions = null) =>
         new CkMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder(),
-                wmcWeight: wmcWeight, wmcExcludeStatic: wmcExcludeStatic, cyclomaticOptions: cyclomaticOptions, typeScope: typeScope)
+                wmcWeight: wmcWeight, wmcExcludeStatic: wmcExcludeStatic, cyclomaticOptions: cyclomaticOptions, typeScope: typeScope,
+                ditOptions: ditOptions)
             .AnalyzeAsync(path);
 
     public static Task<List<MisraMetric>> Misra(string path, bool additiveMc = false, bool acTypeWeights = false,
