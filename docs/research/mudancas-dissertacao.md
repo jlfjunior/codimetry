@@ -2,14 +2,16 @@
 
 > Elaborado em 16/10/2026, a partir da coleta v2 (`results-v2/`, ferramenta em `0ff7d31`) e da comparação em [`analysis/comparacao-v1-v2.md`](../../analysis/comparacao-v1-v2.md).
 > Repositório da dissertação: `master-thesis` (branch `main`, último commit `601391b`). As linhas citadas são desse commit.
+> **Versão da ferramenta.** A dissertação cita uma única versão: a tag `v1` da ferramenta. Neste documento, "v1" e "v2" designam as **coletas** (antes e depois das correções), um controle interno das mudanças que não entra no texto da dissertação.
 > Escopo da v2 igual ao da v1 (seção 4 do [protocolo](protocolo-recoleta.md)): 48 participantes, p29 e p33 incluídos, código de teste e código gerado incluídos.
 
 ## 0. Antes de editar
 
 1. **Validação G3**: calcular à mão LCOM1 e CBO em 5 classes reais de participantes diferentes e conferir com `results-v2/`.
 2. **Revisão com o orientador**, principalmente do item 4.3: com a v2, a regra em estágios fica **abaixo** da linha de base, e o Resumo, o Cap. 4 e a Conclusão dizem hoje que ela a iguala.
-3. Tag `coleta-v2` na ferramenta (no commit usado para `results-v2/`) e citar a tag no Cap. 4.
+3. Publicar a tag `v1` da ferramenta (já criada localmente; mover se G3 ou a revisão mudarem a ferramenta) e citá-la no Cap. 4.
 4. Fazer todas as mudanças abaixo **num único commit** de `master-thesis`, para que o texto nunca misture v1 e v2.
+5. **Decidir o achado metodológico da LCOM.** Hoje a dissertação diz que a LCOM se mostrou redundante com a WMC e tira disso o achado "é preciso verificar a formulação implementada pela ferramenta" (Cap. 1, linha 74; Cap. 4, linhas 142–144 e 274; Conclusão, linhas 36, 51 e 92). Com a v2 a redundância desaparece, e o achado só se sustenta comparando com a coleta anterior, que a dissertação não vai citar. Duas saídas: (a) retirar o achado; (b) mantê-lo como relato da validação da ferramenta: durante a verificação contra os exemplos do Cap. 2, um defeito na identificação dos atributos fazia a LCOM se reduzir a $n(n-1)/2$ e parecer redundante com a WMC, sem números de versão. As linhas abaixo que tratam do achado seguem a opção (b) e precisam ser revistas se a escolha for (a).
 
 Fonte de todos os números novos: [`analysis/fase4/14-coc-v2/report.md`](../../analysis/fase4/14-coc-v2/report.md) (tabelas no formato do Cap. 4) e [`analysis/comparacao-v1-v2.md`](../../analysis/comparacao-v1-v2.md).
 
@@ -56,7 +58,7 @@ Se o Resumo citar a LCOM como achado metodológico, trocar por: verificar a form
 
 | Linha | Hoje | Mudança |
 |---|---|---|
-| 74 | Achado metodológico: "é necessário verificar a formulação implementada pelas ferramentas de extração, como evidenciado pelo caso da métrica LCOM" | Mantém o achado e muda a evidência: a redundância LCOM ≡ WMC da coleta original vinha de um defeito de implementação e desaparece na versão corrigida (98,7% → 36,6% das classes com LCOM máxima) |
+| 74 | Achado metodológico: "é necessário verificar a formulação implementada pelas ferramentas de extração, como evidenciado pelo caso da métrica LCOM" | Depende do item 5 da seção 0. Opção (b): mantém o achado, com a evidência da validação da ferramenta: um defeito na identificação dos atributos fazia a LCOM se reduzir a $n(n-1)/2$ e parecer redundante com a WMC; corrigido, a LCOM atinge o máximo em 36,6% das classes com 2 ou mais métodos |
 
 ## 4. Cap. 2 — `Conteudo/02_Referencial_Teorico.tex`
 
@@ -89,8 +91,8 @@ O capítulo deixa de descrever as simplificações da v1 e passa a declarar só 
 | Linha | Hoje | Mudança |
 |---|---|---|
 | 4 | "métricas CK (WMC, DIT, NOC, CBO, RFC, LCOM)" | Mantém |
-| 13 | n = 48 (21 desenvolvedores, 27 arquitetos) | Mantém. Acrescentar que **p29 e p33 são o mesmo artefato** (diretórios idênticos) e que ambos foram mantidos, como na coleta original; sem p33, a acurácia fica em 45,7% contra 50,0% de linha de base e ρ = 0,112 |
-| 15 | "coleta executada em 21 de agosto de 2026 com a versão `coleta-v1-dissertacao` (*commit* `0bc0f89`)" | Nova data (15/10/2026), tag `coleta-v2` e commit. Acrescentar a preparação: `dotnet restore` dos artefatos, uma compilação por projeto com as referências do .NET e dos pacotes NuGet (98% das chamadas resolvidas) e as limitações: pacotes privados de p7 e o projeto de p4 que não restaura (protocolo, Fase 3). Manter uma frase sobre a v1 e o arquivo `results-v1/` para rastreabilidade |
+| 13 | n = 48 (21 desenvolvedores, 27 arquitetos) | Mantém. Acrescentar que **p29 e p33 são o mesmo artefato** (diretórios idênticos) e que ambos foram mantidos; sem p33, a acurácia fica em 45,7% contra 50,0% de linha de base e ρ = 0,112 |
+| 15 | "coleta executada em 21 de agosto de 2026 com a versão `coleta-v1-dissertacao` (*commit* `0bc0f89`)" | Nova data (15/10/2026) e a versão: tag `v1` da ferramenta. Acrescentar a preparação: `dotnet restore` dos artefatos, uma compilação por projeto com as referências do .NET e dos pacotes NuGet (98% das chamadas resolvidas) e as limitações: pacotes privados de p7 e o projeto de p4 que não restaura (protocolo, Fase 3). Não mencionar a coleta anterior nem a numeração v1/v2: a dissertação cita só a tag `v1` |
 | 21–42 | `tab:formulas_coleta` (formulações da v1) | **Substituir** pelas formulações da v2 (tabela 6.2 abaixo) |
 | 43 | "Essas formulações diferem, em alguns casos, das definições originais…" | Passa a dizer que as formulações seguem as definições do Cap. 2, com as adaptações declaradas lá |
 | 45 | "totalizando 2.657 classes e 6.839 métodos" | 3.373 classes (3.004 `class`, 358 `record`, 9 `record struct`, 2 `struct`) e 6.876 métodos. Declarar que **records e structs são medidos** (D19) e que classes homônimas em namespaces diferentes deixaram de ser fundidas |
@@ -140,7 +142,7 @@ Todas as tabelas saem de `analysis/fase4/14-coc-v2/report.md`, já no formato do
 **Reescrever o parágrafo.** Hoje ele descreve os defeitos da v1 (LCOM pelos tipos, MC sem aninhamento, CWC com chamadas internas), diz que a análise é "essencialmente sintática", com chamadas e tipos casados pelo nome simples e só `class` medida, e pede replicação com a versão corrigida.
 
 Na v2, o parágrafo passa a dizer:
-- os resultados foram recalculados com a versão corrigida, e a coleta original fica arquivada (`results-v1/`) para comparação;
+- a versão da ferramenta é a tag `v1`, com os dados arquivados no repositório (`results-v2/`);
 - a análise usa o modelo semântico, com 98% das chamadas resolvidas, e o que fica de fora: pacotes privados de p7, projeto de p4 que não restaura, reflexão e injeção de dependência resolvidas em tempo de execução;
 - a suíte de testes tem 410 casos, 94% de cobertura de linhas, e testes de aceite com os exemplos do Cap. 2 e do artigo de Misra;
 - adaptações às definições que podem afetar a comparação com outros estudos: CBO só de saída, CoC por subárvore, MC sem chamadas de biblioteca.
@@ -330,10 +332,10 @@ Corpo LaTeX (substitui as linhas 162–165):
 | 13 | Hipótese 1: totais "fortemente correlacionados entre si" | Mantém para CLC, CWC e V(G); ressalvar a CoC (r com LOC 0,54) |
 | 15 | Hipótese 2: "acurácia … de 51,1% … não superou uma linha de base" | 46,8%, **abaixo** da linha de base; o suporte à hipótese fica mais fraco |
 | 31 | "48 participantes, 2.657 classes" | 48 participantes, 3.373 classes |
-| 36 | "94,2% das classes têm DIT igual a 1 na convenção da ferramenta, e 97,3% têm NOC igual a 0"; "a CBO não se correlacionou com o tamanho"; "a LCOM … não forneceu informação independente da WMC" | 78,9% com DIT = 0 e 97,4% com NOC = 0; CBO com correlação positiva fraca com o tamanho (r = 0,27 com o número de classes); a LCOM passa a fornecer informação independente da WMC na versão corrigida (36,6% das classes com 2 ou mais métodos na LCOM máxima, contra 98,7% na coleta original) |
-| 51 | Achado metodológico: "(99,7% a 100% das classes classificadas como Normal…)" e "como evidenciado pelo caso da LCOM" | 99,8% a 100%. Manter o caso da LCOM como evidência, agora com o desfecho: o defeito mudava a conclusão |
-| 61–63 | Transparência da ferramenta; "os valores obtidos para os 48 participantes podem ser interpretados à luz da definição" | Mantém; citar a tag `coleta-v2` |
-| 92 | Trabalho futuro: "implementações verificadas das métricas, particularmente da LCOM" | Reformular: a verificação foi feita nesta versão (testes de aceite com os exemplos do Cap. 2 e do artigo). O trabalho futuro passa a ser a validação independente das adaptações (CoC por subárvore, CBO só de saída, MC sem bibliotecas) |
+| 36 | "94,2% das classes têm DIT igual a 1 na convenção da ferramenta, e 97,3% têm NOC igual a 0"; "a CBO não se correlacionou com o tamanho"; "a LCOM … não forneceu informação independente da WMC" | 78,9% com DIT = 0 e 97,4% com NOC = 0; CBO com correlação positiva fraca com o tamanho (r = 0,27 com o número de classes); a LCOM fornece informação independente da WMC (36,6% das classes com 2 ou mais métodos na LCOM máxima) |
+| 51 | Achado metodológico: "(99,7% a 100% das classes classificadas como Normal…)" e "como evidenciado pelo caso da LCOM" | 99,8% a 100%. O caso da LCOM depende do item 5 da seção 0; na opção (b), vira o relato do defeito encontrado na validação da ferramenta |
+| 61–63 | Transparência da ferramenta; "os valores obtidos para os 48 participantes podem ser interpretados à luz da definição" | Mantém; citar a tag `v1` |
+| 92 | Trabalho futuro: "implementações verificadas das métricas, particularmente da LCOM" | Reformular: a verificação foi feita (testes de aceite com os exemplos do Cap. 2 e do artigo). O trabalho futuro passa a ser a validação independente das adaptações (CoC por subárvore, CBO só de saída, MC sem bibliotecas) |
 
 ## 8. Itens independentes da recoleta
 
@@ -344,7 +346,7 @@ Valem mesmo que a v2 não seja adotada (Fase 1 do protocolo):
 
 ## 9. Conferência final
 
-- [ ] `grep` em `master-thesis/Conteudo` e `Pre_Textual` não encontra mais: `51,1\% de acurácia` como valor do modelo, `0{,}286`, `2.657`, `6.839`, `94,2`, `99,40`, `uma unidade maiores`, `metade da soma`, `CWC--CC`, `0bc0f89` (exceto onde citado como v1).
+- [ ] `grep` em `master-thesis/Conteudo` e `Pre_Textual` não encontra mais: `51,1\% de acurácia` como valor do modelo, `0{,}286`, `2.657`, `6.839`, `94,2`, `99,40`, `uma unidade maiores`, `metade da soma`, `CWC--CC`, `0bc0f89`, `coleta-v1-dissertacao`, `coleta-v2`.
 - [ ] Resumo e Abstract dizem o mesmo que o Cap. 4 e a Conclusão.
 - [ ] `tab:formulas_coleta` e o Cap. 2 descrevem a mesma regra para cada métrica.
 - [ ] O PDF compila (`make`) sem referências quebradas.

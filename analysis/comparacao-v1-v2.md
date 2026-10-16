@@ -1,6 +1,6 @@
 # Comparação v1 × v2 (Fase 6)
 
-> Gerado em 15/10/2026. v1 = `results-v1/` (tag `coleta-v1-dissertacao`, `0bc0f89`); v2 = `results-v2/` (`0ff7d31`, opções padrão). Artefatos `artefatos-mestrado@40a6044`, .NET SDK 10.0.101, nos dois casos.
+> Gerado em 15/10/2026. v1 = `results-v1/` (`0bc0f89`, a coleta anterior às correções); v2 = `results-v2/` (`0ff7d31`, opções padrão; mesmo código da tag `v1` da ferramenta). A numeração v1/v2 das coletas é controle interno: a dissertação cita só a tag `v1`. Artefatos `artefatos-mestrado@40a6044`, .NET SDK 10.0.101, nos dois casos.
 > Escopo igual ao da v1 (decisões da seção 4 do protocolo): 48 participantes com p29 e p33, código de teste e código gerado incluídos.
 > Waterfall completo, passo a passo: [fase4/comparacao.md](fase4/comparacao.md); Fase 3: [fase3/comparacao.md](fase3/comparacao.md).
 
@@ -61,4 +61,4 @@ A queda vem de INC-07 a INC-09 (passo 02) e já tinha começado na Fase 3 com a 
 
 - O passo `40c2ac4` (composição da MC, INC-14) não compila sozinho: usa `MethodComplexityCalculator`, que só entra em `45d7e9f` (AC, INC-18). Por isso o waterfall tem um passo só para os dois (`04-mc-composicao-ac`) e não separa seus efeitos.
 - A partir do passo 05, o CSV exporta `LcomMethods`, e o indicador LCOM = n(n−1)/2 do relatório passa a usá-lo no lugar do WMC; a mudança de 66% para 80% nesse passo é do indicador, não da LCOM.
-- Validação G3 (LCOM e CBO à mão em 5 classes reais) e revisão com o orientador ainda pendentes; a tag `coleta-v2` só depois delas.
+- Validação G3 (LCOM e CBO à mão em 5 classes reais) e revisão com o orientador ainda pendentes; a tag `v1` existe só localmente e só deve ser publicada depois delas.

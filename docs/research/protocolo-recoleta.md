@@ -17,7 +17,7 @@
 
 | Item | Valor |
 |---|---|
-| Ferramenta | tag `coleta-v1-dissertacao` → `0bc0f89` (código idêntico a `a8564cf`, que só altera docs) |
+| Ferramenta | `0bc0f89` (código idêntico a `a8564cf`, que só altera docs). A tag `coleta-v1-dissertacao` criada nesta fase foi removida em 16/10/2026: a única tag da ferramenta é `v1`, a versão usada na dissertação (seção 3, Fase 4) |
 | Artefatos | `artefatos-mestrado@40a6044` |
 | SDK | .NET 10.0.101 (macOS arm64) |
 | Dados | `results-v1/` (48 participantes × 4 CSVs, `index.md`, `index.pdf`) |
@@ -149,7 +149,7 @@ Branch `recoleta/fase-3`; cada commit tem testes escritos antes da correção (1
 3. Atualizar as seções "How this tool computes it" de `docs/*.md` (incluindo `docs/loc.md`, que ainda diz LOC lógica = 3) e `docs/research/descricao-ferramenta.md`.
 4. **Gate G2:** `dotnet test` sem falhas e sem testes pulados.
 5. **Gate G3:** LCOM1 e CBO calculados à mão em 5 classes reais de participantes diferentes, conferidos contra a ferramenta.
-6. Revisão da tabela de decisões com o orientador; depois, tag `coleta-v2`.
+6. Revisão da tabela de decisões com o orientador. A versão final da ferramenta tem a tag `v1` (16/10/2026, ainda só local); se G3 ou a revisão mudarem a ferramenta, a tag é movida antes do push. A numeração v1/v2 das coletas é só controle interno das correções: a dissertação cita apenas a tag `v1`.
 
 ### Fase 5: Recoleta incremental (≈1 dia)
 
@@ -180,7 +180,7 @@ Gerar `analysis/comparacao-v1-v2.md` com:
 
 ### Fase 7: Atualização do texto (≈2–4 dias)
 
-Igual à Etapa 7 de `docs/PLANO_RECOLETA.md`. Acrescentar ao protocolo do estudo de caso no Cap. 4 o tratamento de p29/p33, se a decisão mudar o n, e citar a tag `coleta-v2`.
+Igual à Etapa 7 de `docs/PLANO_RECOLETA.md`. Acrescentar ao protocolo do estudo de caso no Cap. 4 o tratamento de p29/p33, se a decisão mudar o n, e citar a tag `v1`.
 
 Independentemente da recoleta, corrigir na versão defendida os achados da Fase 1: as erratas de `tab:per_participant_results` e a frase sobre DIT × NOC em `metric_redundancy` e em `experience_summary`.
 
