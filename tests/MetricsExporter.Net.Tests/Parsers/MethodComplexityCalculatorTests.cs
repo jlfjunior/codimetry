@@ -153,8 +153,8 @@ public class MethodComplexityCalculatorTests
             }
             """;
 
-        // Weight 2 as in v1 until INC-15 sets the Case weight (3)
-        Assert.Equal(2 * 1, Mc(body, "void M(int k)"));
+        // Case weight (Table 2.1)
+        Assert.Equal(3 * 1, Mc(body, "void M(int k)"));
     }
 
     [Fact]
@@ -168,9 +168,35 @@ public class MethodComplexityCalculatorTests
     [Fact]
     public void Ternary_IsABranchOfItsTwoExpressions()
     {
-        // The statement that contains it stays a sequence until INC-15 (D23)
-        Assert.Equal(1 + (2 * 1), Mc("return c ? 1 : 0;", "int M(bool c)"));
-        Assert.Equal(1 + (2 * ((2 * 1) + 1)), Mc("return a ? (b ? 1 : 2) : 3;", "int M(bool a, bool b)"));
+        // D23: the statement that contains it is the if-then-else, not one more sequence
+        Assert.Equal(2 * 1, Mc("return c ? 1 : 0;", "int M(bool c)"));
+        Assert.Equal(2 * ((2 * 1) + 1), Mc("return a ? (b ? 1 : 2) : 3;", "int M(bool a, bool b)"));
+        Assert.Equal((2 * 1) + 1, Mc("var v = c ? 1 : 0; x();", "void M(bool c)"));   // x() is the sequence
+    }
+
+    // ---------- INC-15: acceptance criteria ----------
+
+    [Theory]
+    [InlineData("if (c) return 1; else return 2;", 2 * 1)]
+    [InlineData("if (a) x(); else if (b) y(); else x();", 2 * (1 + (2 * 1)))]   // D12: else if nested in the else
+    [InlineData("switch (k) { case 1: return 1; case 2: return 2; default: return 0; }", 3 * 1)]
+    [InlineData("return k switch { 1 => 1, 2 => 2, _ => 0 };", 3 * 1)]
+    [InlineData("return c ? 1 : 0;", 2 * 1)]
+    [InlineData("return a ? (b ? 1 : 2) : 3;", 2 * ((2 * 1) + 1))]
+    public void BranchWeights_FollowTable21(string body, int expected)
+    {
+        Assert.Equal(expected, Mc(body, "int M(int k, bool a, bool b, bool c)"));
+    }
+
+    [Theory]
+    [InlineData("return k switch { 1 => a ? 1 : 2, _ => 0 };", 3 * ((2 * 1) + 1))]          // a ternary arm is a structure
+    [InlineData("return a ? 0 : k switch { 1 => 1, _ => 2 };", 2 * ((3 * 1) + 1))]          // and the other way round
+    [InlineData("var v = k switch { 1 => 1, _ => 0 }; x(); return v;", (3 * 1) + 1)]
+    [InlineData("if (k switch { 1 => a, _ => b }) x(); return 0;", (3 * 1) + (2 * 1) + 1)] // in a condition: the enclosing layer
+    [InlineData("return k switch { > 0 when a => 1, _ => 0 };", 3 * 1)]
+    public void SwitchExpression_IsACase(string body, int expected)
+    {
+        Assert.Equal(expected, Mc(body, "int M(int k, bool a, bool b, bool c)"));
     }
 
     [Fact]

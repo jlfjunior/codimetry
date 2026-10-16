@@ -190,13 +190,13 @@ public class DocumentationExamplesTests : IDisposable
 
         Assert.Equal(12, method["Process"].MC);
         Assert.Equal(3, method["Total"].MC);
-        Assert.Equal(3, method["CalculateDiscount"].MC);
+        Assert.Equal(2, method["CalculateDiscount"].MC);   // INC-15: the body is a ternary, 2 × 1
         Assert.Equal(5, @class["Customer"].AC);
         Assert.Equal(3, @class["Order"].AC);
-        Assert.Equal(6, @class["Order"].CLC);
+        Assert.Equal(5, @class["Order"].CLC);
         Assert.Equal(6, @class["CartService"].CWC);
         Assert.Equal(5, method["Checkout"].MC);    // INC-16: the condition calls IsAvailable, 2 + MC 1
-        Assert.Equal(44, codebase.CC);   // record Product is measured (CLC 1); Checkout adds 2 + 1
+        Assert.Equal(43, codebase.CC);   // record Product is measured (CLC 1); Checkout adds 2 + 1; CalculateDiscount is 2
     }
 
     [Fact]

@@ -81,7 +81,7 @@ public class McCallsTests : IDisposable
 
         Assert.Equal(2, mc["C.B"]);
         Assert.Equal(1 + (2 + 2), mc["C.A"]);
-        Assert.Equal(1 + 2 * (1 + (2 + 1)), mc["C.D"]);   // the call is in the ternary's layer
+        Assert.Equal(2 * (1 + (2 + 1)), mc["C.D"]);   // the call is in the ternary's layer; the ternary is the body (D23)
     }
 
     [Fact]

@@ -36,7 +36,10 @@ public enum McLambdaRule
 public static class MethodComplexityCalculator
 {
     public const int BranchWeight = 2;
-    public const int SwitchWeight = 2;
+    /// <summary>
+    /// Case (Table 2.1): a switch statement or a switch expression.
+    /// </summary>
+    public const int SwitchWeight = 3;
     public const int IterationWeight = 3;
 
     /// <summary>
@@ -63,7 +66,9 @@ public static class MethodComplexityCalculator
 
             if (method.ExpressionBody != null)
             {
-                return 1 + Expressions(method.ExpressionBody.Expression);
+                // An expression that is a ternary or a switch expression is that structure, not a sequence
+                var expression = method.ExpressionBody.Expression;
+                return (HasBranchExpression(expression) ? 0 : 1) + Expressions(expression);
             }
 
             return null;
@@ -141,7 +146,8 @@ public static class MethodComplexityCalculator
                         }
                         else
                         {
-                            _hasSimpleStatement = true;
+                            // A statement holding a ternary or a switch expression is that structure (D23)
+                            _hasSimpleStatement |= !composer.HasBranchExpression(statement);
                             _structures += composer.Expressions(statement);
                         }
                         break;
@@ -182,6 +188,8 @@ public static class MethodComplexityCalculator
                     return 0;
                 case AnonymousFunctionExpressionSyntax lambda:
                     return Lambda(lambda);
+                case SwitchExpressionSyntax switchExpression:
+                    return SwitchExpression(switchExpression);
                 case ConditionalExpressionSyntax conditional:
                     return Ternary(conditional);
                 case InvocationExpressionSyntax invocation:
@@ -214,14 +222,38 @@ public static class MethodComplexityCalculator
         };
 
         /// <summary>
-        /// A ternary is a branch of weight 2 × the layer of its two expressions: a nested ternary is a
-        /// structure of that layer, any other expression a simple statement.
+        /// The node holds a ternary or a switch expression of its own, outside lambdas and local functions
+        /// (which are layers of their own).
         /// </summary>
-        private int Ternary(ConditionalExpressionSyntax conditional)
+        public bool HasBranchExpression(SyntaxNode node) =>
+            node.DescendantNodesAndSelf(n => n is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                .Any(n => n is ConditionalExpressionSyntax or SwitchExpressionSyntax);
+
+        /// <summary>
+        /// A ternary is an if-then-else (D23): weight 2 × the layer of its two expressions.
+        /// </summary>
+        private int Ternary(ConditionalExpressionSyntax conditional) =>
+            Expressions(conditional.Condition) + BranchWeight * Branches([conditional.WhenTrue, conditional.WhenFalse]);
+
+        /// <summary>
+        /// A switch expression is a Case: weight 3 × the layer of its arms. The governing expression and the
+        /// when clauses belong to the enclosing layer, like the condition of an if.
+        /// </summary>
+        private int SwitchExpression(SwitchExpressionSyntax switchExpression) =>
+            Expressions(switchExpression.GoverningExpression) +
+            switchExpression.Arms.Sum(arm => Expressions(arm.WhenClause)) +
+            SwitchWeight * Branches(switchExpression.Arms.Select(arm => arm.Expression));
+
+        /// <summary>
+        /// Layer of the branches of a ternary or of the arms of a switch expression: a branch that is itself a
+        /// ternary or a switch expression is a structure of that layer, any other one a simple statement. It
+        /// counts at least 1, like the inner layer of a statement.
+        /// </summary>
+        private int Branches(IEnumerable<ExpressionSyntax> branches)
         {
             var structures = 0;
             var hasSimpleExpression = false;
-            foreach (var branch in new[] { conditional.WhenTrue, conditional.WhenFalse })
+            foreach (var branch in branches)
             {
                 var expression = branch;
                 while (expression is ParenthesizedExpressionSyntax parenthesized)
@@ -229,19 +261,22 @@ public static class MethodComplexityCalculator
                     expression = parenthesized.Expression;
                 }
 
-                if (expression is ConditionalExpressionSyntax nested)
+                switch (expression)
                 {
-                    structures += Ternary(nested);
-                }
-                else
-                {
-                    hasSimpleExpression = true;
-                    structures += Expressions(branch);
+                    case ConditionalExpressionSyntax nested:
+                        structures += Ternary(nested);
+                        break;
+                    case SwitchExpressionSyntax nested:
+                        structures += SwitchExpression(nested);
+                        break;
+                    default:
+                        hasSimpleExpression = true;
+                        structures += Expressions(branch);
+                        break;
                 }
             }
 
-            return Expressions(conditional.Condition) +
-                BranchWeight * Math.Max(1, structures + (hasSimpleExpression ? 1 : 0));
+            return Math.Max(1, structures + (hasSimpleExpression ? 1 : 0));
         }
     }
 }

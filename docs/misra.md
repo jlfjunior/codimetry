@@ -26,9 +26,9 @@ This produces `metrics_misra.csv`, which has rows at three levels:
 
 ```csv
 FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
-src/Order.cs,Order,CalculateDiscount,3,0,0,0,0,class   <- method row: only MC is filled
-src/Order.cs,Order,,0,3,6,0,0,class                    <- class row: AC, CLC and CWC
-,,,0,0,0,0,44,                                         <- one codebase row: CC (= CoC)
+src/Order.cs,Order,CalculateDiscount,2,0,0,0,0,class   <- method row: only MC is filled
+src/Order.cs,Order,,0,3,5,0,0,class                    <- class row: AC, CLC and CWC
+,,,0,0,0,0,43,                                         <- one codebase row: CC (= CoC)
 ```
 
 `Kind` is the kind of the type of the row: `class`, `record`, `struct` or `record struct` (see [which types are measured](README.md#which-types-are-measured)).
@@ -96,7 +96,8 @@ The tool does **not** use Campbell's nesting increments. It uses the **cognitive
 | BCS | Examples | Weight |
 |-----|----------|--------|
 | Sequence | the simple statements of a layer (assignment, declaration, `return`, `throw`, call statement…), all together | 1 |
-| Branch | `if` (with or without `else`), `switch`, ternary `?:` | 2 |
+| Branch (if-then-else) | `if` (with or without `else`), ternary `?:` | 2 |
+| Case | `switch` statement, `switch` expression | 3 |
 | Iteration | `for`, `foreach`, `while`, `do-while` | 3 |
 
 The rule is recursive over statement lists:
@@ -106,8 +107,9 @@ The rule is recursive over statement lists:
 - all simple statements of a layer form **one** sequence, even when a structure separates them (`a(); if (c) { x(); } b();` = 2 + 1 = 3);
 - blocks, `try`/`catch`/`finally`, `using`, `lock`, `checked`, `unsafe`, `fixed` and labels are transparent: their statements belong to the enclosing list;
 - `else if` is an `if` nested in the `else` branch, as written: `if (a) x(); else if (b) y(); else z();` = 2 × (1 + 2 × 1) = 6;
-- a ternary is a branch over its two expressions (a nested ternary is a structure of that layer) and adds to the layer where it appears; the statement that contains it still counts as a simple statement;
-- an expression-bodied method (`=> ...`) is a list with one simple statement; an empty body (`{ }`) weighs 0; methods without a body (abstract, interface) have no MC row.
+- a ternary is an if-then-else over its two expressions, and a `switch` expression a Case over its arms (D23): a branch or arm that is itself a ternary or a `switch` expression is a structure of that layer, any other one a simple statement. The structure adds to the layer where it appears, and the statement that contains it **is** that structure, not one more sequence: `return c ? 1 : 0;` = 2 × 1 = 2, while `var v = c ? 1 : 0; x();` = 2 + 1 because `x();` is a sequence. The governing expression and the `when` clauses of a `switch` expression belong to the enclosing layer;
+- `catch` adds no weight (Table 2.1 has no weight for exceptions), and `??`, `?.` and patterns (`is`, `and`, `or`) are not BCSs;
+- an expression-bodied method (`=> ...`) is a list with one simple statement, or the structure itself when the expression holds a ternary or a `switch` expression; an empty body (`{ }`) weighs 0; methods without a body (abstract, interface) have no MC row.
 
 For the `Process` method above, the tool reports **MC = 2 × (3 × (2 × 1)) = 12** (`Console.WriteLine` is a library call and adds nothing): the outer `if` (2) contains the `for` (3), which contains the inner `if` (2), whose body is one sequence (1).
 
@@ -128,7 +130,7 @@ Object creation (`new X()`) is not a call. The MC of the called method is comput
 
 `--mc-lambdas` chooses another treatment: `calls` (the rule before this change: a lambda contributes only its calls, a local function body is inlined into the enclosing layer) or `ignore` (their bodies are left out).
 
-Not modelled yet: `switch` weighs 2 instead of the Case weight 3; parallelism and interrupts (weight 4) have no reliable syntactic marker in C#.
+Not modelled: parallelism and interrupts (weight 4) have no reliable syntactic marker in C#.
 
 Example of the tool's calculation:
 
@@ -251,8 +253,8 @@ public class Order
 The formula is the same, $CLC = AC + \sum MC$, but it uses the tool's AC and MC:
 
 - AC = 3, one per auto-property;
-- MC(`CalculateDiscount`) = 3: the expression body counts as one sequence (1) and the ternary as one branch over two simple expressions (2 × 1);
-- **CLC = 3 + 3 = 6**, which is what the tool reports.
+- MC(`CalculateDiscount`) = 2: the expression body is the ternary, one branch over two simple expressions (2 × 1);
+- **CLC = 3 + 2 = 5**, which is what the tool reports.
 
 Constructors are included in the sum. Methods are identified by `Class::Name`, so all overloads of a method share a single MC value.
 
@@ -371,7 +373,7 @@ $$
 CC_{tool} = \sum_{k} CLC_k + \left\lfloor \frac{\sum_{k} CWC_k}{2} \right\rfloor
 $$
 
-summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 35$ and $\sum CWC = 18$, so **CC = 35 + 9 = 44**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
+summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 34$ and $\sum CWC = 18$, so **CC = 34 + 9 = 43**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
 
 ---
 
