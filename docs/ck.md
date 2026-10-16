@@ -94,7 +94,7 @@ A method without a body (abstract, interface, `extern`) has $c_i = 1$ in both va
 
 `--wmc-exclude-static` restores the rule of v1, which left static methods and static constructors out. With it, a utility class made only of static methods has WMC = 0.
 
-The class-level rows of `metrics_cyclomatic.csv` are not the same as `--wmc-weight cyclomatic`: they also add property accessors, including automatic ones.
+The class-level rows of `metrics_cyclomatic.csv` are not the same as `--wmc-weight cyclomatic`: they also add destructors, operators, conversions and the accessors with a body of properties, indexers and events.
 
 ---
 

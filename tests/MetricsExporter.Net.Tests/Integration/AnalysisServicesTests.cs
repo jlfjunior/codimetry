@@ -1,3 +1,4 @@
+using MetricsExporter.Net.Parsers;
 using MetricsExporter.Net.Tests.Helpers;
 
 namespace MetricsExporter.Net.Tests.Integration;
@@ -127,11 +128,23 @@ public class AnalysisServicesTests : IDisposable
         Assert.Equal(2, account["Account"].Complexity);
         Assert.Equal(2, account["Balance.get"].Complexity);
         Assert.Equal(2, account["Balance.set"].Complexity);
+        Assert.Equal(1, account["Run"].Complexity);
+        Assert.DoesNotContain("Count.get", account.Keys);   // INC-04: automatic accessors have no flow of their own
+        Assert.Equal(2 + 2 + 2 + 1, account[""].Complexity);
+        Assert.DoesNotContain(metrics, m => m.ClassName == "Base" && m.MethodName == "Run");
+    }
+
+    [Fact]
+    public async Task Cyclomatic_IncludeAutoAccessors_ReproducesV1()
+    {
+        _dir.WriteFile("Account.cs", Account);
+
+        var metrics = await Analyzers.Cyclomatic(_dir.Path, new CyclomaticOptions(IncludeAutoAccessors: true));
+        var account = metrics.Where(m => m.ClassName == "Account").ToDictionary(m => m.MethodName);
+
         Assert.Equal(1, account["Count.get"].Complexity);
         Assert.Equal(1, account["Count.set"].Complexity);
-        Assert.Equal(1, account["Run"].Complexity);
         Assert.Equal(2 + 2 + 2 + 1 + 1 + 1, account[""].Complexity);
-        Assert.DoesNotContain(metrics, m => m.ClassName == "Base" && m.MethodName == "Run");
     }
 
     [Fact]

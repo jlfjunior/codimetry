@@ -145,6 +145,14 @@ public class CyclomaticComplexityCalculatorTests
         Assert.Equal(1, _calculator.CalculateComplexity(ctor));
     }
 
+    [Fact]
+    public void ExpressionBodiedConstructor_IsVisited()
+    {
+        var ctor = Code.Single<ConstructorDeclarationSyntax>("class C { int _a; C(int a) => _a = a > 0 ? a : 0; }");
+
+        Assert.Equal(2, _calculator.CalculateComplexity(ctor));
+    }
+
     [Theory]
     [InlineData("int P { get; set; }", 1)]
     [InlineData("int P { get => _x > 0 ? _x : 0; }", 2)]

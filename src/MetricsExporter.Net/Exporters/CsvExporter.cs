@@ -105,7 +105,7 @@ public class CsvExporter
         var csv = new StringBuilder();
         
         // Write header
-        csv.AppendLine("FilePath,ClassName,MethodName,Complexity");
+        csv.AppendLine("FilePath,ClassName,MethodName,Complexity,ClassKey");
 
         // Write data rows
         foreach (var metric in metrics)
@@ -114,7 +114,7 @@ public class CsvExporter
             var className = EscapeCsvField(metric.ClassName);
             var methodName = EscapeCsvField(metric.MethodName);
             
-            csv.AppendLine($"{filePath},{className},{methodName},{metric.Complexity}");
+            csv.AppendLine($"{filePath},{className},{methodName},{metric.Complexity},{EscapeCsvField(metric.ClassKey)}");
         }
 
         await File.WriteAllTextAsync(outputPath, csv.ToString());

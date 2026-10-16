@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MetricsExporter.Net.Parsers;
 
@@ -47,14 +48,11 @@ public class CyclomaticComplexityCalculator
     {
         var visitor = new CyclomaticComplexityVisitor(_options);
 
-        if (constructor.Body != null)
+        // Expression-bodied constructors are visited like any other body
+        SyntaxNode? body = (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody;
+        if (body != null)
         {
-            visitor.Visit(constructor.Body);
-        }
-        else
-        {
-            // Expression-bodied constructor (rare, but possible)
-            return 1;
+            visitor.Visit(body);
         }
 
         return visitor.GetComplexity();

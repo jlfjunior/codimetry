@@ -97,6 +97,7 @@ You can analyze code using one of three input options:
 | `--cc-null-operators` | | Cyclomatic: count `??`, `??=` and `?.` as decision points, also in WMC with `--wmc-weight cyclomatic` (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
 | `--cc-legacy-operators` | | Cyclomatic: operator rule of v1 (`??` and `goto` count; `??=`, `?.`, `or`/`and` do not) | `false` |
 | `--classes-only` | | Measure only classes, as v1 did; by default records, structs and record structs are measured too (see [docs/README.md](docs/README.md#which-types-are-measured)) | `false` |
+| `--cc-include-auto-accessors` | | Cyclomatic: give automatic property accessors a row with V(G) = 1 and add them to the class and file sums, as v1 did (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
@@ -303,33 +304,34 @@ src/Example.cs,ExampleClass,,0,6,25,15,0,class
 #### CSV Format
 
 ```csv
-FilePath,ClassName,MethodName,Complexity
+FilePath,ClassName,MethodName,Complexity,ClassKey
 ```
 
 #### Columns
 
 - **FilePath**: Relative or absolute path to the source file
 - **ClassName**: Name of the class (empty for file-level entries)
-- **MethodName**: Name of the method or constructor (empty for class/file-level entries)
+- **MethodName**: Name of the member: method, constructor, `~Name`, `op_Addition`, `Name.get`, `this[].set`... (empty for class/file-level entries)
 - **Complexity**: Cyclomatic Complexity value (CC = 1 + number of decision points)
+- **ClassKey**: Identity of the class (project + fully qualified name); partial declarations share it (empty for file-level entries)
 
 #### Output Levels
 
 The CSV includes metrics at three levels:
 
-1. **Method Level**: Individual methods, constructors, and property accessors with their cyclomatic complexity
-2. **Class Level**: Aggregated complexity for each class (sum of all methods in the class)
-3. **File Level**: Aggregated complexity for each file (sum of all methods in the file)
+1. **Member Level**: methods, constructors, destructors, operators and accessors with a body; automatic accessors are left out
+2. **Class Level**: Aggregated complexity for each class (sum of its members, joining partial declarations)
+3. **File Level**: Aggregated complexity for each file (sum of the members declared in the file)
 
 #### Example Output
 
 ```csv
-FilePath,ClassName,MethodName,Complexity
-src/Example.cs,ExampleClass,SimpleMethod,1
-src/Example.cs,ExampleClass,ComplexMethod,8
-src/Example.cs,ExampleClass,ExampleClass,1
-src/Example.cs,ExampleClass,,10
-src/Example.cs,,,10
+FilePath,ClassName,MethodName,Complexity,ClassKey
+src/Example.cs,ExampleClass,SimpleMethod,1,App|Demo.ExampleClass
+src/Example.cs,ExampleClass,ComplexMethod,8,App|Demo.ExampleClass
+src/Example.cs,ExampleClass,ExampleClass,1,App|Demo.ExampleClass
+src/Example.cs,ExampleClass,,10,App|Demo.ExampleClass
+src/Example.cs,,,10,
 ```
 
 #### Complexity Thresholds

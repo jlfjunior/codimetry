@@ -10,7 +10,9 @@ namespace MetricsExporter.Net.Parsers;
 /// <param name="NullOperators">`??`, `??=` and `?.` add one each (--cc-null-operators).</param>
 /// <param name="LegacyOperators">The operator rule of v1 (--cc-legacy-operators): `??` and `goto` add one,
 /// `??=`, `?.` and the pattern combinators `or`/`and` do not. Takes precedence over <paramref name="NullOperators"/>.</param>
-public sealed record CyclomaticOptions(bool NullOperators = false, bool LegacyOperators = false)
+/// <param name="IncludeAutoAccessors">Automatic property accessors (<c>{ get; set; }</c>) get a row with V(G) = 1 and
+/// enter the class and file sums, as in v1 (--cc-include-auto-accessors).</param>
+public sealed record CyclomaticOptions(bool NullOperators = false, bool LegacyOperators = false, bool IncludeAutoAccessors = false)
 {
     public static CyclomaticOptions Default { get; } = new();
 }

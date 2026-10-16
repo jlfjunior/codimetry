@@ -13,10 +13,10 @@ dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --pat
 This produces `metrics_cyclomatic.csv`, which has rows at three levels:
 
 ```csv
-FilePath,ClassName,MethodName,Complexity
-src/Discount.cs,DiscountService,CalculateDiscount,4   <- method
-src/Discount.cs,DiscountService,,4                    <- class (sum of its methods)
-src/Discount.cs,,,4                                   <- file (sum of its classes)
+FilePath,ClassName,MethodName,Complexity,ClassKey
+src/Discount.cs,DiscountService,CalculateDiscount,4,App|Samples.Cyclomatic.DiscountService   <- member
+src/Discount.cs,DiscountService,,4,App|Samples.Cyclomatic.DiscountService                    <- class (sum of its members)
+src/Discount.cs,,,4,                                                                         <- file (sum of its members)
 ```
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options.
@@ -144,14 +144,27 @@ public decimal Fee(Region region, decimal weight, string? coupon) =>
 - `??` is not counted
 - **Complexity = 5**, which is what the tool reports (6 with `--cc-null-operators`)
 
-What gets measured:
+What gets measured: every member whose control flow the developer wrote. Each gets a row:
 
-- **Methods, constructors, and property accessors** each get a row. Accessors appear as `Name.get` and `Name.set`.
-- Expression-bodied properties (`=> ...`), `init` accessors, and abstract methods are not measured.
-- Lambdas and local functions declared inside a method are added to that method's complexity.
-- **Class rows** sum all the measured members of the class. Records and structs get class rows too, and a method belongs to the nearest enclosing type, so the methods of a nested record are not added to the enclosing class (see [which types are measured](README.md#which-types-are-measured)). **File rows** sum all the classes in the file.
+| Member | `MethodName` |
+|--------|--------------|
+| method, constructor (expression-bodied ones included) | its name |
+| destructor | `~Name` |
+| operator, conversion | metadata name: `op_Addition`, `op_Implicit`... |
+| property accessor with a body (block or `=>`) | `Name.get`, `Name.set`, `Name.init` |
+| expression-bodied property (`int X => ...`) | `X.get` |
+| indexer accessor with a body | `this[].get`, `this[].set` |
+| event accessor | `Name.add`, `Name.remove` |
 
-The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods-per-class). It differs from the `WMC` column of `metrics_ck.csv`, which by default counts methods ($c_i = 1$) and, even with `--wmc-weight cyclomatic`, does not include property accessors.
+**Not measured:** automatic accessors (`{ get; set; }`), which have no flow of their own, and members without a body (abstract, interface, `extern`, partial definitions). A class made only of automatic properties has V(G) = 0. `--cc-include-auto-accessors` restores the rule of v1: each automatic property accessor gets a row with V(G) = 1 and enters the sums.
+
+Lambdas and local functions are not members: their decisions are added to the member that contains them.
+
+- **Class rows** sum the members of the class. A class is identified by `ClassKey`, its project and fully qualified name, so the declarations of a `partial` class in different files give **one** row (in the file of the first declaration), and homonymous nested classes (`A.Builder`, `B.Builder`) give separate rows. Records and structs get class rows too, and a member belongs to the nearest enclosing type, so the methods of a nested record are not added to the enclosing class (see [which types are measured](README.md#which-types-are-measured)).
+- **File rows** sum the members of measured types declared in the file. With a partial class, each file contributes its own members, so the sum of the file rows is the project total, with nothing counted twice.
+- Members of interfaces (default implementations) get a row with an empty `ClassName` and enter no sum.
+
+The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods-per-class). It differs from the `WMC` column of `metrics_ck.csv`, which counts only methods and constructors in both variants: `--wmc-weight cyclomatic` leaves out destructors, operators and accessors.
 
 ## Limitations
 

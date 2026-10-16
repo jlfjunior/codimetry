@@ -90,6 +90,11 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "Cyclomatic: operator rule of v1 (?? and goto count; ??=, ?. and the pattern combinators or/and do not)");
 
+        var ccIncludeAutoAccessorsOption = new Option<bool>(
+            aliases: new[] { "--cc-include-auto-accessors" },
+            getDefaultValue: () => false,
+            description: "Cyclomatic: give automatic property accessors ({ get; set; }) a row with V(G) = 1 and add them to the class and file sums, as v1 did");
+
         var classesOnlyOption = new Option<bool>(
             aliases: new[] { "--classes-only" },
             getDefaultValue: () => false,
@@ -113,7 +118,8 @@ public class RootCommandHandler
             wmcExcludeStaticOption,
             ccNullOperatorsOption,
             ccLegacyOperatorsOption,
-            classesOnlyOption
+            classesOnlyOption,
+            ccIncludeAutoAccessorsOption
         };
 
         rootCommand.AddValidator(result =>
@@ -156,7 +162,8 @@ public class RootCommandHandler
             var wmcExcludeStatic = context.ParseResult.GetValueForOption(wmcExcludeStaticOption);
             var cyclomaticOptions = new Parsers.CyclomaticOptions(
                 NullOperators: context.ParseResult.GetValueForOption(ccNullOperatorsOption),
-                LegacyOperators: context.ParseResult.GetValueForOption(ccLegacyOperatorsOption));
+                LegacyOperators: context.ParseResult.GetValueForOption(ccLegacyOperatorsOption),
+                IncludeAutoAccessors: context.ParseResult.GetValueForOption(ccIncludeAutoAccessorsOption));
             var typeScope = new Parsers.TypeScope(ClassesOnly: context.ParseResult.GetValueForOption(classesOnlyOption));
             
             context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope);

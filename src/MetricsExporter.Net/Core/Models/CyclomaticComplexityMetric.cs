@@ -27,5 +27,10 @@ public class CyclomaticComplexityMetric
     /// Calculated as: CC = 1 + number of decision points (if, switch, loops, catch, conditional operators, etc.)
     /// </summary>
     public int Complexity { get; set; }
-}
 
+    /// <summary>
+    /// Identity of the type (project + fully qualified name, see TypeKeys) that the row belongs to;
+    /// partial declarations share it. Empty for file rows and for members outside the measured types.
+    /// </summary>
+    public string ClassKey { get; set; } = string.Empty;
+}

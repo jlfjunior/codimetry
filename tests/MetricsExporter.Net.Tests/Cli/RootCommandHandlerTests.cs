@@ -127,11 +127,11 @@ public class RootCommandHandlerTests : IDisposable
         var nullOperators = await Collect("--cc-null-operators");
         var legacy = await Collect("--cc-legacy-operators");
 
-        Assert.Contains(byDefault.Cc, l => l.EndsWith(",Names,Of,1"));
+        Assert.Contains(byDefault.Cc, l => l.Contains(",Names,Of,1,"));
         Assert.Contains(byDefault.Ck, l => l.Contains(",Names,1,"));
-        Assert.Contains(nullOperators.Cc, l => l.EndsWith(",Names,Of,2"));
+        Assert.Contains(nullOperators.Cc, l => l.Contains(",Names,Of,2,"));
         Assert.Contains(nullOperators.Ck, l => l.Contains(",Names,2,"));
-        Assert.Contains(legacy.Cc, l => l.EndsWith(",Names,Of,2"));
+        Assert.Contains(legacy.Cc, l => l.Contains(",Names,Of,2,"));
     }
 
     [Fact]
