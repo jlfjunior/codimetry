@@ -22,31 +22,33 @@ public class CkMetric
     public int WMC { get; set; }
 
     /// <summary>
-    /// DIT (Depth of Inheritance Tree): Maximum depth of a class in the inheritance hierarchy.
-    /// Distance from the root class (System.Object = 0).
+    /// DIT (Depth of Inheritance Tree): Number of declared inheritance edges from the class to the root of its
+    /// hierarchy. System.Object does not count (a class without an explicit base has DIT = 0); a base class from
+    /// outside the analysed code counts 1 (see <c>DitOptions</c>).
     /// </summary>
     public int DIT { get; set; }
 
     /// <summary>
-    /// NOC (Number of Children): Count of immediate subclasses of a class.
+    /// NOC (Number of Children): Count of immediate subclasses of a class in the analysed code.
     /// </summary>
     public int NOC { get; set; }
 
     /// <summary>
-    /// CBO (Coupling Between Objects): Number of classes to which a class is coupled.
-    /// Counts classes that are used by or use this class.
+    /// CBO (Coupling Between Objects): Number of other types of the analysed code (classes, records, structs and
+    /// interfaces) the class uses, through any type reference: inheritance, members, locals, <c>new</c>, static
+    /// members, attributes, generic arguments. Outgoing only by default (see <c>CboOptions</c>).
     /// </summary>
     public int CBO { get; set; }
 
     /// <summary>
-    /// RFC (Response For a Class): Number of methods that can be invoked in response to a message.
-    /// Includes methods in the class plus methods called by those methods.
+    /// RFC (Response For a Class): Number of methods that can be invoked in response to a message: the methods and
+    /// constructors of the class plus the distinct methods and constructors they call directly, identified by symbol.
     /// </summary>
     public int RFC { get; set; }
 
     /// <summary>
-    /// LCOM (Lack of Cohesion of Methods): Measures the dissimilarity of methods in a class.
-    /// Based on instance variable usage by methods.
+    /// LCOM (Lack of Cohesion of Methods), LCOM1: pairs of instance methods (constructors excluded) that share no
+    /// attribute of the class, minus the pairs that share one, or 0 if negative.
     /// </summary>
     public int LCOM { get; set; }
 

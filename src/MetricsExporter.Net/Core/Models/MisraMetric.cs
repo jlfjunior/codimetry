@@ -21,29 +21,27 @@ public class MisraMetric
     public string MethodName { get; set; } = string.Empty;
 
     /// <summary>
-    /// MC (Method Complexity): Cognitive complexity of a method calculated by summing 
-    /// the cognitive weights of all Basic Control Structures (BCSs) within the method.
-    /// Weights: Sequence=1, Branch=2, Iteration=3, Call=2.
+    /// MC (Method Complexity, Eq. 23): cognitive weights of the Basic Control Structures (BCSs) of the method,
+    /// added within a layer and multiplied along nesting. Weights: sequence 1, branch (if, ternary) 2,
+    /// case (switch) 3, iteration 3; a call to a method of the analysed code adds 2 + MC of the called method.
     /// Only populated for method-level entries.
     /// </summary>
     public int MC { get; set; }
 
     /// <summary>
-    /// AC (Attribute Complexity): Measures the complexity introduced by attributes 
-    /// (fields/properties) within a class. Only populated for class-level entries.
+    /// AC (Attribute Complexity, Eq. 25): number of instance attributes the class declares (fields, auto-properties,
+    /// field-like events, used primary constructor parameters), 1 each. Only populated for class-level entries.
     /// </summary>
     public int AC { get; set; }
 
     /// <summary>
-    /// CLC (Class Complexity): Overall complexity of a class, aggregating complexities 
-    /// from all methods and attributes within the class. Only populated for class-level entries.
+    /// CLC (Class Complexity): AC + Σ MC of the methods of the class. Only populated for class-level entries.
     /// </summary>
     public int CLC { get; set; }
 
     /// <summary>
-    /// CWC (Coupling Weight for a Class): Evaluates the complexity due to inter-class 
-    /// interactions, calculated by summing the weights of calls to other classes' methods 
-    /// (including the call weight of 2). Only populated for class-level entries.
+    /// CWC (Coupling Weight for a Class, Eq. 24): Σ (2 + MC of the called method) over the calls to methods of other
+    /// types of the analysed code; library calls and constructors do not count. Only populated for class-level entries.
     /// </summary>
     public int CWC { get; set; }
 
