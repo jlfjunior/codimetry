@@ -24,6 +24,7 @@ public class CkMetricsAnalysisService
     private readonly CyclomaticOptions? _cyclomaticOptions;
     private readonly TypeScope? _typeScope;
     private readonly DitOptions _ditOptions;
+    private readonly CboOptions _cboOptions;
     private readonly ILogger<CkMetricsAnalysisService>? _logger;
 
     public CkMetricsAnalysisService(
@@ -36,7 +37,8 @@ public class CkMetricsAnalysisService
         bool wmcExcludeStatic = false,
         CyclomaticOptions? cyclomaticOptions = null,
         TypeScope? typeScope = null,
-        DitOptions? ditOptions = null)
+        DitOptions? ditOptions = null,
+        CboOptions? cboOptions = null)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -45,6 +47,7 @@ public class CkMetricsAnalysisService
         _cyclomaticOptions = cyclomaticOptions;
         _typeScope = typeScope;
         _ditOptions = ditOptions ?? DitOptions.Default;
+        _cboOptions = cboOptions ?? CboOptions.Default;
         _ditCalculator = new DitCalculator(relationshipBuilder, _ditOptions.ResolveFramework);
         _nocCalculator = new NocCalculator(relationshipBuilder);
         _cboCalculator = new CboCalculator();
@@ -68,12 +71,17 @@ public class CkMetricsAnalysisService
             : _ditOptions.ResolveFramework
                 ? "declared inheritance, with the ancestors of external base classes (--dit-resolve-framework)"
                 : "declared inheritance; an external base class counts 1, System.Object does not count");
+        _logger?.LogInformation("CBO rule: {Rule}, {Direction}", _cboOptions.DeclaredTypesOnly
+                ? "types of fields, properties and method signatures, classes only, v1 (--cbo-declared-types-only)"
+                : "every type reference to classes and interfaces of the analysed code",
+            _cboOptions.Bidirectional ? "outgoing and incoming (--cbo-bidirectional)" : "outgoing");
 
         // Phase 1: Build class relationship graph
         _logger?.LogInformation("Phase 1: Building class relationship graph...");
         var allClasses = new List<CkCodeElement>();
         var allMethods = new List<CkMethodInfo>();
         var allDependencies = new List<ClassDependency>();
+        var allInterfaces = new List<CouplingTarget>();
 
         // One compilation per project, so that cross-file (and cross-project) types resolve
         var codebase = _codebaseLoader.Load(files, Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path)));
@@ -91,6 +99,7 @@ public class CkMetricsAnalysisService
                 allClasses.AddRange(fileData.Classes);
                 allMethods.AddRange(fileData.Methods);
                 allDependencies.AddRange(fileData.Dependencies);
+                allInterfaces.AddRange(fileData.Interfaces);
                 methodsWithoutModel += fileData.MethodsWithoutSemanticModel;
                 ambiguousAccesses += fileData.AmbiguousAccesses;
 
@@ -114,6 +123,11 @@ public class CkMetricsAnalysisService
         var dependencies = ClassDependency.MergeByClass(allDependencies);
         _logger?.LogInformation("CBO type references: {Count} not resolved by the semantic model, matched by exact name",
             CboCalculator.UnresolvedReferences(dependencies));
+        var cboTargets = CboCalculator.Targets(allClassesMap, _cboOptions.DeclaredTypesOnly ? [] : allInterfaces);
+        var coupled = dependencies.ToDictionary(d => d.ClassKey, d => _cboCalculator.Coupled(d, cboTargets));
+        var cboByClass = _cboOptions.Bidirectional
+            ? CboCalculator.Bidirectional(coupled)
+            : coupled.ToDictionary(c => c.Key, c => c.Value.Count);
 
         foreach (var classElement in allClasses.GroupBy(c => c.ClassKey!).Select(g => g.First()))
         {
@@ -126,10 +140,7 @@ public class CkMetricsAnalysisService
                 var dit = _ditCalculator.CalculateDit(classKey);
                 var noc = _nocCalculator.CalculateNoc(classKey);
 
-                var dependency = dependencies.FirstOrDefault(d => d.ClassKey == classKey);
-                var cbo = dependency != null 
-                    ? _cboCalculator.CalculateCbo(dependency, allClassesMap) 
-                    : 0;
+                var cbo = cboByClass.GetValueOrDefault(classKey);
 
                 var rfc = _rfcCalculator.CalculateRfc(classKey, allMethods);
                 var lcom = _lcomCalculator.CalculateLcom(classKey, allMethods, dependencies);
@@ -165,7 +176,7 @@ public class CkMetricsAnalysisService
     {
         try
         {
-            var visitor = new CkSyntaxVisitor(semanticModel, _cyclomaticOptions, _typeScope, _ditOptions);
+            var visitor = new CkSyntaxVisitor(semanticModel, _cyclomaticOptions, _typeScope, _ditOptions, _cboOptions);
             visitor.Visit(syntaxTree.GetRoot());
 
             return new FileAnalysisData
@@ -173,6 +184,7 @@ public class CkMetricsAnalysisService
                 Classes = visitor.GetClasses().ToList(),
                 Methods = visitor.GetMethods().ToList(),
                 Dependencies = visitor.GetDependencies().ToList(),
+                Interfaces = visitor.GetInterfaces().ToList(),
                 MethodsWithoutSemanticModel = visitor.MethodsWithoutSemanticModel,
                 AmbiguousAccesses = visitor.AmbiguousAccesses
             };
@@ -189,6 +201,7 @@ public class CkMetricsAnalysisService
         public List<CkCodeElement> Classes { get; set; } = new();
         public List<CkMethodInfo> Methods { get; set; } = new();
         public List<ClassDependency> Dependencies { get; set; } = new();
+        public List<CouplingTarget> Interfaces { get; set; } = new();
         public int MethodsWithoutSemanticModel { get; set; }
         public int AmbiguousAccesses { get; set; }
     }

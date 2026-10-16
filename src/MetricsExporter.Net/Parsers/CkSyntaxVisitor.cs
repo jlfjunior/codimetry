@@ -112,6 +112,11 @@ public class CkMethodInfo
 }
 
 /// <summary>
+/// A type of the analysed code that a class can be coupled to (CBO): a measured type or an interface.
+/// </summary>
+public sealed record CouplingTarget(string Key, string Name, string? Namespace);
+
+/// <summary>
 /// Class dependency information for CBO calculation.
 /// </summary>
 public class ClassDependency
@@ -167,17 +172,21 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     private readonly CyclomaticOptions _cyclomaticOptions;
     private readonly TypeScope _scope;
     private readonly DitOptions _ditOptions;
+    private readonly CboOptions _cboOptions;
     private readonly List<ClassDependency> _dependencies = new();
+    private readonly List<CouplingTarget> _interfaces = new();
     private readonly SemanticModel? _semanticModel;
 
     /// <param name="cyclomaticOptions">Operator rule for the V(G) of each method (WMC with c_i = V(G)).</param>
     /// <param name="scope">Which types are measured (--classes-only).</param>
     /// <param name="ditOptions">Whether System.Object is recorded as a base class (--dit-count-object).</param>
+    /// <param name="cboOptions">Which type references CBO collects (--cbo-declared-types-only).</param>
     public CkSyntaxVisitor(SemanticModel? semanticModel = null, CyclomaticOptions? cyclomaticOptions = null, TypeScope? scope = null,
-        DitOptions? ditOptions = null)
+        DitOptions? ditOptions = null, CboOptions? cboOptions = null)
         : base(SyntaxWalkerDepth.Node)
     {
         _ditOptions = ditOptions ?? DitOptions.Default;
+        _cboOptions = cboOptions ?? CboOptions.Default;
         _scope = scope ?? TypeScope.Default;
         _cyclomaticOptions = cyclomaticOptions ?? CyclomaticOptions.Default;
         _semanticModel = semanticModel;
@@ -186,6 +195,11 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     public IReadOnlyList<CkCodeElement> GetClasses() => _classes;
     public IReadOnlyList<CkMethodInfo> GetMethods() => _methods;
     public IReadOnlyList<ClassDependency> GetDependencies() => _dependencies;
+
+    /// <summary>
+    /// Interfaces declared in the code: not measured, but coupling targets of CBO (D8).
+    /// </summary>
+    public IReadOnlyList<CouplingTarget> GetInterfaces() => _interfaces;
 
     /// <summary>
     /// Methods whose attribute accesses were matched by name because there was no semantic model.
@@ -202,6 +216,13 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     {
         CollectType(node);
         base.VisitClassDeclaration(node);
+    }
+
+    public override void VisitInterfaceDeclaration(InterfaceDeclarationSyntax node)
+    {
+        var namespaceName = node.Ancestors().OfType<NamespaceDeclarationSyntax>().FirstOrDefault()?.Name.ToString();
+        _interfaces.Add(new CouplingTarget(TypeKeys.Of(node, _semanticModel), node.Identifier.Text, namespaceName));
+        base.VisitInterfaceDeclaration(node);
     }
 
     public override void VisitRecordDeclaration(RecordDeclarationSyntax node)
@@ -306,7 +327,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         {
             var fieldType = field.Declaration.Type.ToString();
             dependency.FieldTypes.Add(fieldType);
-            AddDependentType(dependency, field.Declaration.Type);
+            AddDeclaredType(dependency, field.Declaration.Type);
 
             if (!IsStaticMember(field.Modifiers))
             {
@@ -322,7 +343,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         {
             var propertyType = property.Type.ToString();
             dependency.PropertyTypes.Add(propertyType);
-            AddDependentType(dependency, property.Type);
+            AddDeclaredType(dependency, property.Type);
 
             if (!IsStaticMember(property.Modifiers))
             {
@@ -348,7 +369,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
                 {
                     var parameterType = parameter.Type?.ToString() ?? string.Empty;
                     dependency.PropertyTypes.Add(parameterType);
-                    AddDependentType(dependency, parameter.Type);
+                    AddDeclaredType(dependency, parameter.Type);
                     dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Property, name));
                 }
             }
@@ -361,81 +382,31 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         // Collect method parameter and return types
         foreach (var method in node.Members.OfType<MethodDeclarationSyntax>())
         {
-            AddDependentType(dependency, method.ReturnType);
+            AddDeclaredType(dependency, method.ReturnType);
             foreach (var param in method.ParameterList.Parameters)
             {
-                AddDependentType(dependency, param.Type);
+                AddDeclaredType(dependency, param.Type);
             }
+        }
+
+        if (!_cboOptions.DeclaredTypesOnly)
+        {
+            TypeReferenceCollector.Collect(node, _semanticModel, dependency);
         }
 
         _dependencies.Add(dependency);
     }
 
     /// <summary>
-    /// Records the types a type reference names (INC-10): with the semantic model, the key of each named type,
-    /// decomposing generic arguments, array elements and nullables (<c>Dictionary&lt;string, List&lt;Item&gt;&gt;</c>
-    /// gives Dictionary, string, List and Item); without it, or when a type does not resolve, its simple name.
+    /// A type of the class's fields, properties and method signatures: the whole CBO of v1 (--cbo-declared-types-only),
+    /// a subset of what <see cref="TypeReferenceCollector"/> collects otherwise.
     /// </summary>
-    private void AddDependentType(ClassDependency dependency, TypeSyntax? type)
+    private void AddDeclaredType(ClassDependency dependency, TypeSyntax? type)
     {
-        if (type == null)
+        if (_cboOptions.DeclaredTypesOnly)
         {
-            return;
+            TypeReferenceCollector.Add(dependency, type, _semanticModel);
         }
-
-        if (_semanticModel?.GetTypeInfo(type).Type is { } symbol)
-        {
-            AddDependentType(dependency, symbol);
-            return;
-        }
-
-        foreach (var name in type.DescendantNodesAndSelf().OfType<SimpleNameSyntax>().Where(IsTypeName))
-        {
-            dependency.UnresolvedTypeNames.Add(name.Identifier.Text);
-        }
-    }
-
-    private static void AddDependentType(ClassDependency dependency, ITypeSymbol type)
-    {
-        switch (type)
-        {
-            case IArrayTypeSymbol array:
-                AddDependentType(dependency, array.ElementType);
-                break;
-            case IPointerTypeSymbol pointer:
-                AddDependentType(dependency, pointer.PointedAtType);
-                break;
-            case INamedTypeSymbol { TypeKind: TypeKind.Error } error:
-                dependency.UnresolvedTypeNames.Add(error.Name);
-                break;
-            case INamedTypeSymbol named:
-                dependency.DependentTypes.Add(TypeKeys.Of(named));
-                foreach (var argument in named.TypeArguments)
-                {
-                    AddDependentType(dependency, argument);
-                }
-                break;
-        }
-    }
-
-    /// <summary>
-    /// A simple name inside a type reference names a type unless it is a qualifier (the <c>N</c> of <c>N.Logger</c>).
-    /// </summary>
-    private static bool IsTypeName(SimpleNameSyntax name)
-    {
-        SyntaxNode node = name;
-        while (node.Parent is NameSyntax parent and (QualifiedNameSyntax or AliasQualifiedNameSyntax))
-        {
-            if (parent is QualifiedNameSyntax { Left: var left } && left == node
-                || parent is AliasQualifiedNameSyntax { Alias: var alias } && alias == node)
-            {
-                return false;
-            }
-
-            node = parent;
-        }
-
-        return true;
     }
 
     public override void VisitMethodDeclaration(MethodDeclarationSyntax node)

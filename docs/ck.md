@@ -272,7 +272,22 @@ public class PaymentService
 
 ### How this tool computes it
 
-The tool collects the types that appear in the class's **field types, property types, method return types, and method parameter types**. It keeps only the types **declared in the analysed code**, so framework types such as `string`, `List<T>`, or `ILogger<T>` are ignored, and it excludes the class itself.
+The tool counts the **other types of the analysed code the class uses** (outgoing coupling). A type is used when the class's declaration or body refers to it in any of these ways:
+
+- inheritance: the base class and the implemented interfaces;
+- the types of fields, properties, events, method and constructor parameters (the **primary constructor** included), return types, local variables and lambda parameters;
+- instantiation (`new Repo()`, and target-typed `new()`), `typeof`, casts, `is`/`as`, type patterns and `catch (MyException)`;
+- attributes (`[MyFilter]`);
+- receivers of static members (`Helper.Fmt()`, `Config.Value`);
+- the use of a method, field, property or event declared in another type, even when the receiver's type is not written (`GetRepo().Save()` couples to the type that declares `Save`).
+
+Classes, records, structs and the **interfaces** of the analysed code are coupling targets: in .NET, dependency injection usually couples through an interface. Framework and package types, such as `string`, `List<T>` or `ILogger<T>`, never count. Enums and delegates are not targets.
+
+Each coupled type counts once, however many times it is used. These do **not** count:
+
+- the class itself and the other `partial` declarations of it;
+- members inherited from the class's own ancestors (`name = cname` in a subclass of the class that declares `name`): they are the class's own state, and the base class already counts through inheritance;
+- what a nested type uses: a nested type is a distinct type, with its own row.
 
 Each type is resolved by the semantic model and compared by its identity (project, namespace, enclosing types, name and arity), not by its name:
 
@@ -280,15 +295,13 @@ Each type is resolved by the semantic model and compared by its identity (projec
 - two classes `Pedido` in different namespaces or projects stay apart: a field `A.Pedido` couples only to `A.Pedido`;
 - generic arguments, array element types and nullable types are looked into: `Dictionary<string, List<Item[]>>` couples to `Item`.
 
-A type the semantic model cannot resolve is matched by its **exact** simple name; among homonyms, the class in the same namespace is preferred. The log reports how many references were matched this way.
+A type the semantic model cannot resolve is matched by its **exact** simple name; among homonyms, the type in the same namespace is preferred. The log reports how many references were matched this way.
 
-The following do **not** contribute to the value:
+`--cbo-bidirectional` also counts the types of the analysed code that use the class (incoming coupling, as in Chidamber and Kemerer, 1994), without counting twice a type that is coupled in both directions. In the example of Misra et al. (2018), `Hardware` inherits from `Computer` and uses `Software` (CBO = 2); with the option, `Desktop` and `Notebook`, which inherit from it, count too (CBO = 4).
 
-- types used only in local variables, `new` expressions, or static calls;
-- constructor parameters, including **primary constructor** parameters (`class PaymentService(EmailService email)`) that are not stored in a declared field;
-- incoming coupling, meaning classes that depend on this class.
+`--cbo-declared-types-only` restores the rule of v1: only the types of fields, properties, method return types and method parameters, and only classes as targets. The types are still matched by identity, so the suffix matches of v1 (`Task` → `BackgroundTask`) are not reproduced.
 
-For `PaymentService` the tool reports **CBO = 2** (through the two fields).
+For `PaymentService` the tool reports **CBO = 2**: `EmailService` and `Logger`, through the fields and the constructor parameters.
 
 ---
 

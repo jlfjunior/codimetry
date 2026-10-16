@@ -120,6 +120,16 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "CK: count the ancestors of a base class from a library too (D : Controller = 2), except System.Object");
 
+        var cboDeclaredTypesOnlyOption = new Option<bool>(
+            aliases: new[] { "--cbo-declared-types-only" },
+            getDefaultValue: () => false,
+            description: "CK: CBO counts only the types of fields, properties and method signatures, and only classes, as v1 did (types still matched by symbol)");
+
+        var cboBidirectionalOption = new Option<bool>(
+            aliases: new[] { "--cbo-bidirectional" },
+            getDefaultValue: () => false,
+            description: "CK: CBO also counts the types that use the class (CK 1994), each coupled type once");
+
         var classesOnlyOption = new Option<bool>(
             aliases: new[] { "--classes-only" },
             getDefaultValue: () => false,
@@ -149,7 +159,9 @@ public class RootCommandHandler
             mcLambdasOption,
             cwcLibraryWeightOption,
             ditCountObjectOption,
-            ditResolveFrameworkOption
+            ditResolveFrameworkOption,
+            cboDeclaredTypesOnlyOption,
+            cboBidirectionalOption
         };
 
         rootCommand.AddValidator(result =>
@@ -200,15 +212,18 @@ public class RootCommandHandler
             var ditOptions = new Parsers.DitOptions(
                 CountObject: context.ParseResult.GetValueForOption(ditCountObjectOption),
                 ResolveFramework: context.ParseResult.GetValueForOption(ditResolveFrameworkOption));
+            var cboOptions = new Parsers.CboOptions(
+                DeclaredTypesOnly: context.ParseResult.GetValueForOption(cboDeclaredTypesOnlyOption),
+                Bidirectional: context.ParseResult.GetValueForOption(cboBidirectionalOption));
             var typeScope = new Parsers.TypeScope(ClassesOnly: context.ParseResult.GetValueForOption(classesOnlyOption));
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight, ditOptions);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight, ditOptions, cboOptions);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight, Parsers.DitOptions ditOptions)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight, Parsers.DitOptions ditOptions, Parsers.CboOptions cboOptions)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -328,7 +343,8 @@ public class RootCommandHandler
                     wmcExcludeStatic: wmcExcludeStatic,
                     cyclomaticOptions: cyclomaticOptions,
                     typeScope: typeScope,
-                    ditOptions: ditOptions);
+                    ditOptions: ditOptions,
+                    cboOptions: cboOptions);
 
                 var ckMetricsResults = await ckAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 

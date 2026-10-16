@@ -107,32 +107,75 @@ public class NocCalculator
 public class CboCalculator
 {
     /// <summary>
-    /// Calculates CBO as the number of other classes of the analysed code the class references (INC-10):
-    /// resolved types are matched by key, so <c>Task</c> no longer couples to <c>BackgroundTask</c> and
-    /// homonymous classes stay apart. Unresolved type names are matched by exact simple name; among
-    /// homonyms, the one in the class's namespace is preferred, then the first by key.
+    /// The types a class can be coupled to: the measured types and, unless v1 is reproduced, the interfaces
+    /// declared in the analysed code (D8). Framework and package types are never targets.
     /// </summary>
-    public int CalculateCbo(ClassDependency dependency, IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses)
+    public static Dictionary<string, CouplingTarget> Targets(
+        IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses, IEnumerable<CouplingTarget> interfaces)
     {
-        var coupledClasses = dependency.DependentTypes.Where(allClasses.ContainsKey).ToHashSet();
+        var targets = allClasses.ToDictionary(c => c.Key, c => new CouplingTarget(c.Key, c.Value.Name, c.Value.Namespace));
+        foreach (var target in interfaces)
+        {
+            targets.TryAdd(target.Key, target);
+        }
+
+        return targets;
+    }
+
+    /// <summary>
+    /// Calculates CBO as the number of other types of the analysed code the class uses (D9: outgoing coupling).
+    /// </summary>
+    public int CalculateCbo(ClassDependency dependency, IReadOnlyDictionary<string, CouplingTarget> targets) =>
+        Coupled(dependency, targets).Count;
+
+    /// <summary>
+    /// The keys of the other types of the analysed code the class references (INC-10): resolved types are matched
+    /// by key, so <c>Task</c> does not couple to <c>BackgroundTask</c> and homonymous types stay apart. Unresolved
+    /// type names are matched by exact simple name; among homonyms, the one in the class's namespace is preferred,
+    /// then the first by key.
+    /// </summary>
+    public HashSet<string> Coupled(ClassDependency dependency, IReadOnlyDictionary<string, CouplingTarget> targets)
+    {
+        var coupled = dependency.DependentTypes.Where(targets.ContainsKey).ToHashSet();
 
         foreach (var name in dependency.UnresolvedTypeNames)
         {
-            var match = allClasses
-                .Where(c => c.Value.Name == name)
-                .OrderBy(c => c.Value.Namespace == dependency.Namespace ? 0 : 1)
-                .ThenBy(c => c.Key, StringComparer.Ordinal)
-                .Select(c => c.Key)
+            var match = targets.Values
+                .Where(t => t.Name == name)
+                .OrderBy(t => t.Namespace == dependency.Namespace ? 0 : 1)
+                .ThenBy(t => t.Key, StringComparer.Ordinal)
+                .Select(t => t.Key)
                 .FirstOrDefault();
             if (match != null)
             {
-                coupledClasses.Add(match);
+                coupled.Add(match);
             }
         }
 
-        coupledClasses.Remove(dependency.ClassKey);
+        coupled.Remove(dependency.ClassKey);
 
-        return coupledClasses.Count;
+        return coupled;
+    }
+
+    /// <summary>
+    /// CBO in both directions (CK 1994, --cbo-bidirectional), from the outgoing couplings of every measured type:
+    /// the types each class uses plus the types that use it, each counted once.
+    /// </summary>
+    public static Dictionary<string, int> Bidirectional(IReadOnlyDictionary<string, HashSet<string>> outgoing)
+    {
+        var coupled = outgoing.ToDictionary(o => o.Key, o => new HashSet<string>(o.Value));
+        foreach (var (user, used) in outgoing)
+        {
+            foreach (var key in used)
+            {
+                if (coupled.TryGetValue(key, out var set))
+                {
+                    set.Add(user);
+                }
+            }
+        }
+
+        return coupled.ToDictionary(c => c.Key, c => c.Value.Count);
     }
 
     /// <summary>

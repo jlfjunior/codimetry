@@ -103,6 +103,8 @@ You can analyze code using one of three input options:
 | `--cwc-library-weight` | | MISRA: weight of a call to a library method or delegate in CWC (default 0; 3 reproduces v1). Calls to other types of the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#cwc--coupling-weight-for-a-class)) | `0` |
 | `--dit-resolve-framework` | | CK: count the ancestors of a base class from a library too, except `System.Object` (`D : Controller` = 2) (see [docs/ck.md](docs/ck.md#dit--depth-of-inheritance-tree)) | `false` |
 | `--dit-count-object` | | CK: count `System.Object` as a level of DIT, as v1 did | `false` |
+| `--cbo-bidirectional` | | CK: CBO also counts the types that use the class (CK 1994), each coupled type once (see [docs/ck.md](docs/ck.md#cbo--coupling-between-objects)) | `false` |
+| `--cbo-declared-types-only` | | CK: CBO counts only the types of fields, properties and method signatures, and only classes, as v1 did | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**

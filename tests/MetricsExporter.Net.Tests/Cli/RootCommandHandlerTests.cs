@@ -90,6 +90,28 @@ public class RootCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task CboOptions_ChangeTheCkCbo()
+    {
+        _dir.WriteFile("src/Cbo.cs", "public class Repo { } public class Uses { public void Go() { var r = new Repo(); } }");
+
+        async Task<string[]> Ck(params string[] options)
+        {
+            Assert.Equal(0, await Run(["--path", Source, "--out", Output, "--ck", .. options]));
+            return File.ReadAllLines(Path.Combine(Output, "metrics_ck.csv"));
+        }
+
+        // Columns after the class name: WMC, DIT, NOC, CBO
+        var outgoing = await Ck();
+        var declaredOnly = await Ck("--cbo-declared-types-only");
+        var bidirectional = await Ck("--cbo-bidirectional");
+
+        Assert.Contains(outgoing, l => l.Contains(",Uses,1,0,0,1,"));
+        Assert.Contains(outgoing, l => l.Contains(",Repo,0,0,0,0,"));
+        Assert.Contains(declaredOnly, l => l.Contains(",Uses,1,0,0,0,"));   // a local is not a declared type
+        Assert.Contains(bidirectional, l => l.Contains(",Repo,0,0,0,1,"));  // used by Uses
+    }
+
+    [Fact]
     public async Task WmcOptions_ChangeTheCkWmc()
     {
         _dir.WriteFile("src/Util.cs", "public class Util { public static int A() => 1; public int B() => 2; }");

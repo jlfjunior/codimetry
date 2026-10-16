@@ -145,7 +145,7 @@ public class CkMetricsCalculatorsTests
 
     // ---------- CBO ----------
 
-    private static ClassRelationshipBuilder CboClasses()
+    private static Dictionary<string, CouplingTarget> CboClasses(params CouplingTarget[] interfaces)
     {
         var builder = new ClassRelationshipBuilder();
         foreach (var (ns, name) in new[] { ("N", "C"), ("N", "Repo"), ("N", "Logger"), ("N", "BackgroundTask"), ("M", "Item"), ("N", "Item") })
@@ -153,7 +153,7 @@ public class CkMetricsCalculatorsTests
             builder.AddClass(new CkCodeElement { Name = name, ClassKey = $"App|{ns}.{name}", Namespace = ns }, "f.cs");
         }
 
-        return builder;
+        return CboCalculator.Targets(builder.GetAllClasses(), interfaces);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class CkMetricsCalculatorsTests
         };
 
         // Repo and Logger; Task does not match BackgroundTask, framework types and the class itself are excluded
-        Assert.Equal(2, new CboCalculator().CalculateCbo(dependency, CboClasses().GetAllClasses()));
+        Assert.Equal(2, new CboCalculator().CalculateCbo(dependency, CboClasses()));
     }
 
     [Fact]
@@ -182,10 +182,42 @@ public class CkMetricsCalculatorsTests
             DependentTypes = ["App|N.Repo"],
             UnresolvedTypeNames = ["Repo", "Task", "Item", "C"]
         };
-        var classes = CboClasses().GetAllClasses();
+        var classes = CboClasses();
 
         // Repo (once), Item of namespace N; Task matches no class by exact name
         Assert.Equal(2, new CboCalculator().CalculateCbo(dependency, classes));
+    }
+
+    [Fact]
+    public void Cbo_InterfacesOfTheAnalysedCodeAreTargets()
+    {
+        var dependency = new ClassDependency
+        {
+            ClassName = "C",
+            ClassKey = "App|N.C",
+            Namespace = "N",
+            DependentTypes = ["App|N.IRepo", "System.Runtime|System.IDisposable"]
+        };
+
+        Assert.Equal(0, new CboCalculator().CalculateCbo(dependency, CboClasses()));
+        Assert.Equal(1, new CboCalculator().CalculateCbo(dependency, CboClasses(new CouplingTarget("App|N.IRepo", "IRepo", "N"))));
+    }
+
+    [Fact]
+    public void Cbo_Bidirectional_JoinsUsersOfTheClass_CountingEachTypeOnce()
+    {
+        var outgoing = new Dictionary<string, HashSet<string>>
+        {
+            ["A"] = ["B", "I"],   // I: an interface, not measured
+            ["B"] = ["A"],
+            ["C"] = ["A"],
+        };
+
+        var cbo = CboCalculator.Bidirectional(outgoing);
+
+        Assert.Equal(3, cbo["A"]);   // uses B, I; used by B (again) and C
+        Assert.Equal(1, cbo["B"]);
+        Assert.Equal(1, cbo["C"]);
     }
 
     // ---------- DIT / NOC ----------
