@@ -25,6 +25,7 @@ public class CkMetricsAnalysisService
     private readonly TypeScope? _typeScope;
     private readonly DitOptions _ditOptions;
     private readonly CboOptions _cboOptions;
+    private readonly bool _rfcExcludeConstructors;
     private readonly ILogger<CkMetricsAnalysisService>? _logger;
 
     public CkMetricsAnalysisService(
@@ -38,7 +39,8 @@ public class CkMetricsAnalysisService
         CyclomaticOptions? cyclomaticOptions = null,
         TypeScope? typeScope = null,
         DitOptions? ditOptions = null,
-        CboOptions? cboOptions = null)
+        CboOptions? cboOptions = null,
+        bool rfcExcludeConstructors = false)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -51,7 +53,8 @@ public class CkMetricsAnalysisService
         _ditCalculator = new DitCalculator(relationshipBuilder, _ditOptions.ResolveFramework);
         _nocCalculator = new NocCalculator(relationshipBuilder);
         _cboCalculator = new CboCalculator();
-        _rfcCalculator = new RfcCalculator();
+        _rfcExcludeConstructors = rfcExcludeConstructors;
+        _rfcCalculator = new RfcCalculator(rfcExcludeConstructors);
         _lcomCalculator = new LcomCalculator();
         _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _logger = logger;
@@ -75,6 +78,9 @@ public class CkMetricsAnalysisService
                 ? "types of fields, properties and method signatures, classes only, v1 (--cbo-declared-types-only)"
                 : "every type reference to classes and interfaces of the analysed code",
             _cboOptions.Bidirectional ? "outgoing and incoming (--cbo-bidirectional)" : "outgoing");
+        _logger?.LogInformation("RFC rule: {Rule}", _rfcExcludeConstructors
+            ? "methods only, v1 (--rfc-exclude-constructors)"
+            : "methods and constructors (new, base(...))");
 
         // Phase 1: Build class relationship graph
         _logger?.LogInformation("Phase 1: Building class relationship graph...");
@@ -89,6 +95,9 @@ public class CkMetricsAnalysisService
         var (resolved, total) = codebase.InvocationResolution();
         _logger?.LogInformation("Invocation resolution: {Resolved} of {Total} invocations bound to a method ({Percent:F1}%)",
             resolved, total, total == 0 ? 100.0 : 100.0 * resolved / total);
+        var (resolvedCtors, totalCtors) = codebase.ConstructorCallResolution();
+        _logger?.LogInformation("Constructor call resolution: {Resolved} of {Total} object creations and constructor initializers bound to a constructor ({Percent:F1}%)",
+            resolvedCtors, totalCtors, totalCtors == 0 ? 100.0 : 100.0 * resolvedCtors / totalCtors);
 
         int methodsWithoutModel = 0, ambiguousAccesses = 0;
         foreach (var document in codebase.Documents)

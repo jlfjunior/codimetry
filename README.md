@@ -105,6 +105,7 @@ You can analyze code using one of three input options:
 | `--dit-count-object` | | CK: count `System.Object` as a level of DIT, as v1 did | `false` |
 | `--cbo-bidirectional` | | CK: CBO also counts the types that use the class (CK 1994), each coupled type once (see [docs/ck.md](docs/ck.md#cbo--coupling-between-objects)) | `false` |
 | `--cbo-declared-types-only` | | CK: CBO counts only the types of fields, properties and method signatures, and only classes, as v1 did | `false` |
+| `--rfc-exclude-constructors` | | CK: leave constructor calls (`new`, `base(...)`) out of RFC, as v1 did (see [docs/ck.md](docs/ck.md#rfc--response-for-a-class)) | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**

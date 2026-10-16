@@ -190,26 +190,60 @@ public class CboCalculator
 /// </summary>
 public class RfcCalculator
 {
+    private readonly bool _excludeConstructors;
+
+    /// <param name="excludeConstructors">Leave constructor calls out of R, as v1 did (--rfc-exclude-constructors).</param>
+    public RfcCalculator(bool excludeConstructors = false)
+    {
+        _excludeConstructors = excludeConstructors;
+    }
+
     /// <summary>
     /// Calculates RFC as the number of methods that can be invoked in response to a message:
-    /// |M ∪ R|, where M is the methods of the class and R the methods they call.
-    /// Resolved calls are identified by the called method; a call to a method of M is already in the
-    /// set, as are calls to local functions. Unresolved calls are identified by their simple name.
+    /// |M ∪ R|, where M is the methods of the class and R the methods and constructors they call (INC-06).
+    /// <list type="bullet">
+    /// <item>a resolved call enters R by its target unless the target is in M; calls to the class's other members
+    /// (local functions, members the compiler generates) stay out, but its implicit constructor
+    /// (<c>new Self()</c> without a declared one) enters;</item>
+    /// <item>constructors enter as methods: <c>new X()</c>, <c>new()</c> and <c>: base(...)</c>; <c>: this(...)</c>
+    /// calls a constructor already in M;</item>
+    /// <item>an unresolved call enters as <c>name:X</c>, unless a method of the class is called X; an unresolved
+    /// creation enters as <c>ctor:X</c>, unless X is the class itself;</item>
+    /// <item>property accessors are attribute accesses and do not enter.</item>
+    /// </list>
     /// </summary>
     public int CalculateRfc(string classKey, IReadOnlyList<CkMethodInfo> allMethods)
     {
         var classMethods = allMethods.Where(m => m.ContainingClassKey == classKey).ToList();
         var m = classMethods.Count;
+        var methodKeys = classMethods.Select(method => $"{classKey}::{method.Key}").ToHashSet();
+        var methodNames = classMethods.Where(method => !method.IsConstructor).Select(method => method.Name).ToHashSet();
+        var className = classMethods.FirstOrDefault()?.ContainingClass;
 
-        // Collect all methods called by class methods
         var calledMethods = new HashSet<string>();
         foreach (var call in classMethods.SelectMany(method => method.Calls))
         {
+            if (call.Kind == CallKind.Constructor && _excludeConstructors)
+            {
+                continue;
+            }
+
             if (!call.IsResolved)
             {
-                calledMethods.Add("name:" + call.Name);
+                if (call.Kind == CallKind.Constructor && call.Name != className)
+                {
+                    calledMethods.Add("ctor:" + call.Name);
+                }
+                else if (call.Kind == CallKind.Method && !methodNames.Contains(call.Name))
+                {
+                    calledMethods.Add("name:" + call.Name);
+                }
             }
-            else if (call.TargetClassKey != classKey)
+            else if (call.TargetKey != null && methodKeys.Contains(call.TargetKey))
+            {
+                // already in M
+            }
+            else if (call.TargetClassKey != classKey || call.Kind == CallKind.Constructor)
             {
                 calledMethods.Add(call.TargetId!);
             }

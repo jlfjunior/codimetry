@@ -51,20 +51,32 @@ public class CkCodeElement
 }
 
 /// <summary>
-/// A method invocation. When the semantic model binds it, the target is identified by symbol;
+/// What a call executes: a method, or a constructor (<c>new X()</c>, <c>new()</c>, <c>: base(...)</c>, <c>: this(...)</c>).
+/// </summary>
+public enum CallKind
+{
+    Method,
+    Constructor
+}
+
+/// <summary>
+/// A method invocation or a constructor call. When the semantic model binds it, the target is identified by symbol;
 /// otherwise only the simple name is known.
 /// </summary>
-/// <param name="Name">Simple name of the called method, as written.</param>
+/// <param name="Name">Simple name of the called method, as written; ".ctor" for a resolved constructor, the name of the
+/// created type for an unresolved one.</param>
 /// <param name="TargetId">Unique identity of the called method, or null when unresolved.</param>
 /// <param name="TargetClassKey">Key of the type that declares the called method, or null when unresolved.</param>
 /// <param name="TargetKey">"{classKey}::{methodKey}" when the called method is declared in the analysed code.</param>
 /// <param name="IsAbstract">The called method has no body of its own (interface or abstract member).</param>
+/// <param name="Kind">Method or constructor (INC-06).</param>
 public sealed record CallInfo(
     string Name,
     string? TargetId = null,
     string? TargetClassKey = null,
     string? TargetKey = null,
-    bool IsAbstract = false)
+    bool IsAbstract = false,
+    CallKind Kind = CallKind.Method)
 {
     public bool IsResolved => TargetId != null;
 }
@@ -481,23 +493,32 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             }
         }
 
-        // Collect method calls and field accesses
-        CollectBody((SyntaxNode?)node.Body ?? node.ExpressionBody, methodInfo);
+        // Collect method calls and field accesses; the constructor initializer (: base(...), : this(...)) is a call too
+        CollectBody((SyntaxNode?)node.Body ?? node.ExpressionBody, methodInfo, node.Initializer);
 
         _methods.Add(methodInfo);
 
         base.VisitConstructorDeclaration(node);
     }
 
-    private void CollectBody(SyntaxNode? body, CkMethodInfo methodInfo)
+    private void CollectBody(SyntaxNode? body, CkMethodInfo methodInfo, ConstructorInitializerSyntax? initializer = null)
     {
-        if (body == null)
+        if (body == null && initializer == null)
         {
             return;
         }
 
         var methodCallCollector = new MethodCallCollector(_semanticModel, methodInfo.ContainingClassKey);
-        methodCallCollector.Visit(body);
+        if (initializer != null)
+        {
+            methodCallCollector.Visit(initializer);
+        }
+
+        if (body != null)
+        {
+            methodCallCollector.Visit(body);
+        }
+
         methodInfo.Calls = methodCallCollector.GetCalls();
         methodInfo.AccessedFields = methodCallCollector.GetFieldAccesses();
 
@@ -598,12 +619,98 @@ internal class MethodCallCollector : CSharpSyntaxWalker
         base.VisitInvocationExpression(node);
     }
 
+    public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
+    {
+        var target = Resolve(node);
+        if (target != null)
+        {
+            AddConstructor(target);
+        }
+        else if (CreatedTypeName(node) is { } name)
+        {
+            _calls.Add(new CallInfo(name, Kind: CallKind.Constructor));
+        }
+
+        base.VisitObjectCreationExpression(node);
+    }
+
+    public override void VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
+    {
+        // Without a resolved constructor there is no written type to name it by (RF-8)
+        if (Resolve(node) is { } target)
+        {
+            AddConstructor(target);
+        }
+
+        base.VisitImplicitObjectCreationExpression(node);
+    }
+
+    public override void VisitConstructorInitializer(ConstructorInitializerSyntax node)
+    {
+        if (Resolve(node) is { } target)
+        {
+            AddConstructor(target);
+        }
+
+        base.VisitConstructorInitializer(node);
+    }
+
     /// <summary>
-    /// The method definition an invocation binds to (an extension method in its static form), or
-    /// null when the semantic model cannot decide. A single candidate of a failed overload resolution
-    /// is accepted, since the target method is still known.
+    /// A call to a constructor, declared or implicit (a class without constructors still has one). Creations of
+    /// delegates (<c>new Action(M)</c>) run no constructor of the analysed code and are left out.
     /// </summary>
-    private IMethodSymbol? Resolve(InvocationExpressionSyntax node)
+    private void AddConstructor(IMethodSymbol target)
+    {
+        if (target.MethodKind != MethodKind.Constructor || target.ContainingType.TypeKind == TypeKind.Delegate)
+        {
+            return;
+        }
+
+        _calls.Add(new CallInfo(
+            ".ctor",
+            TargetId: $"{TypeKeys.Of(target.ContainingType)}::{target.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat)}",
+            TargetClassKey: TypeKeys.Of(target.ContainingType),
+            TargetKey: TypeKeys.SourceMethodKey(target),
+            Kind: CallKind.Constructor));
+    }
+
+    /// <summary>
+    /// Simple name of the type an unresolved <c>new X(...)</c> creates, or null when it is a type parameter
+    /// (<c>new T()</c>, which has no concrete constructor) or a delegate.
+    /// </summary>
+    private string? CreatedTypeName(ObjectCreationExpressionSyntax node)
+    {
+        if (_semanticModel?.GetTypeInfo(node).Type is { TypeKind: TypeKind.TypeParameter or TypeKind.Delegate })
+        {
+            return null;
+        }
+
+        var name = node.Type switch
+        {
+            QualifiedNameSyntax qualified => qualified.Right.Identifier.Text,
+            AliasQualifiedNameSyntax alias => alias.Name.Identifier.Text,
+            SimpleNameSyntax simple => simple.Identifier.Text,
+            _ => null
+        };
+
+        var isTypeParameter = name != null && node.Ancestors()
+            .SelectMany(a => a switch
+            {
+                MethodDeclarationSyntax m => m.TypeParameterList?.Parameters ?? default,
+                LocalFunctionStatementSyntax f => f.TypeParameterList?.Parameters ?? default,
+                TypeDeclarationSyntax t => t.TypeParameterList?.Parameters ?? default,
+                _ => default(SeparatedSyntaxList<TypeParameterSyntax>)
+            })
+            .Any(p => p.Identifier.Text == name);
+        return isTypeParameter ? null : name;
+    }
+
+    /// <summary>
+    /// The method definition an invocation, object creation or constructor initializer binds to (an extension
+    /// method in its static form), or null when the semantic model cannot decide. A single candidate of a failed
+    /// overload resolution is accepted, since the target method is still known.
+    /// </summary>
+    private IMethodSymbol? Resolve(SyntaxNode node)
     {
         if (_semanticModel == null)
         {

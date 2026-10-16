@@ -323,7 +323,7 @@ The tool follows Eq. 24: only calls to methods of **other types of the analysed 
 | to a library method (`Console.WriteLine`, LINQ, `ILogger`...) or a delegate | 0 (`--cwc-library-weight N` sets it) |
 | unresolved by the semantic model | 0, and the log reports how many there are |
 
-The MC of the called method is the one in the method rows, so it already includes that method's own calls (see [MC](#mc--method-complexity)). A call to a type outside the [measured types](README.md#which-types-are-measured), such as a record with `--classes-only`, does not count, and neither does object creation (`new X()`).
+The MC of the called method is the one in the method rows, so it already includes that method's own calls (see [MC](#mc--method-complexity)). A call to a type outside the [measured types](README.md#which-types-are-measured), such as a record with `--classes-only`, does not count, and neither does a constructor call (`new X()`, `new()`, `: base(...)`): a constructor is not a method call of Eq. 24, and the coupling it creates is measured by CBO.
 
 For `CartService`:
 

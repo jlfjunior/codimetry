@@ -97,6 +97,38 @@ public sealed class Codebase
 
         return (resolved, total);
     }
+
+    /// <summary>
+    /// How many object creations (<c>new X()</c>, <c>new()</c>) and constructor initializers inside measured types
+    /// the semantic model binds to a constructor, for RFC. Creations of type parameters and delegates have no
+    /// constructor to bind and are left out.
+    /// </summary>
+    public (int Resolved, int Total) ConstructorCallResolution()
+    {
+        int resolved = 0, total = 0;
+        foreach (var document in Documents)
+        {
+            var calls = document.Tree.GetRoot().DescendantNodes()
+                .Where(n => n is BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax);
+            foreach (var call in calls)
+            {
+                if (TypeScope.Default.ContainingType(call) == null ||
+                    call is BaseObjectCreationExpressionSyntax &&
+                    document.SemanticModel.GetTypeInfo(call).Type is { TypeKind: TypeKind.TypeParameter or TypeKind.Delegate })
+                {
+                    continue;
+                }
+
+                total++;
+                if (document.SemanticModel.GetSymbolInfo(call).Symbol is IMethodSymbol)
+                {
+                    resolved++;
+                }
+            }
+        }
+
+        return (resolved, total);
+    }
 }
 
 /// <summary>

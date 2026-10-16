@@ -90,6 +90,21 @@ public class RootCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task RfcExcludeConstructors_ChangesTheCkRfc()
+    {
+        _dir.WriteFile("src/Rfc.cs", "public class Repo { } public class Uses { public void Go() { var r = new Repo(); } }");
+
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--ck"));
+        var withCtors = File.ReadAllLines(Path.Combine(Output, "metrics_ck.csv"));
+        Assert.Equal(0, await Run("--path", Source, "--out", Output, "--ck", "--rfc-exclude-constructors"));
+        var withoutCtors = File.ReadAllLines(Path.Combine(Output, "metrics_ck.csv"));
+
+        // Columns after the class name: WMC, DIT, NOC, CBO, RFC; Go and Repo..ctor, or Go alone
+        Assert.Contains(withCtors, l => l.Contains(",Uses,1,0,0,1,2,"));
+        Assert.Contains(withoutCtors, l => l.Contains(",Uses,1,0,0,1,1,"));
+    }
+
+    [Fact]
     public async Task CboOptions_ChangeTheCkCbo()
     {
         _dir.WriteFile("src/Cbo.cs", "public class Repo { } public class Uses { public void Go() { var r = new Repo(); } }");

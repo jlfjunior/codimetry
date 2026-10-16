@@ -195,7 +195,9 @@ public class CwcCalculator
     {
         var totalCwc = 0;
 
-        foreach (var call in allMethods.Where(m => m.ContainingClassKey == classKey).SelectMany(m => m.Calls))
+        // Constructors are not calls of eq. 24 (RF-6 of INC-06): new X() couples through CBO, not CWC
+        foreach (var call in allMethods.Where(m => m.ContainingClassKey == classKey).SelectMany(m => m.Calls)
+                     .Where(c => c.Kind != CallKind.Constructor))
         {
             if (!call.IsResolved || call.TargetClassKey == classKey)
             {
@@ -234,7 +236,8 @@ public class CwcCalculator
     /// Calls of the class that the semantic model could not resolve; they do not enter CWC.
     /// </summary>
     public static int UnresolvedCalls(string classKey, IReadOnlyList<CkMethodInfo> allMethods) =>
-        allMethods.Where(m => m.ContainingClassKey == classKey).SelectMany(m => m.Calls).Count(c => !c.IsResolved);
+        allMethods.Where(m => m.ContainingClassKey == classKey).SelectMany(m => m.Calls)
+            .Count(c => !c.IsResolved && c.Kind != CallKind.Constructor);
 }
 
 /// <summary>

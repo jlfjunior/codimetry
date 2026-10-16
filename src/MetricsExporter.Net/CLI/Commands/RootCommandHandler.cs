@@ -130,6 +130,11 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "CK: CBO also counts the types that use the class (CK 1994), each coupled type once");
 
+        var rfcExcludeConstructorsOption = new Option<bool>(
+            aliases: new[] { "--rfc-exclude-constructors" },
+            getDefaultValue: () => false,
+            description: "CK: leave constructor calls (new, base(...)) out of RFC, as v1 did");
+
         var classesOnlyOption = new Option<bool>(
             aliases: new[] { "--classes-only" },
             getDefaultValue: () => false,
@@ -161,7 +166,8 @@ public class RootCommandHandler
             ditCountObjectOption,
             ditResolveFrameworkOption,
             cboDeclaredTypesOnlyOption,
-            cboBidirectionalOption
+            cboBidirectionalOption,
+            rfcExcludeConstructorsOption
         };
 
         rootCommand.AddValidator(result =>
@@ -215,15 +221,16 @@ public class RootCommandHandler
             var cboOptions = new Parsers.CboOptions(
                 DeclaredTypesOnly: context.ParseResult.GetValueForOption(cboDeclaredTypesOnlyOption),
                 Bidirectional: context.ParseResult.GetValueForOption(cboBidirectionalOption));
+            var rfcExcludeConstructors = context.ParseResult.GetValueForOption(rfcExcludeConstructorsOption);
             var typeScope = new Parsers.TypeScope(ClassesOnly: context.ParseResult.GetValueForOption(classesOnlyOption));
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight, ditOptions, cboOptions);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight, ditOptions, cboOptions, rfcExcludeConstructors);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight, Parsers.DitOptions ditOptions, Parsers.CboOptions cboOptions)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight, Parsers.DitOptions ditOptions, Parsers.CboOptions cboOptions, bool rfcExcludeConstructors)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -344,7 +351,8 @@ public class RootCommandHandler
                     cyclomaticOptions: cyclomaticOptions,
                     typeScope: typeScope,
                     ditOptions: ditOptions,
-                    cboOptions: cboOptions);
+                    cboOptions: cboOptions,
+                    rfcExcludeConstructors: rfcExcludeConstructors);
 
                 var ckMetricsResults = await ckAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 
