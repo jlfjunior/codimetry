@@ -105,6 +105,11 @@ public class RootCommandHandler
             getDefaultValue: () => Parsers.McLambdaRule.Full,
             description: "MISRA: code of lambdas and local functions in MC: full (a nested layer), calls (only their calls, as before), ignore");
 
+        var cwcLibraryWeightOption = new Option<int>(
+            aliases: new[] { "--cwc-library-weight" },
+            getDefaultValue: () => 0,
+            description: "MISRA: weight of a call to a library method or delegate in CWC (3 reproduces the library rule of v1); calls to other types of the analysed code add 2 + MC");
+
         var classesOnlyOption = new Option<bool>(
             aliases: new[] { "--classes-only" },
             getDefaultValue: () => false,
@@ -131,7 +136,8 @@ public class RootCommandHandler
             classesOnlyOption,
             ccIncludeAutoAccessorsOption,
             mcLibraryCallWeightOption,
-            mcLambdasOption
+            mcLambdasOption,
+            cwcLibraryWeightOption
         };
 
         rootCommand.AddValidator(result =>
@@ -178,15 +184,16 @@ public class RootCommandHandler
                 IncludeAutoAccessors: context.ParseResult.GetValueForOption(ccIncludeAutoAccessorsOption));
             var mcLibraryCallWeight = context.ParseResult.GetValueForOption(mcLibraryCallWeightOption);
             var mcLambdas = context.ParseResult.GetValueForOption(mcLambdasOption);
+            var cwcLibraryWeight = context.ParseResult.GetValueForOption(cwcLibraryWeightOption);
             var typeScope = new Parsers.TypeScope(ClassesOnly: context.ParseResult.GetValueForOption(classesOnlyOption));
             
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas);
+            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas)
+    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, Parsers.CyclomaticOptions cyclomaticOptions, Parsers.TypeScope typeScope, int mcLibraryCallWeight, Parsers.McLambdaRule mcLambdas, int cwcLibraryWeight)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -338,7 +345,8 @@ public class RootCommandHandler
                     acTypeWeights: acTypeWeights,
                     typeScope: typeScope,
                     libraryCallWeight: mcLibraryCallWeight,
-                    lambdaRule: mcLambdas);
+                    lambdaRule: mcLambdas,
+                    cwcLibraryCallWeight: cwcLibraryWeight);
 
                 var misraMetricsResults = await misraAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
 

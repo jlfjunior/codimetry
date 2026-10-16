@@ -94,7 +94,7 @@ public class CallResolutionTests : IDisposable
     }
 
     [Fact]
-    public async Task Cwc_FrameworkCalls_Add3_AndNameofIsNotACall()
+    public async Task Cwc_FrameworkCalls_AddNothing_AndNameofIsNotACall()
     {
         _dir.WriteFile("app/App.csproj", Csproj);
         _dir.WriteFile("app/Code.cs", """
@@ -109,7 +109,7 @@ public class CallResolutionTests : IDisposable
         var ck = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
         var misra = await Analyzers.Misra(_dir.Path);
 
-        Assert.Equal(2 * 3, Assert.Single(misra, m => m.ClassName == "Client" && m.MethodName == "").CWC);
+        Assert.Equal(0, Assert.Single(misra, m => m.ClassName == "Client" && m.MethodName == "").CWC);   // INC-19: libraries do not count
         Assert.Equal(1 + 2, ck["Client"].RFC); // Run + List.Add + Console.WriteLine
     }
 }

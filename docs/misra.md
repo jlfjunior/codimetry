@@ -28,7 +28,7 @@ This produces `metrics_misra.csv`, which has rows at three levels:
 FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC,Kind
 src/Order.cs,Order,CalculateDiscount,2,0,0,0,0,class   <- method row: only MC is filled
 src/Order.cs,Order,,0,3,5,0,0,class                    <- class row: AC, CLC and CWC
-,,,0,0,0,0,43,                                         <- one codebase row: CC (= CoC)
+,,,0,0,0,0,35,                                         <- one codebase row: CC (= CoC)
 ```
 
 `Kind` is the kind of the type of the row: `class`, `record`, `struct` or `record struct` (see [which types are measured](README.md#which-types-are-measured)).
@@ -313,20 +313,25 @@ The original formulation by Misra et al. includes further weightings, such as th
 
 ### How this tool computes it
 
-The tool walks **every invocation** in every method of the class. Repeated calls are counted each time.
+The tool follows Eq. 24: only calls to methods of **other types of the analysed code** count (D13). Each call is resolved by the semantic model, and each one counts, repeated ones included:
 
-- If the class itself declares a method with that name, the call is internal and is ignored.
+| Call | Adds |
+|------|------|
+| to a method of another class, record or struct of the analysed code, including a method inherited from a base class (`base.M()` or `M()`) | 2 + MC of the called method |
+| to an abstract or interface method declared in the analysed code | 2 + MC of its only implementation; 2 + 1 when there are none or several (D14) |
+| to the class's own methods (any `partial` declaration) or its local functions | 0 |
+| to a library method (`Console.WriteLine`, LINQ, `ILogger`...) or a delegate | 0 (`--cwc-library-weight N` sets it) |
+| unresolved by the semantic model | 0, and the log reports how many there are |
 
-- If a method with the same name is declared in **another class** of the analysed code, the call adds $MC_{tool}(\text{called}) + 2$, where **2** is the call weight of the BCS model.
-- If no such method is found, the call adds a flat **3** ($MC = 1$ assumed, plus 2). This applies to framework and library methods such as `Console.WriteLine` or `Dictionary.TryGetValue`.
+The MC of the called method is the one in the method rows, so it already includes that method's own calls (see [MC](#mc--method-complexity)). A call to a type outside the [measured types](README.md#which-types-are-measured), such as a record with `--classes-only`, does not count, and neither does object creation (`new X()`).
 
 For `CartService`:
 
-- `IsAvailable`: its tool MC is 1 (an expression body is one sequence), so it adds 1 + 2 = 3;
-- `WriteLine`: a library method, so it adds 3;
-- **CWC = 3 + 3 = 6**, which is what the tool reports.
+- `IsAvailable`: a method of `StockService` with MC 1, so it adds 2 + 1 = 3;
+- `WriteLine`: a library method, so it adds nothing;
+- **CWC = 3**, which is what the tool reports.
 
-Methods are matched by simple name only. Counting every library call makes the tool's CWC grow with the overall amount of code, not just with coupling to other classes in the system.
+`--cwc-library-weight 3` restores the library rule of v1, which added 3 for every library or delegate call; with `--mc-additive` as well, it reproduces v1 except for one defect that is not restored: v1 matched an unresolved call with the first method of the same name in any class.
 
 ---
 
@@ -373,7 +378,7 @@ $$
 CC_{tool} = \sum_{k} CLC_k + \left\lfloor \frac{\sum_{k} CWC_k}{2} \right\rfloor
 $$
 
-summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 34$ and $\sum CWC = 18$, so **CC = 34 + 9 = 43**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
+summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 34$ and $\sum CWC = 3$, so **CC = 34 + 1 = 35**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
 
 ---
 

@@ -194,9 +194,9 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(5, @class["Customer"].AC);
         Assert.Equal(3, @class["Order"].AC);
         Assert.Equal(5, @class["Order"].CLC);
-        Assert.Equal(6, @class["CartService"].CWC);
+        Assert.Equal(2 + 1, @class["CartService"].CWC);   // INC-19: IsAvailable only; Console.WriteLine does not count
         Assert.Equal(5, method["Checkout"].MC);    // INC-16: the condition calls IsAvailable, 2 + MC 1
-        Assert.Equal(43, codebase.CC);   // record Product is measured (CLC 1); Checkout adds 2 + 1; CalculateDiscount is 2
+        Assert.Equal(34 + 3 / 2, codebase.CC);   // ΣCLC 34; ΣCWC 3 (INC-19: only CartService → IsAvailable)
     }
 
     [Fact]
@@ -207,7 +207,8 @@ public class DocumentationExamplesTests : IDisposable
         _dir.WriteFile("Clc.cs", Samples.MisraClc);
         _dir.WriteFile("Cwc.cs", Samples.MisraCwc);
 
-        var metrics = await Analyzers.Misra(_dir.Path, additiveMc: true, acTypeWeights: true, typeScope: new TypeScope(ClassesOnly: true));
+        var metrics = await Analyzers.Misra(_dir.Path, additiveMc: true, acTypeWeights: true, typeScope: new TypeScope(ClassesOnly: true),
+            libraryCallWeight: 2, cwcLibraryCallWeight: 3);
         var method = metrics.Where(m => m.MethodName != "").ToDictionary(m => m.MethodName);
         var @class = metrics.Where(m => m.ClassName != "" && m.MethodName == "").ToDictionary(m => m.ClassName);
 

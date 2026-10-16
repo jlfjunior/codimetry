@@ -100,6 +100,7 @@ You can analyze code using one of three input options:
 | `--cc-include-auto-accessors` | | Cyclomatic: give automatic property accessors a row with V(G) = 1 and add them to the class and file sums, as v1 did (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
 | `--mc-library-call-weight` | | MISRA: weight of a call to a library method in MC (default 0; 2 reproduces v1 for these calls). Calls to the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `0` |
 | `--mc-lambdas` | | MISRA: code of lambdas and local functions in MC: `full` (a nested layer), `calls` (only their calls), `ignore` (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `full` |
+| `--cwc-library-weight` | | MISRA: weight of a call to a library method or delegate in CWC (default 0; 3 reproduces v1). Calls to other types of the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#cwc--coupling-weight-for-a-class)) | `0` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**

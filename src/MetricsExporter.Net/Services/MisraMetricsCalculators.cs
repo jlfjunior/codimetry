@@ -153,24 +153,38 @@ public class ClcCalculator
 }
 
 /// <summary>
-/// Calculator for CWC (Coupling Weight for a Class) metric.
+/// Calculator for CWC (Coupling Weight for a Class) metric, Eq. 24: CWC = Σ (2 + MC of the called method)
+/// over the calls to methods of **other types of the analysed code** (D13).
 /// </summary>
 public class CwcCalculator
 {
-    private readonly McCalculator _mcCalculator;
+    public const int CallWeight = 2;
 
-    public CwcCalculator()
+    /// <summary>
+    /// MC assumed for a called abstract or interface method without exactly one implementation (D14).
+    /// </summary>
+    public const int UnknownMc = 1;
+
+    private readonly int _libraryCallWeight;
+
+    /// <param name="libraryCallWeight">Weight of a call to a library method (--cwc-library-weight); 0 leaves
+    /// them out, 3 reproduces the library rule of v1.</param>
+    public CwcCalculator(int libraryCallWeight = 0)
     {
-        _mcCalculator = new McCalculator();
+        _libraryCallWeight = libraryCallWeight;
     }
 
     /// <summary>
-    /// Calculates CWC (Coupling Weight for a Class).
-    /// CWC = Σ(MC_called_method + 2) for all external method calls.
-    /// A resolved call to another class of the analysed code adds that method's MC + 2; through an
-    /// interface or abstract method, the MC of its implementation when there is exactly one.
-    /// Calls to referenced libraries, and to abstract members with no or several implementations,
-    /// add 3 (MC 1 + 2). Unresolved calls fall back to the first method with the same name.
+    /// Calculates CWC. Each call counts, repeated ones included (RF-6):
+    /// <list type="bullet">
+    /// <item>a call to a method of another measured type of the analysed code, inherited methods of a base
+    /// class included, adds 2 + MC of the called method;</item>
+    /// <item>a call to an abstract or interface method declared in the analysed code adds 2 + MC of its only
+    /// implementation, or 2 + 1 when there are none or several;</item>
+    /// <item>calls to the class's own methods (any partial declaration) and local functions add nothing;</item>
+    /// <item>calls to libraries and delegates add the library call weight (0 by default);</item>
+    /// <item>unresolved calls add nothing (see <see cref="UnresolvedCalls"/>).</item>
+    /// </list>
     /// </summary>
     /// <param name="implementations">Abstract or interface method key → keys of its implementations.</param>
     public int CalculateCwc(string classKey, 
@@ -179,69 +193,48 @@ public class CwcCalculator
         IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? implementations = null)
     {
-        // Get all methods in this class
-        var classMethods = allMethods.Where(m => m.ContainingClassKey == classKey).ToList();
-
         var totalCwc = 0;
 
-        foreach (var method in classMethods)
+        foreach (var call in allMethods.Where(m => m.ContainingClassKey == classKey).SelectMany(m => m.Calls))
         {
-            foreach (var call in method.Calls.Where(c => c.IsResolved))
+            if (!call.IsResolved || call.TargetClassKey == classKey)
             {
-                if (call.TargetClassKey == classKey)
-                {
-                    continue; // own method or local function: not coupling
-                }
-
-                var targetKey = call.TargetKey;
-                if (call.IsAbstract && targetKey != null)
-                {
-                    targetKey = implementations != null && implementations.TryGetValue(targetKey, out var impls) && impls.Count == 1
-                        ? impls[0]
-                        : null;
-                }
-
-                totalCwc += targetKey != null && methodBcsInfo.TryGetValue(targetKey, out var bcs)
-                    ? bcs.CalculateMc() + 2
-                    : 3;
+                continue; // unresolved, or own method / local function: not coupling
             }
 
-            // Unresolved calls: matched by simple name
-            foreach (var calledMethodName in method.Calls.Where(c => !c.IsResolved).Select(c => c.Name))
+            if (call.TargetKey == null)
             {
-                // Calls to the class's own methods are not coupling
-                if (allMethods.Any(m => m.Name == calledMethodName && m.ContainingClassKey == classKey))
-                {
-                    continue;
-                }
+                totalCwc += _libraryCallWeight; // library method or delegate
+                continue;
+            }
 
-                // Find the method that was called
-                var calledMethod = allMethods.FirstOrDefault(m => 
-                    m.Name == calledMethodName && 
-                    m.ContainingClassKey != classKey); // External call only
+            if (call.IsAbstract)
+            {
+                // Interface or abstract member of the analysed code: its only implementation (D14)
+                var implementation = implementations != null && implementations.TryGetValue(call.TargetKey, out var impls) && impls.Count == 1
+                    ? impls[0]
+                    : null;
+                totalCwc += CallWeight + (implementation != null && methodBcsInfo.TryGetValue(implementation, out var implBcs)
+                    ? implBcs.CalculateMc()
+                    : UnknownMc);
+                continue;
+            }
 
-                if (calledMethod != null)
-                {
-                    // Get MC of the called method
-                    var calledMc = _mcCalculator.CalculateMc(
-                        calledMethod.ContainingClassKey ?? string.Empty,
-                        calledMethod.Key,
-                        methodBcsInfo);
-
-                    // CWC contribution = MC of called method + call weight (2)
-                    totalCwc += calledMc + 2;
-                }
-                else
-                {
-                    // Method call to external library or unresolved
-                    // Use default MC of 1 + call weight (2) = 3
-                    totalCwc += 3;
-                }
+            // A method of another type: it counts when that type is measured (D19)
+            if (allClasses.ContainsKey(call.TargetClassKey!))
+            {
+                totalCwc += CallWeight + (methodBcsInfo.TryGetValue(call.TargetKey, out var bcs) ? bcs.CalculateMc() : UnknownMc);
             }
         }
 
         return totalCwc;
     }
+
+    /// <summary>
+    /// Calls of the class that the semantic model could not resolve; they do not enter CWC.
+    /// </summary>
+    public static int UnresolvedCalls(string classKey, IReadOnlyList<CkMethodInfo> allMethods) =>
+        allMethods.Where(m => m.ContainingClassKey == classKey).SelectMany(m => m.Calls).Count(c => !c.IsResolved);
 }
 
 /// <summary>
@@ -252,10 +245,10 @@ public class CcCalculator
     private readonly ClcCalculator _clcCalculator;
     private readonly CwcCalculator _cwcCalculator;
 
-    public CcCalculator(bool acTypeWeights = false)
+    public CcCalculator(bool acTypeWeights = false, int cwcLibraryCallWeight = 0)
     {
         _clcCalculator = new ClcCalculator(acTypeWeights);
-        _cwcCalculator = new CwcCalculator();
+        _cwcCalculator = new CwcCalculator(cwcLibraryCallWeight);
     }
 
     /// <summary>
@@ -269,7 +262,8 @@ public class CcCalculator
         IReadOnlyDictionary<string, List<string>> classAttributes,
         IReadOnlyDictionary<string, List<string>> classAttributeTypes,
         IReadOnlyList<CkMethodInfo> allMethods,
-        IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses)
+        IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? implementations = null)
     {
         int totalClc = 0;
         int totalCwc = 0;
@@ -281,7 +275,8 @@ public class CcCalculator
             totalClc += clc;
 
             // Calculate CWC for each class
-            var cwc = _cwcCalculator.CalculateCwc(classKey, allMethods, methodBcsInfo, allClasses);
+            // The same CWC as the class rows (implementations included)
+            var cwc = _cwcCalculator.CalculateCwc(classKey, allMethods, methodBcsInfo, allClasses, implementations);
             totalCwc += cwc;
         }
 

@@ -25,6 +25,7 @@ public class MisraMetricsAnalysisService
     private readonly TypeScope? _typeScope;
     private readonly int _libraryCallWeight;
     private readonly McLambdaRule _lambdaRule;
+    private readonly int _cwcLibraryCallWeight;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
@@ -37,7 +38,8 @@ public class MisraMetricsAnalysisService
         bool acTypeWeights = false,
         TypeScope? typeScope = null,
         int libraryCallWeight = 0,
-        McLambdaRule lambdaRule = McLambdaRule.Full)
+        McLambdaRule lambdaRule = McLambdaRule.Full,
+        int cwcLibraryCallWeight = 0)
     {
         _fileDiscoveryService = fileDiscoveryService;
         _roslynParser = roslynParser;
@@ -45,8 +47,9 @@ public class MisraMetricsAnalysisService
         _mcCalculator = new McCalculator();
         _acCalculator = new AcCalculator(acTypeWeights);
         _clcCalculator = new ClcCalculator(acTypeWeights);
-        _cwcCalculator = new CwcCalculator();
-        _ccCalculator = new CcCalculator(acTypeWeights);
+        _cwcCalculator = new CwcCalculator(cwcLibraryCallWeight);
+        _ccCalculator = new CcCalculator(acTypeWeights, cwcLibraryCallWeight);
+        _cwcLibraryCallWeight = cwcLibraryCallWeight;
         _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _additiveMc = additiveMc;
         _acTypeWeights = acTypeWeights;
@@ -71,6 +74,8 @@ public class MisraMetricsAnalysisService
         _logger?.LogInformation("AC rule: {Rule}", _acTypeWeights
             ? "fields and properties weighted by type, static and const included, v1 (--ac-type-weights)"
             : "one per instance attribute (Eq. 25)");
+        _logger?.LogInformation("CWC rule: 2 + MC per call to another type of the analysed code (Eq. 24); a library call adds {Weight}",
+            _cwcLibraryCallWeight);
 
         // Phase 1: Build class relationship graph and collect BCS information
         _logger?.LogInformation("Phase 1: Building class relationship graph and collecting BCS information...");
@@ -213,6 +218,8 @@ public class MisraMetricsAnalysisService
         }
 
         allMetrics.AddRange(classMetrics);
+        var unresolved = distinctClasses.Select(c => CwcCalculator.UnresolvedCalls(c.ClassKey!, allMethods)).Where(n => n > 0).ToList();
+        _logger?.LogInformation("CWC: {Calls} unresolved calls in {Classes} classes, not counted", unresolved.Sum(), unresolved.Count);
         _logger?.LogInformation("Calculated class-level metrics for {Count} classes", classMetrics.Count);
 
         // Phase 4: Calculate codebase-level metric (CC)
@@ -224,7 +231,8 @@ public class MisraMetricsAnalysisService
             allClassAttributes,
             allClassAttributeTypes,
             allMethods,
-            allClassesMap);
+            allClassesMap,
+            implementations);
 
         // Add codebase-level metric
         var codebaseMetric = new MisraMetric

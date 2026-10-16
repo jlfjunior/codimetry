@@ -84,37 +84,78 @@ public class MisraMetricsCalculatorsTests
 
     // ---------- CWC ----------
 
-    [Fact]
-    public void Cwc_ExternalCall_AddsCalledMcPlus2()
+    // Measured types of the analysed code
+    private static readonly Dictionary<string, ClassRelationshipBuilder.ClassInfo> Classes = new()
     {
-        List<CkMethodInfo> methods = [Method("A", "C", "Ext"), Method("Ext", "Other")];
+        ["C"] = new() { Name = "C" },
+        ["Other"] = new() { Name = "Other" }
+    };
 
-        Assert.Equal(4 + 2, new CwcCalculator().CalculateCwc("C", methods, Bcs, new Dictionary<string, ClassRelationshipBuilder.ClassInfo>()));
-    }
+    private static CallInfo ToSystem(string @class, string method, bool isAbstract = false) =>
+        new(method, $"{@class}::{method}()", @class, $"{@class}::{method}", isAbstract);
+
+    private static CallInfo ToLibrary(string method) => new(method, $"System.Console::{method}()", "System.Console");
+
+    private static CkMethodInfo Calling(string name, string @class, params CallInfo[] calls) =>
+        new() { Name = name, Key = name, ContainingClass = @class, ContainingClassKey = @class, Calls = [.. calls] };
+
+    private static int Cwc(string @class, IReadOnlyList<CkMethodInfo> methods, int libraryWeight = 0,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? implementations = null) =>
+        new CwcCalculator(libraryWeight).CalculateCwc(@class, methods, Bcs, Classes, implementations);
 
     [Fact]
-    public void Cwc_UnresolvedCall_Adds3()
+    public void Cwc_CallToAnotherTypeOfTheCode_AddsTwoPlusItsMc()
     {
-        List<CkMethodInfo> methods = [Method("A", "C", "WriteLine")];
-
-        Assert.Equal(3, new CwcCalculator().CalculateCwc("C", methods, Bcs, new Dictionary<string, ClassRelationshipBuilder.ClassInfo>()));
-    }
-
-    [Fact]
-    public void Cwc_CallToOwnMethod_IsIgnored()
-    {
-        // Regression: internal calls used to be counted as unresolved external calls (+3)
-        List<CkMethodInfo> methods = [Method("A", "C", "B"), Method("B", "C")];
-
-        Assert.Equal(0, new CwcCalculator().CalculateCwc("C", methods, Bcs, new Dictionary<string, ClassRelationshipBuilder.ClassInfo>()));
+        Assert.Equal(2 + 4, Cwc("C", [Calling("A", "C", ToSystem("Other", "Ext"))]));
     }
 
     [Fact]
     public void Cwc_RepeatedCalls_AreCountedEachTime()
     {
-        List<CkMethodInfo> methods = [Method("A", "C", "Ext", "Ext"), Method("Ext", "Other")];
+        Assert.Equal(2 * (2 + 4), Cwc("C", [Calling("A", "C", ToSystem("Other", "Ext"), ToSystem("Other", "Ext"))]));
+    }
 
-        Assert.Equal(2 * (4 + 2), new CwcCalculator().CalculateCwc("C", methods, Bcs, new Dictionary<string, ClassRelationshipBuilder.ClassInfo>()));
+    [Fact]
+    public void Cwc_CallToOwnMethod_IsIgnored()
+    {
+        Assert.Equal(0, Cwc("C", [Calling("A", "C", ToSystem("C", "B"))]));
+    }
+
+    [Fact]
+    public void Cwc_LibraryCalls_AddTheLibraryWeight_ZeroByDefault()
+    {
+        List<CkMethodInfo> methods = [Calling("A", "C", ToLibrary("WriteLine"), ToLibrary("Write"))];
+
+        Assert.Equal(0, Cwc("C", methods));
+        Assert.Equal(2 * 3, Cwc("C", methods, libraryWeight: 3));   // the library rule of v1
+    }
+
+    [Fact]
+    public void Cwc_UnresolvedCalls_AreNotCounted_NorMatchedByName()
+    {
+        // v1 matched "Ext" with the first method of that name in any class
+        List<CkMethodInfo> methods = [Method("A", "C", "Ext", "WriteLine")];
+
+        Assert.Equal(0, Cwc("C", methods));
+        Assert.Equal(2, CwcCalculator.UnresolvedCalls("C", methods));
+    }
+
+    [Fact]
+    public void Cwc_AbstractCall_UsesTheOnlyImplementation_Else2Plus1()
+    {
+        var call = ToSystem("IRepo", "Save", isAbstract: true);
+        List<CkMethodInfo> methods = [Calling("A", "C", call)];
+
+        Assert.Equal(2 + 4, Cwc("C", methods, implementations: new Dictionary<string, IReadOnlyList<string>> { ["IRepo::Save"] = ["Other::Ext"] }));
+        Assert.Equal(2 + 1, Cwc("C", methods, implementations: new Dictionary<string, IReadOnlyList<string>> { ["IRepo::Save"] = ["Other::Ext", "C::B"] }));
+        Assert.Equal(2 + 1, Cwc("C", methods));
+    }
+
+    [Fact]
+    public void Cwc_CallToATypeOutsideTheScope_IsNotCounted()
+    {
+        // e.g. a record method with --classes-only
+        Assert.Equal(0, Cwc("C", [Calling("A", "C", ToSystem("Record", "M"))]));
     }
 
     // ---------- CC (CoC) ----------
@@ -122,12 +163,11 @@ public class MisraMetricsCalculatorsTests
     [Fact]
     public void Cc_IsSumOfClcPlusHalfTheSumOfCwc()
     {
-        List<CkMethodInfo> methods = [Method("A", "C", "Ext", "WriteLine"), Method("B", "C"), Method("Ext", "Other")];
+        List<CkMethodInfo> methods = [Calling("A", "C", ToSystem("Other", "Ext"), ToLibrary("WriteLine")), Calling("B", "C")];
 
-        // CLC(C) = 4 + 3 + 5 = 12, CLC(Other) = 1 + 4 = 5; CWC(C) = 6 + 3 = 9, CWC(Other) = 0
-        var cc = new CcCalculator().CalculateCc(["C", "Other"], Bcs, Attributes, AttributeTypes, methods,
-            new Dictionary<string, ClassRelationshipBuilder.ClassInfo>());
+        // CLC(C) = 4 + 3 + 5 = 12, CLC(Other) = 1 + 4 = 5; CWC(C) = 2 + 4 = 6, CWC(Other) = 0
+        var cc = new CcCalculator().CalculateCc(["C", "Other"], Bcs, Attributes, AttributeTypes, methods, Classes);
 
-        Assert.Equal(12 + 5 + 9 / 2, cc);
+        Assert.Equal(12 + 5 + 6 / 2, cc);
     }
 }
