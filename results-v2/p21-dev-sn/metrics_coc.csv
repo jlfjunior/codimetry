@@ -1,0 +1,15 @@
+FilePath,ClassName,Classes,Levels,CoC,Kind
+../artefatos-mestrado/p21-dev-sn/Application/DTOs/ConsolidationReportResponse.cs,ConsolidationReportResponse,1,1,4,class
+../artefatos-mestrado/p21-dev-sn/Application/DTOs/CreateTransactionRequest.cs,CreateTransactionRequest,1,1,4,class
+../artefatos-mestrado/p21-dev-sn/Application/DTOs/TransactionResponse.cs,TransactionResponse,1,1,5,class
+../artefatos-mestrado/p21-dev-sn/CashFlowDailyConsolidationSolution.Tests/DailyConsolidationService/ConsolidationControllerTests.cs,ConsolidationControllerTests,1,1,12,class
+../artefatos-mestrado/p21-dev-sn/CashFlowService.API/Authentication/BasicAuthenticationHandler.cs,BasicAuthenticationHandler,1,1,11,class
+../artefatos-mestrado/p21-dev-sn/CashFlowService.API/Controllers/CashFlowController.cs,CashFlowController,1,1,12,class
+../artefatos-mestrado/p21-dev-sn/CashFlowService.Tests/CashFlowControllerTests.cs,CashFlowControllerTests,1,1,12,class
+../artefatos-mestrado/p21-dev-sn/DailyConsolidationService.API/Authentication/BasicAuthenticationHandler.cs,BasicAuthenticationHandler,1,1,11,class
+../artefatos-mestrado/p21-dev-sn/DailyConsolidationService.API/Controllers/ConsolidationController.cs,ConsolidationController,1,1,7,class
+../artefatos-mestrado/p21-dev-sn/Domain/Entities/DailyBalance.cs,DailyBalance,1,1,4,class
+../artefatos-mestrado/p21-dev-sn/Domain/Entities/Transaction.cs,Transaction,1,1,5,class
+../artefatos-mestrado/p21-dev-sn/Infrastructure/Data/ApplicationDbContext.cs,ApplicationDbContext,1,1,1,class
+../artefatos-mestrado/p21-dev-sn/Infrastructure/Services/CashFlowService.cs,CashFlowService,1,1,4,class
+../artefatos-mestrado/p21-dev-sn/Infrastructure/Services/ConsolidationService.cs,ConsolidationService,1,1,8,class

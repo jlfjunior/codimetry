@@ -1,0 +1,221 @@
+using Codimetry.Tests.Helpers;
+using Codimetry.Parsers;
+using Codimetry.Services;
+
+namespace Codimetry.Tests.Integration;
+
+/// <summary>
+/// Runs each analysis service over the examples published in docs/*.md and checks the values the docs state.
+/// If one of these tests fails, either the documentation or the implementation needs to be updated.
+/// </summary>
+public class DocumentationExamplesTests : IDisposable
+{
+    private readonly TempDirectory _dir = new();
+
+    public void Dispose() => _dir.Dispose();
+
+    // ---------- docs/loc.md ----------
+
+    [Fact]
+    public async Task Loc_Calculator_Add_Is5_And_ClassAndFileSumMethods()
+    {
+        _dir.WriteFile("Calculator.cs", Samples.LocCalculator);
+
+        var metrics = await Analyzers.Loc(_dir.Path);
+
+        Assert.Equal(5, metrics.Single(m => m.MethodName == "Add").Loc);
+        Assert.Equal(5, metrics.Single(m => m.ClassName == "Calculator" && m.MethodName == "").Loc);
+        Assert.Equal(5, metrics.Single(m => m.ClassName == "" && m.MethodName == "").Loc);
+    }
+
+    [Fact]
+    public async Task Loc_Calculator_LogicalIs4_PhysicalIs10()
+    {
+        _dir.WriteFile("Calculator.cs", Samples.LocCalculator);
+
+        var metrics = await Analyzers.Loc(_dir.Path);
+        var file = metrics.Single(m => m.ClassName == "" && m.MethodName == "");
+
+        Assert.Equal(4, file.Lloc);
+        Assert.Equal(10, file.PhysicalLoc);
+        Assert.Equal(3, metrics.Single(m => m.MethodName == "Add").Lloc);
+        Assert.Equal(4, metrics.Single(m => m.ClassName == "Calculator" && m.MethodName == "").Lloc);
+    }
+
+    // ---------- docs/cyclomatic.md ----------
+
+    [Fact]
+    public async Task Cyclomatic_DiscountService_Is4()
+    {
+        _dir.WriteFile("Discount.cs", Samples.DiscountService);
+
+        var metrics = await Analyzers.Cyclomatic(_dir.Path);
+
+        Assert.Equal(4, metrics.Single(m => m.MethodName == "CalculateDiscount").Complexity);
+    }
+
+    [Fact]
+    public async Task Cyclomatic_ShippingCalculator_Fee_Is5()
+    {
+        _dir.WriteFile("Shipping.cs", Samples.ShippingCalculator);
+
+        var metrics = await Analyzers.Cyclomatic(_dir.Path);
+        var withNullOperators = await Analyzers.Cyclomatic(_dir.Path, new CyclomaticOptions(NullOperators: true));
+
+        // 1 + 2 arms (the discard arm is not a decision) + && + ?:; ?? only with --cc-null-operators
+        Assert.Equal(5, metrics.Single(m => m.MethodName == "Fee").Complexity);
+        Assert.Equal(6, withNullOperators.Single(m => m.MethodName == "Fee").Complexity);
+        Assert.Equal(2, metrics.Single(m => m.MethodName == "Discount").Complexity);
+    }
+
+    // ---------- docs/ck.md ----------
+
+    [Fact]
+    public async Task Ck_DocumentedValues()
+    {
+        _dir.WriteFile("Wmc.cs", Samples.CkWmc);
+        _dir.WriteFile("Rfc.cs", Samples.CkRfc);
+        _dir.WriteFile("Lcom.cs", Samples.CkLcom);
+        _dir.WriteFile("Cbo.cs", Samples.CkCbo);
+        _dir.WriteFile("Dit.cs", Samples.CkDit);
+        _dir.WriteFile("Noc.cs", Samples.CkNoc);
+
+        var metrics = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(3, metrics["Calculator"].WMC);
+        Assert.Equal(3, metrics["OrderService"].RFC);
+        Assert.Equal(4, metrics["User"].LCOM);
+        Assert.Equal(2, metrics["PaymentService"].CBO);
+        Assert.Equal(0, metrics["PaymentService"].LCOM);
+        Assert.Equal(0, metrics["Entity"].DIT);    // INC-12: System.Object does not count
+        Assert.Equal(1, metrics["Person"].DIT);
+        Assert.Equal(2, metrics["Employee"].DIT);
+        Assert.Equal(2, metrics["Animal"].NOC);
+        Assert.Equal(0, metrics["Cat"].NOC);
+    }
+
+    [Fact]
+    public async Task Ck_Cap2Usuario_LcomIs3_AndAttributesOfOtherObjectsDoNotCount()
+    {
+        _dir.WriteFile("Usuario.cs", Samples.Cap2Usuario);
+        _dir.WriteFile("LcomFalse.cs", Samples.LcomFalse);
+
+        var metrics = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(3, metrics["Usuario"].LCOM);
+        Assert.Equal(3, metrics["LcomFalse"].LCOM);   // INC-07: Nome of a Dto is not an attribute of LcomFalse
+    }
+
+    [Fact]
+    public async Task Ck_ConstructorsDoNotEnterLcom()
+    {
+        _dir.WriteFile("LcomCtor.cs", Samples.LcomCtor);
+
+        var metric = (await Analyzers.Ck(_dir.Path)).Single(m => m.ClassName == "LcomCtor");
+
+        Assert.Equal(1, metric.LCOM);   // INC-09: with the constructor it would be 0
+    }
+
+    [Fact]
+    public async Task Ck_StaticConstructor_IsNotAnInstanceMethod()
+    {
+        _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);
+
+        var metric = (await Analyzers.Ck(_dir.Path)).Single(m => m.ClassName == "StaticCtor");
+
+        Assert.Equal(2, metric.WMC);    // INC-05/INC-08: static constructor counts as a static method
+        Assert.Equal(0, metric.LCOM);
+    }
+
+    [Theory]
+    [InlineData("Calculator", 3, 4)]   // Cap. 2: Add and Subtract V(G) 1, Multiply V(G) 2
+    [InlineData("Mixed", 3, 3)]        // 1 instance + 2 static methods, V(G) 1 each
+    [InlineData("WithCtor", 2, 3)]     // constructor V(G) 2 + 1 method V(G) 1
+    [InlineData("StaticCtor", 2, 2)]   // static C() + 1 method
+    public async Task Ck_Wmc_UnitAndCyclomaticWeights(string className, int unit, int cyclomatic)
+    {
+        _dir.WriteFile("Wmc.cs", Samples.CkWmc);
+        _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);
+        _dir.WriteFile("Inc05.cs", Samples.WmcProbes);
+
+        var byUnit = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
+        var byVg = (await Analyzers.Ck(_dir.Path, WmcWeight.Cyclomatic)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(unit, byUnit[className].WMC);
+        Assert.Equal(cyclomatic, byVg[className].WMC);
+    }
+
+    [Fact]
+    public async Task Ck_LcomMethods_CountsOnlyInstanceMethodsWithoutConstructors()
+    {
+        _dir.WriteFile("Wmc.cs", Samples.CkWmc);
+        _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);
+        _dir.WriteFile("Inc05.cs", Samples.WmcProbes);
+
+        var metrics = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(3, metrics["Calculator"].LcomMethods);
+        Assert.Equal(1, metrics["Mixed"].LcomMethods);      // WMC 3: two static methods
+        Assert.Equal(1, metrics["WithCtor"].LcomMethods);   // WMC 2: the constructor
+        Assert.Equal(1, metrics["StaticCtor"].LcomMethods); // WMC 2: the static constructor
+    }
+
+    [Fact]
+    public async Task Ck_WmcExcludeStatic_ReproducesV1()
+    {
+        _dir.WriteFile("StaticCtor.cs", Samples.StaticCtor);
+        _dir.WriteFile("Inc05.cs", Samples.WmcProbes);
+
+        var metrics = (await Analyzers.Ck(_dir.Path, wmcExcludeStatic: true)).ToDictionary(m => m.ClassName);
+
+        Assert.Equal(1, metrics["Mixed"].WMC);
+        Assert.Equal(1, metrics["StaticCtor"].WMC);
+        Assert.Equal(2, metrics["WithCtor"].WMC);
+    }
+
+    // ---------- docs/misra.md ----------
+
+    [Fact]
+    public async Task Misra_DocumentedValues()
+    {
+        _dir.WriteFile("Mc.cs", Samples.MisraMc);
+        _dir.WriteFile("Ac.cs", Samples.MisraAc);
+        _dir.WriteFile("Clc.cs", Samples.MisraClc);
+        _dir.WriteFile("Cwc.cs", Samples.MisraCwc);
+
+        var metrics = await Analyzers.Misra(_dir.Path);
+        var method = metrics.Where(m => m.MethodName != "").ToDictionary(m => m.MethodName);
+        var @class = metrics.Where(m => m.ClassName != "" && m.MethodName == "").ToDictionary(m => m.ClassName);
+        var codebase = metrics.Single(m => m.ClassName == "" && m.MethodName == "");
+
+        Assert.Equal(12, method["Process"].MC);
+        Assert.Equal(3, method["Total"].MC);
+        Assert.Equal(2, method["CalculateDiscount"].MC);   // INC-15: the body is a ternary, 2 × 1
+        Assert.Equal(5, @class["Customer"].AC);
+        Assert.Equal(3, @class["Order"].AC);
+        Assert.Equal(5, @class["Order"].CLC);
+        Assert.Equal(2 + 1, @class["CartService"].CWC);   // INC-19: IsAvailable only; Console.WriteLine does not count
+        Assert.Equal(5, method["Checkout"].MC);    // INC-16: the condition calls IsAvailable, 2 + MC 1
+        Assert.Equal(34, codebase.CoC);   // INC-20: no sample inherits from another, so each is a hierarchy and CoC = ΣCLC
+    }
+
+    [Fact]
+    public async Task Misra_V1Options_ReproduceV1()
+    {
+        _dir.WriteFile("Mc.cs", Samples.MisraMc);
+        _dir.WriteFile("Ac.cs", Samples.MisraAc);
+        _dir.WriteFile("Clc.cs", Samples.MisraClc);
+        _dir.WriteFile("Cwc.cs", Samples.MisraCwc);
+
+        var metrics = await Analyzers.Misra(_dir.Path, additiveMc: true, acTypeWeights: true, typeScope: new TypeScope(ClassesOnly: true),
+            libraryCallWeight: 2, cwcLibraryCallWeight: 3, cocLegacy: true);
+        var method = metrics.Where(m => m.MethodName != "").ToDictionary(m => m.MethodName);
+        var @class = metrics.Where(m => m.ClassName != "" && m.MethodName == "").ToDictionary(m => m.ClassName);
+
+        Assert.Equal(10, method["Process"].MC);
+        Assert.Equal(9, method["Total"].MC);
+        Assert.Equal(6, @class["Customer"].AC);
+        Assert.Equal(8, @class["CartService"].CWC);
+        Assert.Equal(55, metrics.Single(m => m.ClassName == "" && m.MethodName == "").CC);
+    }
+}

@@ -2,22 +2,24 @@
 
 **Lines of Code** is the oldest and most widely used size metric. It is used both to estimate development effort and cost (it is the main input of Boehm's COCOMO model) and as a size *proxy* in empirical software-engineering studies. Unlike the other metrics this tool collects, LOC says nothing about logical, structural, or cognitive complexity. It measures **volume** only, which is why it is mostly used alongside complexity metrics, either as a control variable or to normalise them.
 
-This page explains the metric, shows a worked example in modern C#, and states how **MetricsExporter.Net** counts lines. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.3.
+This page explains the metric, shows a worked example in modern C#, and states how **Codimetry** counts lines. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.3.
 
 ## Collecting the metric
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc
 ```
 
 This produces `metrics_loc.csv`, which has rows at three levels:
 
 ```csv
-FilePath,ClassName,MethodName,LOC
-src/Calculator.cs,Calculator,Add,5        <- method or constructor
-src/Calculator.cs,Calculator,,5           <- class (sum of its methods)
-src/Calculator.cs,,,5                     <- file (sum of its classes)
+FilePath,ClassName,MethodName,LOC,LLOC,PhysicalLOC
+src/Calculator.cs,Calculator,Add,5,3,       <- method or constructor
+src/Calculator.cs,Calculator,,5,4,          <- class
+src/Calculator.cs,,,5,4,10                  <- file
 ```
+
+Three counts are written side by side. `LLOC` (logical LOC) and `PhysicalLOC` follow Park (1992); `LOC` is the tool's original count, kept for comparison with earlier results. `PhysicalLOC` is only filled on file rows.
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options.
 
@@ -52,9 +54,29 @@ public class Calculator
 ```
 
 - **Physical LOC = 10**: all ten lines, including the comment, the blank line, and the braces.
-- **Logical LOC = 3**: the method signature, the assignment, and the `return`.
+- **Logical LOC = 4**: the class declaration, the method declaration, the assignment, and the `return`.
 
 ## How this tool computes it
+
+### LLOC (logical LOC)
+
+Computed on the syntax tree, so formatting has no effect: a statement split over four lines counts 1, and two statements on one line count 2. Counted:
+
+- type declarations (class, record, struct, interface, enum, delegate);
+- method, constructor, destructor and operator declarations;
+- field declarations (once per declaration: `int a, b;` counts 1) and enum members;
+- property, indexer and event declarations; auto-accessors (`get; set;`) are not counted, accessors with a body (`get { ... }` or `get => ...`) are;
+- every statement, including local functions, statements inside block lambdas and top-level statements.
+
+Not counted: braces and blocks, empty statements, `using` directives, namespace declarations, attributes, comments and blank lines. A labeled statement counts once.
+
+Each row is measured on its own syntax node: a method row on the method declaration, a class row on the whole class (fields, properties and nested types included), and a file row on the whole file (records, structs, enums and interfaces included). A DTO made only of auto-properties therefore has LLOC > 0. Every analyzed file gets a file row, even one without classes. The project size used in the analysis is the sum of the file rows' LLOC.
+
+### PhysicalLOC
+
+Every line of the file, including blank lines and comments. The empty line after the final line break is not counted, so a file ending in a newline is not one line longer. Only file rows carry this value.
+
+### LOC (original count)
 
 The tool counts **non-blank, non-comment physical lines**. That sits between the two definitions above: braces and declaration lines are counted, as in physical LOC, while blank lines and comments are not, as in logical LOC.
 
@@ -68,23 +90,23 @@ A line that mixes code and a comment, such as `return x; // done` or `a * b; /* 
 
 What gets counted at each level:
 
-- **Method and constructor rows** count the lines from the first line of the declaration to its closing brace (or the final `;` of an expression-bodied member). Comments placed *above* the method, including XML documentation, belong to the line before the declaration and are **not** counted. Attributes such as `[HttpGet]` are part of the declaration and **are** counted.
-- **Class rows** are the **sum of the class's methods and constructors**. Fields, properties, nested type declarations, and the class's own declaration and braces are not included.
-- **File rows** are the sum of the classes in the file. `using` directives and namespace declarations are not included.
+- **Method and constructor rows** count the lines from the first line of the declaration to its closing brace (or the final `;` of an expression-bodied member). Comments placed *above* the method, including XML documentation, belong to the line before the declaration and are **not** counted. Attributes such as `[HttpGet]` are part of the declaration and **are** counted. An abstract method has no body, so its row counts the single line of its declaration.
+- **Class rows** are the **sum of the class's methods and constructors**. Records and structs get class rows too, and a method belongs to the nearest enclosing type (see [which types are measured](README.md#which-types-are-measured)). Fields, properties, nested type declarations, and the class's own declaration and braces are not included.
+- **File rows** are the sum of the classes in the file. `using` directives and namespace declarations are not included. A file without classes has LOC = 0.
 
 Applied to the example above, the tool reports:
 
 - `Add`: **5**. That is the signature, `{`, the assignment, the `return`, and `}`. The comment above the method and the blank line are excluded.
 - `Calculator` (class row): **5**, the sum of its only method.
 
-Because properties and fields are excluded, a class made only of auto-properties (a DTO, for example) has LOC = 0. Use this metric to measure **behavioural code**, not total file size.
+Because properties and fields are excluded, a class made only of auto-properties (a DTO, for example) has LOC = 0. Use LOC to measure **behavioural code**; use LLOC for size.
 
 ## Limitations
 
 - **Language and style dependent.** The same functionality can take very different numbers of lines depending on language expressiveness. This is what motivated language-independent size measures such as Function Point Analysis (Albrecht, 1979).
 - **Easy to manipulate.** Splitting statements across lines inflates LOC without changing behaviour.
 - **Size, not complexity.** At the method level, LOC is not redundant with [cyclomatic complexity](cyclomatic.md) (Landman et al., 2016), so use the two together.
-- **Line-based comment detection.** The tool detects comments line by line, without a C# lexer. A `//` or `/*` inside a string literal can therefore be mistaken for a comment.
+- **Line-based comment detection (LOC only).** The original LOC detects comments line by line, without a C# lexer. A `//` or `/*` inside a string literal can therefore be mistaken for a comment. LLOC and PhysicalLOC do not have this problem.
 
 ## References
 

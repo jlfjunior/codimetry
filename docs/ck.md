@@ -2,7 +2,7 @@
 
 The **CK metrics** were proposed by Shyam R. Chidamber and Chris F. Kemerer in 1994 as a suite of six measures for object-oriented design. McCabe's cyclomatic complexity works at the method level and ignores how classes relate to each other. The CK suite looks at the structure of the **class** instead: its internal complexity, its coupling to other classes, its cohesion, and where it sits in the inheritance hierarchy.
 
-This page explains what each metric means, gives its formal definition, shows a worked example in modern C#, and states how **MetricsExporter.Net** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.5 (see [References](#references)).
+This page explains what each metric means, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.5 (see [References](#references)).
 
 | Metric | Name | Dimension | Interpretation |
 |--------|------|-----------|----------------|
@@ -16,14 +16,18 @@ This page explains what each metric means, gives its formal definition, shows a 
 ## Collecting the metrics
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --ck
 ```
 
 This produces `metrics_ck.csv` with **one row per class**:
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind
 ```
+
+Records, structs and record structs get rows too; `Kind` tells them apart (see [which types are measured](README.md#which-types-are-measured)).
+
+`LcomMethods` is the number of methods LCOM is computed over (see [LCOM](#lcom--lack-of-cohesion-of-methods)). It is not a metric: it gives the maximum $n(n-1)/2$ that LCOM can reach, which is no longer derived from WMC now that WMC also counts static methods and constructors.
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options (solutions, projects, output directory).
 
@@ -79,9 +83,18 @@ public class Calculator
 
 ### How this tool computes it
 
-The `WMC` column uses **$c_i = 1$**. It counts the **non-static methods and constructors** declared in the class. Properties, static methods, and local functions are not counted. For `Calculator` the tool reports **WMC = 3**.
+WMC is the sum of $c_i$ over the **methods and constructors** declared in the class (in any of its `partial` declarations), **static ones included**: a static method is still a method defined in the class, and Chidamber and Kemerer do not exclude class methods. A static constructor counts as a static method. Property accessors, operators, destructors, and local functions are not counted, so with $c_i = 1$ the column is the number of methods.
 
-To get a complexity-weighted view, run with `--cyclomatic` and look at the class-level rows of `metrics_cyclomatic.csv`. That value sums the cyclomatic complexity of every method in the class, which gives 4 for `Calculator`. Note that it also includes constructors and property accessors.
+`--wmc-weight` chooses $c_i$:
+
+- `unit` (default): **$c_i = 1$**. For `Calculator` the tool reports **WMC = 3**.
+- `cyclomatic`: **$c_i = V(G)$** of the method, computed by the same visitor as `metrics_cyclomatic.csv` (decisions inside lambdas and local functions count for the method that contains them). For `Calculator` the tool reports **WMC = 4**.
+
+A method without a body (abstract, interface, `extern`) has $c_i = 1$ in both variants: it counts once in `unit`, and it has a single path in `cyclomatic`.
+
+`--wmc-exclude-static` restores the rule of v1, which left static methods and static constructors out. With it, a utility class made only of static methods has WMC = 0.
+
+The class-level rows of `metrics_cyclomatic.csv` are not the same as `--wmc-weight cyclomatic`: they also add destructors, operators, conversions and the accessors with a body of properties, indexers and events.
 
 ---
 
@@ -123,8 +136,11 @@ public class OrderService
 ### How this tool computes it
 
 - $M$ includes every method and constructor declared in the class, static ones included.
-- $R$ is the set of **distinct method names** invoked inside those bodies. Methods are matched by simple name, so `a.Save()` and `b.Save()` count once.
-- $R$ includes calls to framework methods (e.g. `Console.WriteLine` contributes `WriteLine`) and calls to the class's own methods.
+- $R$ is the set of **distinct methods and constructors** called inside those bodies that are not already in $M$. Each call is identified by the semantic model, by the method it binds to: `a.Save()` and `b.Save()` count once when both are `Repo.Save`, twice when they are methods of different types. Overloads are distinct methods.
+- $R$ includes calls to framework methods (e.g. `Console.WriteLine`) and to methods of other types of the analysed code. Calls to the class's own methods are already in $M$, and calls to its local functions do not count.
+- Constructors are methods executed in response to a message (D20), so they enter $R$ like methods: `new Repo()`, the target-typed `new()` and `: base(...)` each add the called constructor, declared or implicit (a class without constructors still has one). `: this(...)` calls a constructor already in $M$. `new T()` of a type parameter and the creation of a delegate (`new Action(M)`) call no constructor of the analysed code and do not count. `--rfc-exclude-constructors` restores the rule of v1, which left constructors out.
+- Property accessors do not count: in C#, reading `other.Name` is an attribute access, not a method call.
+- A call the semantic model cannot bind enters $R$ by its simple name, unless a method of the class has that name; an unresolved `new X()` enters as the constructor of `X`, unless `X` is the class itself. The log reports the share of invocations and constructor calls that were bound.
 - Only direct calls are considered; the tool does not follow calls transitively.
 
 For `OrderService` the tool reports **RFC = 3**.
@@ -194,7 +210,29 @@ public class User
 
 ### How this tool computes it
 
-The tool applies the LCOM1 formula above to the class's **non-static methods and constructors**, using the fields and properties of the class as its instance variables. Classes with zero or one method have LCOM = 0.
+The tool applies the LCOM1 formula above to the **non-static methods** declared in the class (in any of its `partial` declarations). Classes with zero or one method have LCOM = 0. These do not enter:
+
+- constructors, static or not: a constructor usually initializes every field, so it would share state with almost every method regardless of how cohesive the methods are;
+- property accessors, operators, and local functions.
+
+A primary constructor has no body of its own, so it never enters either.
+
+The instance variables of a class are the ones **declared in it** (in any of its `partial` declarations):
+
+- non-static fields and properties, including computed properties such as `int Total => a + b`;
+- non-static field-like events (`public event EventHandler Changed;`);
+- the parameters of its primary constructor (`class C(Repo repo)`);
+- the positional parameters of a record (`record Range(int Min, int Max)`), which are public properties.
+
+Inherited members do not count.
+
+A method **uses** an instance variable when the semantic model binds an identifier in its body to one of them, either as a simple name (`Name`, `_handler()`) or as `this.Name`. These do not count, even when the name matches an instance variable:
+
+- members of another object: `other.Name`, `d?.Name`, `new Dto { Name = "x" }` (the left-hand side of an object initializer), `x is C { Name: "x" }`;
+- argument names (`Create(name: x)`) and `nameof(Name)`;
+- locals, parameters of the method or of an ordinary constructor, and types (`Status.Active` where the class also has a `Status` property).
+
+When the semantic model is not available, identifiers are matched by name with the same syntactic exclusions. The log reports how many methods were analysed that way.
 
 ---
 
@@ -237,15 +275,36 @@ public class PaymentService
 
 ### How this tool computes it
 
-The tool collects the types that appear in the class's **field types, property types, method return types, and method parameter types**. It keeps only the types **declared in the analysed code**, so framework types such as `string`, `List<T>`, or `ILogger<T>` are ignored, and it excludes the class itself. Generic arguments, array brackets, and `?` are stripped before matching.
+The tool counts the **other types of the analysed code the class uses** (outgoing coupling). A type is used when the class's declaration or body refers to it in any of these ways:
 
-The following do **not** contribute to the value:
+- inheritance: the base class and the implemented interfaces;
+- the types of fields, properties, events, method and constructor parameters (the **primary constructor** included), return types, local variables and lambda parameters;
+- instantiation (`new Repo()`, and target-typed `new()`), `typeof`, casts, `is`/`as`, type patterns and `catch (MyException)`;
+- attributes (`[MyFilter]`);
+- receivers of static members (`Helper.Fmt()`, `Config.Value`);
+- the use of a method, field, property or event declared in another type, even when the receiver's type is not written (`GetRepo().Save()` couples to the type that declares `Save`).
 
-- types used only in local variables, `new` expressions, or static calls;
-- constructor parameters, including **primary constructor** parameters (`class PaymentService(EmailService email)`) that are not stored in a declared field;
-- incoming coupling, meaning classes that depend on this class.
+Classes, records, structs and the **interfaces** of the analysed code are coupling targets: in .NET, dependency injection usually couples through an interface. Framework and package types, such as `string`, `List<T>` or `ILogger<T>`, never count. Enums and delegates are not targets.
 
-For `PaymentService` the tool reports **CBO = 2** (through the two fields).
+Each coupled type counts once, however many times it is used. These do **not** count:
+
+- the class itself and the other `partial` declarations of it;
+- members inherited from the class's own ancestors (`name = cname` in a subclass of the class that declares `name`): they are the class's own state, and the base class already counts through inheritance;
+- what a nested type uses: a nested type is a distinct type, with its own row.
+
+Each type is resolved by the semantic model and compared by its identity (project, namespace, enclosing types, name and arity), not by its name:
+
+- `Task` does not couple to a class `BackgroundTask`, nor `Order` to `PurchaseOrder`;
+- two classes `Pedido` in different namespaces or projects stay apart: a field `A.Pedido` couples only to `A.Pedido`;
+- generic arguments, array element types and nullable types are looked into: `Dictionary<string, List<Item[]>>` couples to `Item`.
+
+A type the semantic model cannot resolve is matched by its **exact** simple name; among homonyms, the type in the same namespace is preferred. The log reports how many references were matched this way.
+
+`--cbo-bidirectional` also counts the types of the analysed code that use the class (incoming coupling, as in Chidamber and Kemerer, 1994), without counting twice a type that is coupled in both directions. In the example of Misra et al. (2018), `Hardware` inherits from `Computer` and uses `Software` (CBO = 2); with the option, `Desktop` and `Notebook`, which inherit from it, count too (CBO = 4).
+
+`--cbo-declared-types-only` restores the rule of v1: only the types of fields, properties, method return types and method parameters, and only classes as targets. The types are still matched by identity, so the suffix matches of v1 (`Task` → `BackgroundTask`) are not reproduced.
+
+For `PaymentService` the tool reports **CBO = 2**: `EmailService` and `Logger`, through the fields and the constructor parameters.
 
 ---
 
@@ -280,16 +339,22 @@ public class Employee : Person
 }
 ```
 
-- `Entity` → `object` (implicit)
-- `Person` → `Entity` → `object`
-- `Employee` → `Person` → `Entity` → `object`
-- **DIT(Entity) = 1, DIT(Person) = 2, DIT(Employee) = 3**
+- `Entity` declares no base class (`System.Object` is implicit and is not counted)
+- `Person` → `Entity`
+- `Employee` → `Person` → `Entity`
+- **DIT(Entity) = 0, DIT(Person) = 1, DIT(Employee) = 2**
 
 ### How this tool computes it
 
-The tool counts how many levels there are above the class, following `BaseList` entries in the analysed code. When Roslyn's semantic model resolves the base type, the implicit `System.Object` counts as one level. That is why a class with no explicit base gets **DIT = 1**, and the tool reports the values shown above.
+DIT is the number of **declared** inheritance edges above the class (D7): the tool follows the base classes while they are in the analysed code. `System.Object`, implicit or written (`class E : object`), never counts, so a class with no explicit base has **DIT = 0**, and the tool reports the values shown above.
 
-A base class from outside the analysed code, such as `ControllerBase` or `DbContext`, counts as one level, but its own ancestors are not resolved. So DIT is a lower bound for classes that extend framework types. Interfaces are not part of the inheritance tree.
+A base class from outside the analysed code, such as `Exception`, `ControllerBase` or `DbContext`, counts as one level, and its own ancestors are not followed: `class D : Controller` has DIT = 1. `--dit-resolve-framework` follows them too, through the referenced assemblies, counting every edge except the one that reaches `System.Object`: `D : Controller` is then D → Controller → ControllerBase = 2. An ancestor that cannot be resolved (a missing reference) ends the count.
+
+`System.Object` is not part of the inheritance tree either, so NOC sees no artificial root. Interfaces are not part of the tree.
+
+`--dit-count-object` restores the rule of v1: `System.Object` counts as one level, so a class with no explicit base has DIT = 1. In v1 this held only for hierarchies entirely in the code: a class whose root extends `Exception` got the same DIT as if it extended `object`.
+
+A record follows the same rule as a class (`record Student(...) : Person(...)` is one level below `Person`). A struct or record struct has no base class, so its DIT and NOC are 0.
 
 ---
 
@@ -340,7 +405,7 @@ The tool counts the classes **in the analysed code** whose direct base is the cl
 - **LCOM1 is fragile.** Methods that use no instance state inflate the metric even in cohesive classes.
 - **Inheritance metrics matter less in modern code.** Composition, interfaces, and dependency injection reduce the relevance of DIT and NOC.
 - **Metrics complement each other.** CK metrics capture *structure*. Use them together with cyclomatic complexity (control flow) and the cognitive metrics in [misra.md](misra.md) (understandability), not in isolation.
-- **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Only `class` declarations are measured: `record`, `struct`, and `interface` types do not produce rows.
+- **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Classes, records and structs are measured; interfaces and enums do not produce rows (see [which types are measured](README.md#which-types-are-measured)).
 
 ## References
 

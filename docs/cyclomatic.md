@@ -2,21 +2,21 @@
 
 **Cyclomatic complexity** was proposed by Thomas J. McCabe in 1976. It measures the logical complexity of a method from the structure of its **control flow**. It is the number of linearly independent paths through the method, and therefore the minimum number of test cases needed to exercise every decision at least once (*basis path testing*).
 
-This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **MetricsExporter.Net** computes the values in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.4.
+This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the values in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.4.
 
 ## Collecting the metric
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --cyclomatic   # or --cc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --cyclomatic   # or --cc
 ```
 
 This produces `metrics_cyclomatic.csv`, which has rows at three levels:
 
 ```csv
-FilePath,ClassName,MethodName,Complexity
-src/Discount.cs,DiscountService,CalculateDiscount,4   <- method
-src/Discount.cs,DiscountService,,4                    <- class (sum of its methods)
-src/Discount.cs,,,4                                   <- file (sum of its classes)
+FilePath,ClassName,MethodName,Complexity,ClassKey
+src/Discount.cs,DiscountService,CalculateDiscount,4,App|Samples.Cyclomatic.DiscountService   <- member
+src/Discount.cs,DiscountService,,4,App|Samples.Cyclomatic.DiscountService                    <- class (sum of its members)
+src/Discount.cs,,,4,                                                                         <- file (sum of its members)
 ```
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options.
@@ -108,16 +108,22 @@ The tool starts each method at **1** and adds **1** for each of the following:
 | Construct | Counted |
 |-----------|---------|
 | `if`, `else if` | each one |
-| `switch` statement | each `case` label **and** the `default` label |
-| `switch` expression | each arm, including the discard arm `_` |
+| `switch` statement | each `case` label, constant or pattern (`case 1: case 2:` counts 2); **not** `default`, nor a catch-all `case var x:` without `when` |
+| `switch` expression | each arm, **except** the catch-all arm (`_`, or `var x` without `when`) |
 | `for`, `foreach`, `while`, `do-while` | each loop |
 | `catch` | each clause |
 | `?:` | each ternary |
-| `&&`, `\|\|` | each operator |
-| `??` | each null-coalescing operator |
-| `goto` | each jump |
+| `&&`, `\|\|` | each operator, in any expression (short-circuiting creates the path even in an assignment) |
+| `or`, `and` (pattern combinators) | each combinator, like `\|\|` and `&&` |
 
-Compared with the definition above, the tool **also counts** `default` labels, `switch`-expression discard arms, `??`, and `goto`. All of these add an execution path in C#, but the dissertation's definition (Section 2.4) does not list them. If you compare values with other tools, check how each of these constructs is treated.
+`default` and the catch-all pattern are not counted for the same reason as a plain `else`: they are the complementary path of the other labels. A `when` clause is part of its `case` or arm and adds nothing of its own, but `&&` and `\|\|` inside it count. A `when` does make `_` or `var x` conditional, so `_ when ready => …` counts.
+
+**Not counted:**
+
+- `goto`: an unconditional jump has a single outgoing edge, so it creates no independent path.
+- `??`, `??=` and `?.`: the dissertation's definition (Section 2.4) does not list them. They branch on null, so the three follow one rule: none counts by default, and `--cc-null-operators` counts each one.
+
+`--cc-legacy-operators` restores the operator rule of v1: `??` and `goto` count; `??=`, `?.`, `or` and `and` do not. The two options cannot be used together. The `switch` rules above apply in every mode: the v1 count of `default` and `_` was a defect. The options also apply to WMC with `--wmc-weight cyclomatic`, which uses this same count, and the log records which rule was used.
 
 An example using these modern C# constructs:
 
@@ -132,26 +138,40 @@ public decimal Fee(Region region, decimal weight, string? coupon) =>
 ```
 
 - base 1
-- 3 switch arms (+3)
+- 2 switch arms (+2); the discard arm `_` is not counted
 - `&&` (+1)
 - `?:` (+1)
-- `??` (+1)
-- **Complexity = 7**, which is what the tool reports
+- `??` is not counted
+- **Complexity = 5**, which is what the tool reports (6 with `--cc-null-operators`)
 
-What gets measured:
+What gets measured: every member whose control flow the developer wrote. Each gets a row:
 
-- **Methods, constructors, and property accessors** each get a row. Accessors appear as `Name.get` and `Name.set`.
-- Expression-bodied properties (`=> ...`), `init` accessors, and abstract methods are not measured.
-- Lambdas and local functions declared inside a method are added to that method's complexity.
-- **Class rows** sum all the measured members of the class. **File rows** sum all the classes in the file.
+| Member | `MethodName` |
+|--------|--------------|
+| method, constructor (expression-bodied ones included) | its name |
+| destructor | `~Name` |
+| operator, conversion | metadata name: `op_Addition`, `op_Implicit`... |
+| property accessor with a body (block or `=>`) | `Name.get`, `Name.set`, `Name.init` |
+| expression-bodied property (`int X => ...`) | `X.get` |
+| indexer accessor with a body | `this[].get`, `this[].set` |
+| event accessor | `Name.add`, `Name.remove` |
 
-The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods-per-class). It differs from the `WMC` column of `metrics_ck.csv`, which counts methods ($c_i = 1$) and does not include property accessors.
+**Not measured:** automatic accessors (`{ get; set; }`), which have no flow of their own, and members without a body (abstract, interface, `extern`, partial definitions). A class made only of automatic properties has V(G) = 0. `--cc-include-auto-accessors` restores the rule of v1: each automatic property accessor gets a row with V(G) = 1 and enters the sums.
+
+Lambdas and local functions are not members: their decisions are added to the member that contains them.
+
+- **Class rows** sum the members of the class. A class is identified by `ClassKey`, its project and fully qualified name, so the declarations of a `partial` class in different files give **one** row (in the file of the first declaration), and homonymous nested classes (`A.Builder`, `B.Builder`) give separate rows. Records and structs get class rows too, and a member belongs to the nearest enclosing type, so the methods of a nested record are not added to the enclosing class (see [which types are measured](README.md#which-types-are-measured)).
+- **File rows** sum the members of measured types declared in the file. With a partial class, each file contributes its own members, so the sum of the file rows is the project total, with nothing counted twice.
+- Members of interfaces (default implementations) get a row with an empty `ClassName` and enter no sum.
+
+The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods-per-class). It differs from the `WMC` column of `metrics_ck.csv`, which counts only methods and constructors in both variants: `--wmc-weight cyclomatic` leaves out destructors, operators and accessors.
 
 ## Limitations
 
 - **Nesting is ignored.** Two methods with the same number of decisions get the same value, whether the code is flat or deeply nested (Shepperd, 1988). Use [MC](misra.md#mc--method-complexity) for a nesting-aware view.
 - **Data complexity is ignored.** Only control flow is measured.
 - **Correlation with size.** $V(G)$ tends to grow with LOC, but Landman et al. (2016) show that the correlation is only moderate at the **method** level, so the two metrics are not redundant there. The correlation gets stronger when values are aggregated to classes or systems.
+- **Exhaustive `switch` expressions without a catch-all.** `flag switch { true => a, false => b }` has two paths, but the tool counts both arms (V(G) = 3, not 2): telling that the arms are exhaustive needs the semantic model. Write the last arm as `_` to get the exact value.
 - **Weak predictor of understandability on its own.** Esposito et al. (2024) found only a moderate correlation with the understandability perceived by early-career developers. Use it together with the [CK](ck.md) and [Misra](misra.md) metrics.
 
 ## References

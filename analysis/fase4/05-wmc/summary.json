@@ -1,0 +1,114 @@
+{
+ "label": "05-wmc",
+ "participants": 48,
+ "classes_raw": 3004,
+ "classes": 3004,
+ "methods": 6804,
+ "by_kind": {
+  "class": 3004
+ },
+ "lcom_equals_max_pairs_pct": 80.39280958721704,
+ "accuracy_pct": 40.42553191489362,
+ "baseline_pct": 51.06382978723404,
+ "spearman_staged": 0.3133592708298099,
+ "spearman_mean_pct": 0.29710698064203056,
+ "errors": {
+  "total": 29,
+  "adjacent": 24,
+  "two_or_more": 5
+ },
+ "thresholds": {
+  "WMC": [
+   2.0,
+   5.0
+  ],
+  "DIT": [
+   1.0,
+   1.0
+  ],
+  "NOC": [
+   0.0,
+   0.0
+  ],
+  "LCOM": [
+   0.0,
+   1.0
+  ],
+  "AC": [
+   1.0,
+   4.0
+  ],
+  "CWC": [
+   15.0,
+   105.0
+  ],
+  "MC": [
+   1.0,
+   3.0
+  ]
+ },
+ "by_level": {
+  "Beginner": {
+   "wmc_avg": 1.8571428571428572,
+   "lcom_avg": 0.2857142857142857,
+   "mc_per_class": 2.238095238095238,
+   "ac_per_class": 0.8571428571428571,
+   "cwc_per_class": 25.19047619047619,
+   "loc": 254.0,
+   "classes": 21.0
+  },
+  "Mid-Level": {
+   "wmc_avg": 2.441849371878287,
+   "lcom_avg": 1.5472536210548495,
+   "mc_per_class": 3.912044079841155,
+   "ac_per_class": 1.8778803948283005,
+   "cwc_per_class": 43.022608440931535,
+   "loc": 990.8461538461538,
+   "classes": 49.23076923076923
+  },
+  "Senior": {
+   "wmc_avg": 2.4921561303619844,
+   "lcom_avg": 1.7667599694909466,
+   "mc_per_class": 5.180384636404207,
+   "ac_per_class": 1.47615249255097,
+   "cwc_per_class": 45.82117687450725,
+   "loc": 1160.875,
+   "classes": 60.541666666666664
+  },
+  "Expert": {
+   "wmc_avg": 1.8218061725331658,
+   "lcom_avg": 0.6605153124074792,
+   "mc_per_class": 3.0842202129455467,
+   "ac_per_class": 1.3509334870902763,
+   "cwc_per_class": 33.64482362533413,
+   "loc": 1418.9,
+   "classes": 89.0
+  }
+ },
+ "confusion": {
+  "Beginner": {
+   "Beginner": 0,
+   "Mid-Level": 0,
+   "Senior": 0,
+   "Expert": 1
+  },
+  "Mid-Level": {
+   "Beginner": 0,
+   "Mid-Level": 1,
+   "Senior": 8,
+   "Expert": 4
+  },
+  "Senior": {
+   "Beginner": 0,
+   "Mid-Level": 0,
+   "Senior": 10,
+   "Expert": 14
+  },
+  "Expert": {
+   "Beginner": 0,
+   "Mid-Level": 0,
+   "Senior": 2,
+   "Expert": 8
+  }
+ }
+}

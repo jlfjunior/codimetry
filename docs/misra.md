@@ -4,7 +4,7 @@ The **Suite of Object-Oriented Cognitive Complexity Metrics** was proposed by Sa
 
 > **Naming note.** "Misra" here is the surname of the first author. These metrics are **not** related to the MISRA C/C++ coding guidelines. The tool's CLI flag and output file still use the uppercase `--misra` / `metrics_misra.csv`.
 
-This page explains what each metric means, gives its definition, shows a worked example in modern C#, and states how **MetricsExporter.Net** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.6 (see [References](#references)).
+This page explains what each metric means, gives its definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.6 (see [References](#references)).
 
 | Metric | Name | Level | Interpretation |
 |--------|------|-------|----------------|
@@ -19,17 +19,21 @@ The dissertation uses the acronym **CoC** for *Code Complexity* to avoid confusi
 ## Collecting the metrics
 
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --misra
 ```
 
 This produces `metrics_misra.csv`, which has rows at three levels:
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
-src/Order.cs,Order,CalculateDiscount,3,0,0,0,0   <- method row: only MC is filled
-src/Order.cs,Order,,0,3,6,0,0                    <- class row: AC, CLC and CWC
-,,,0,0,0,0,55                                    <- one codebase row: CC (= CoC)
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CoC,CC,Kind
+src/Order.cs,Order,CalculateDiscount,2,0,0,0,0,0,class   <- method row: only MC is filled
+src/Order.cs,Order,,0,3,5,0,0,0,class                    <- class row: AC, CLC and CWC
+,,,0,0,0,0,34,34,                                        <- one codebase row: CoC (CC repeats it)
 ```
+
+It also produces `metrics_coc.csv`, with the CoC of each inheritance hierarchy (see [CoC](#coc--code-complexity)).
+
+`Kind` is the kind of the type of the row: `class`, `record`, `struct` or `record struct` (see [which types are measured](README.md#which-types-are-measured)).
 
 See [COLLECTING_METRICS.md](COLLECTING_METRICS.md) for the remaining options (solutions, projects, output directory).
 
@@ -89,22 +93,46 @@ For the same method, cyclomatic complexity is $V(G) = 1 + 3 = 4$. The difference
 
 ### How this tool computes it
 
-The tool does **not** use Campbell's nesting increments. It uses the **cognitive weights of Basic Control Structures (BCS)** (Wang & Shao, 2003). Each structure found in the method is weighted, and the weights are **added**:
+The tool does **not** use Campbell's nesting increments. It uses the **cognitive weights of Basic Control Structures (BCS)** (Wang & Shao, 2003), composed as in Eq. 23 of Misra et al. (2018): weights in the same layer are **added**, nested layers are **multiplied**.
 
 | BCS | Examples | Weight |
 |-----|----------|--------|
-| Sequence | each ordinary statement (assignment, `return`, call statement…) | 1 |
-| Branch | `if`, each `else` / `else if`, `switch`, ternary `?:` | 2 |
+| Sequence | the simple statements of a layer (assignment, declaration, `return`, `throw`, call statement…), all together | 1 |
+| Branch (if-then-else) | `if` (with or without `else`), ternary `?:` | 2 |
+| Case | `switch` statement, `switch` expression | 3 |
 | Iteration | `for`, `foreach`, `while`, `do-while` | 3 |
-| Call | each method invocation | 2 |
 
-$$
-MC_{tool} = 1 \cdot N_{seq} + 2 \cdot N_{branch} + 3 \cdot N_{iter} + 2 \cdot N_{call}
-$$
+The rule is recursive over statement lists:
 
-Every statement is visited, at any nesting depth: the bodies of `if`/`else`, loops, `switch` sections, `try`/`catch`/`finally`, `using`, and so on. Control-structure statements and wrappers such as blocks are not counted as sequences themselves; their inner statements are. `break` is not counted. Nesting adds no extra weight. For the `Process` method above, the tool reports **MC = 10**: two `if`s (2 + 2), one `for` (3), and the `Console.WriteLine` statement (sequence 1 + call 2).
+- weight(list) = Σ weight(structures of the list) + 1 if the list has at least one simple statement; an empty list weighs 0;
+- weight(structure) = W × weight(inner layer). The inner layer joins all branches of the structure (the `then` and `else` of an `if`, every section of a `switch`) and counts at least 1, so a structure with an empty body keeps its own weight;
+- all simple statements of a layer form **one** sequence, even when a structure separates them (`a(); if (c) { x(); } b();` = 2 + 1 = 3);
+- blocks, `try`/`catch`/`finally`, `using`, `lock`, `checked`, `unsafe`, `fixed` and labels are transparent: their statements belong to the enclosing list;
+- `else if` is an `if` nested in the `else` branch, as written: `if (a) x(); else if (b) y(); else z();` = 2 × (1 + 2 × 1) = 6;
+- a ternary is an if-then-else over its two expressions, and a `switch` expression a Case over its arms (D23): a branch or arm that is itself a ternary or a `switch` expression is a structure of that layer, any other one a simple statement. The structure adds to the layer where it appears, and the statement that contains it **is** that structure, not one more sequence: `return c ? 1 : 0;` = 2 × 1 = 2, while `var v = c ? 1 : 0; x();` = 2 + 1 because `x();` is a sequence. The governing expression and the `when` clauses of a `switch` expression belong to the enclosing layer;
+- `catch` adds no weight (Table 2.1 has no weight for exceptions), and `??`, `?.` and patterns (`is`, `and`, `or`) are not BCSs;
+- an expression-bodied method (`=> ...`) is a list with one simple statement, or the structure itself when the expression holds a ternary or a `switch` expression; an empty body (`{ }`) weighs 0; methods without a body (abstract, interface) have no MC row.
 
-An expression-bodied method (`=> ...`) counts as one sequence, plus whatever branches and calls its expression contains. `catch`, `&&`/`||`, and `??` are not counted. Abstract methods have MC = 0.
+For the `Process` method above, the tool reports **MC = 2 × (3 × (2 × 1)) = 12** (`Console.WriteLine` is a library call and adds nothing): the outer `if` (2) contains the `for` (3), which contains the inner `if` (2), whose body is one sequence (1).
+
+**Calls** (Cap. 2: "a call to another method contributes the call weight (2) plus the MC of the called method"). A call adds to the layer where it appears, like a structure; a call in the condition of an `if` belongs to the layer that contains the `if`:
+
+| Call | Adds |
+|------|------|
+| to a method or constructor of the analysed code, own class included | 2 + MC of the called method |
+| inside a recursion, direct (`F` calls `F`) or mutual (a cycle in the call graph) | 2 |
+| to an abstract or interface method | 2 + MC of its implementation when the analysed code has exactly one; otherwise 2 + 1 |
+| to a library method (`Console.WriteLine`, LINQ, `string.Compare`...) | 0 (`--mc-library-call-weight N` sets it) |
+| unresolved by the semantic model | 2 + 1 |
+| invoking a delegate, a lambda or a local function; `nameof` | 0 |
+
+Object creation (`new X()`) is not a call. The MC of the called method is computed with the same rules, so it includes its own calls. All the methods of a recursion are treated alike, whichever is computed first. In the article's example, `CheckSupportedSw` = 1 + (2 + MC(`IsAppropriate`) = 7) + 2 × 1 = **12**. The log reports how many calls fell in each row of the table.
+
+**Lambdas and local functions** (D11). The code of a lambda, anonymous method or local function written in a method is read as part of it: its body is a layer nested where it is written, of weight 1 × that layer, added to the structures of the enclosing layer. An expression body has no sequence of its own, so `l.Any(x => x > 0)` adds nothing, while `x => x > 0 ? 1 : 0` adds its ternary. The statement that holds the lambda is still a simple statement, and a local function declaration is not one. Calls inside follow the table above; a call to the local function adds nothing, since its body is already counted. For example, `l.ForEach(x => { if (x > 0) Console.WriteLine(x); });` = 1 + (2 × 1) = **3**, and a local function with an `if`, called once, also gives 3.
+
+`--mc-lambdas` chooses another treatment: `calls` (the rule before this change: a lambda contributes only its calls, a local function body is inlined into the enclosing layer) or `ignore` (their bodies are left out).
+
+Not modelled: parallelism and interrupts (weight 4) have no reliable syntactic marker in C#.
 
 Example of the tool's calculation:
 
@@ -113,15 +141,17 @@ public class PriceCalculator
 {
     public decimal Total(IEnumerable<decimal> prices)
     {
-        var total = prices.Sum();          // sequence (1) + call (2)
-        if (total > 100) total *= 0.9m;    // branch (2) + sequence (1)
-        return Math.Round(total, 2);       // sequence (1) + call (2)
+        var total = prices.Sum();          // simple statement
+        if (total > 100) total *= 0.9m;    // branch: 2 × 1
+        return Math.Round(total, 2);       // simple statement
     }
 }
 ```
 
-- 3 sequences × 1 + 1 branch × 2 + 2 calls × 2
-- **MC = 3 + 2 + 4 = 9**, which is what the tool reports
+- the two simple statements of the method body form one sequence (1), and the `if` adds 2 × 1
+- **MC = 2 + 1 = 3**, which is what the tool reports
+
+`--mc-additive` restores the rule of v1 (every call, library ones included, weighs 2 and the MC of the called method does not enter), which adds the weights at any depth and counts each statement and each call: $MC = 1 \cdot N_{seq} + 2 \cdot N_{branch} + 3 \cdot N_{iter} + 2 \cdot N_{call}$, where each `else` is one more branch. With it, `Process` is 10 and `Total` is 9.
 
 Because the two models differ, **MC values from this tool are not comparable** with Campbell/SonarQube cognitive complexity values.
 
@@ -163,12 +193,25 @@ public class Customer
 
 ### How this tool computes it
 
-The tool counts the **fields and properties** declared in the class, static ones included. It weights each attribute by its type:
+The tool counts the **instance attributes** the class declares, **1 each**, whatever their type:
 
-- **1** for simple types: the numeric primitives, `bool`, `char`, `string`, `object`, `DateTime`, `TimeSpan`, and `Guid`, nullable or not;
-- **2** for any other type: custom classes, collections, generics, and so on.
+- instance fields, one per variable (`int a, b;` is 2);
+- field-like events (`public event EventHandler Changed;`);
+- instance properties with their own storage: auto-properties (`{ get; set; }`, `{ get; init; }`);
+- primary constructor parameters that a member uses, so the object keeps them as state;
+- the positional parameters of a record (`record Person(string Name, int Age)` has AC = 2), which are public properties, unless the record declares a member with the same name (then that member is the attribute).
 
-For `Customer`, that is four simple attributes plus `Address`, a custom type, so the tool reports **AC = 1 + 1 + 1 + 1 + 2 = 6**.
+These do **not** count:
+
+- `static` and `const` members, which are not instance state;
+- computed properties (`int Total => a + b;`) and properties that read or write a field of the class: the field is the attribute, so it is counted once;
+- events with `add`/`remove` accessors, indexers, and abstract properties;
+- primary constructor parameters used only to initialize a field or property (the field counts);
+- inherited attributes, which belong to the base class.
+
+For `Customer`, that is five auto-properties, so the tool reports **AC = 5**.
+
+Records, structs and record structs follow the same rules. `--ac-type-weights` restores the rule of v1: every field and property, `static` and `const` included, weighted 1 for simple types (numeric primitives, `bool`, `char`, `string`, `object`, `DateTime`, `TimeSpan`, `Guid`) and 2 for any other type. With it, `Customer` is 1 + 1 + 1 + 1 + 2 = 6.
 
 ---
 
@@ -211,9 +254,9 @@ public class Order
 
 The formula is the same, $CLC = AC + \sum MC$, but it uses the tool's AC and MC:
 
-- AC = 3, since `int`, `decimal`, and `DateTime` are all simple types;
-- MC(`CalculateDiscount`) = 3: the expression body counts as one sequence (1) and the ternary as one branch (2);
-- **CLC = 3 + 3 = 6**, which is what the tool reports.
+- AC = 3, one per auto-property;
+- MC(`CalculateDiscount`) = 2: the expression body is the ternary, one branch over two simple expressions (2 × 1);
+- **CLC = 3 + 2 = 5**, which is what the tool reports.
 
 Constructors are included in the sum. Methods are identified by `Class::Name`, so all overloads of a method share a single MC value.
 
@@ -272,20 +315,25 @@ The original formulation by Misra et al. includes further weightings, such as th
 
 ### How this tool computes it
 
-The tool walks **every invocation** in every method of the class. Repeated calls are counted each time.
+The tool follows Eq. 24: only calls to methods of **other types of the analysed code** count (D13). Each call is resolved by the semantic model, and each one counts, repeated ones included:
 
-- If the class itself declares a method with that name, the call is internal and is ignored.
+| Call | Adds |
+|------|------|
+| to a method of another class, record or struct of the analysed code, including a method inherited from a base class (`base.M()` or `M()`) | 2 + MC of the called method |
+| to an abstract or interface method declared in the analysed code | 2 + MC of its only implementation; 2 + 1 when there are none or several (D14) |
+| to the class's own methods (any `partial` declaration) or its local functions | 0 |
+| to a library method (`Console.WriteLine`, LINQ, `ILogger`...) or a delegate | 0 (`--cwc-library-weight N` sets it) |
+| unresolved by the semantic model | 0, and the log reports how many there are |
 
-- If a method with the same name is declared in **another class** of the analysed code, the call adds $MC_{tool}(\text{called}) + 2$, where **2** is the call weight of the BCS model.
-- If no such method is found, the call adds a flat **3** ($MC = 1$ assumed, plus 2). This applies to framework and library methods such as `Console.WriteLine` or `Dictionary.TryGetValue`.
+The MC of the called method is the one in the method rows, so it already includes that method's own calls (see [MC](#mc--method-complexity)). A call to a type outside the [measured types](README.md#which-types-are-measured), such as a record with `--classes-only`, does not count, and neither does a constructor call (`new X()`, `new()`, `: base(...)`): a constructor is not a method call of Eq. 24, and the coupling it creates is measured by CBO.
 
 For `CartService`:
 
-- `IsAvailable`: its tool MC is 3 (one sequence plus one call to `TryGetValue`), so it adds 3 + 2 = 5;
-- `WriteLine`: unresolved, so it adds 3;
-- **CWC = 5 + 3 = 8**, which is what the tool reports.
+- `IsAvailable`: a method of `StockService` with MC 1, so it adds 2 + 1 = 3;
+- `WriteLine`: a library method, so it adds nothing;
+- **CWC = 3**, which is what the tool reports.
 
-Methods are matched by simple name only. Counting every library call makes the tool's CWC grow with the overall amount of code, not just with coupling to other classes in the system.
+`--cwc-library-weight 3` restores the library rule of v1, which added 3 for every library or delegate call; with `--mc-additive` as well, it reproduces v1 except for one defect that is not restored: v1 matched an unresolved call with the first method of the same name in any class.
 
 ---
 
@@ -301,7 +349,7 @@ CoC is a single system-wide number. It is useful for following how a codebase ev
 
 ### Example
 
-This is the dissertation's simplified example:
+This is the example of the dissertation (Cap. 2):
 
 ```csharp
 public class User
@@ -318,21 +366,45 @@ public class Customer : User
 }
 ```
 
-- `User`: AC = 2, MC = 0 → CLC = 2
-- `Customer`: AC = 1, MC = 1 → CLC = 2, at level 2 of the hierarchy
-- **CoC = CLC(User) + 2 × CLC(Customer) = 2 + 4 = 6**
+- `User` (level 1): AC = 2, MC = 0 → CLC = 2
+- `Customer` (level 2): AC = 1, MC = 1 → CLC = 2
+- **CoC = CLC(User) × CLC(Customer) = 2 × 2 = 4**
 
-The full formulation by Misra et al. accounts for the complete depth of the inheritance tree. The example above trades that detail for clarity.
+When a project has more than one hierarchy, their values are added.
 
 ### How this tool computes it
 
-The tool **ignores the inheritance hierarchy**. It produces one codebase-level value, in the `CC` column:
+Eq. 27 of Misra et al. (2018) multiplies, over the levels of a hierarchy, the sum of the CLC of each level. The worked example of the same paper, however, does not follow it literally: for COMPUTER → {SOFTWARE, HARDWARE → {DESKTOP, NOTEBOOK}}, with CLC 4, 14, 20, 3 and 3, it gets
 
 $$
-CC_{tool} = \sum_{k} CLC_k + \left\lfloor \frac{\sum_{k} CWC_k}{2} \right\rfloor
+CoC = 4 \times (14 + 20 \times (3 + 3)) = 536
 $$
 
-summed over every class $k$ in the analysed code. The CWC total is halved because each coupling involves two classes, so halving avoids counting it twice. For example, the samples on this page (`Address`, `Customer`, `Order`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) give $\sum CLC = 45$ and $\sum CWC = 20$, so **CC = 45 + 10 = 55**.
+which multiplies each class by its own subclasses only. Read level by level, Eq. 27 would give $4 \times (14 + 20) \times (3 + 3) = 816$, multiplying `Software` by the subclasses of `Hardware`. The tool follows the paper's example (D1) by default:
+
+$$
+CoC(c) = \begin{cases} CLC(c) & \text{if } c \text{ has no subclasses in the analysed code} \\ CLC(c) \times \sum_{d \,\in\, \text{subclasses}(c)} CoC(d) & \text{otherwise} \end{cases}
+\qquad
+CoC = \sum_{r \,\in\, \text{roots}} CoC(r)
+$$
+
+- A **root** is a type whose base class is not in the analysed code: no base class, `System.Object`, or a base class from the framework or a package (`class E : Exception`), as for [DIT](ck.md#dit--depth-of-inheritance-tree). A type without subclasses or base class in the code is a hierarchy of its own, so CoC is $\sum CLC$ when nothing inherits.
+- Records and structs are hierarchies like classes (records can inherit from records; structs cannot inherit).
+- CWC does not enter.
+- The value is a 64-bit integer: with CLC in the hundreds and hierarchies of 3–4 levels, CoC reaches $10^8$–$10^{10}$, so compare codebases on a logarithmic scale. If a hierarchy overflows 64 bits, the log warns and the value is reported as the largest 64-bit integer.
+
+The value goes in the `CoC` column of the codebase row of `metrics_misra.csv`. The `CC` column repeats it for one version, so that scripts written for v1 keep working. `metrics_coc.csv` has one row per hierarchy, named by its root:
+
+```csv
+FilePath,ClassName,Classes,Levels,CoC,Kind
+src/Computer.cs,Computer,5,3,536,class
+```
+
+`--coc-formula levels` uses Eq. 27 read level by level (816 for the example of the paper). The two agree when every level above the last has a single class, as in `User`/`Customer` (4) or a class with two subclasses that have none; they differ as soon as a level has several classes and one of them has subclasses.
+
+`--coc-legacy` restores the rule of v1, which ignored the hierarchy and added half of the CWC: $\sum_k CLC_k + \lfloor \sum_k CWC_k / 2 \rfloor$.
+
+The samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) do not inherit from each other, so each is a hierarchy of its own and **CoC = $\sum CLC$ = 34**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
 
 ---
 
@@ -343,7 +415,7 @@ summed over every class $k$ in the analysed code. The CWC total is halved becaus
 - **Less validated than CK.** The Misra suite, especially CWC and CoC, is much more recent and has far fewer independent replications and public datasets than the CK metrics or cyclomatic complexity.
 - **Possible redundancy.** MC overlaps with cyclomatic complexity (both describe a method's control flow), and CLC overlaps with [WMC](ck.md#wmc--weighted-methods-per-class). Watch for high correlations when you combine these metrics.
 - **Formulations differ between tools.** As this page shows, the dissertation's didactic formulas and the tool's BCS-weighted implementation give different numbers for the same code. Always state which formulation you used, and don't compare absolute values across tools.
-- **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Only `class` declarations are measured: `record`, `struct`, and `interface` types do not produce rows.
+- **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Classes, records and structs are measured; interfaces and enums do not produce rows (see [which types are measured](README.md#which-types-are-measured)).
 
 ## References
 

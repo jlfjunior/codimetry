@@ -1,12 +1,12 @@
-# MetricsExporter.Net
+# Codimetry
 
-A .NET command-line tool designed to extract software metrics from local .NET repositories. This tool calculates **Lines of Code (LOC)** metrics, **Chidamber-Kemerer (CK)** object-oriented design metrics, **Misra's cognitive complexity** metrics (not related to the MISRA C/C++ guidelines), and **Cyclomatic Complexity** metrics to help analyze code quality and maintainability.
+*Codimetry* (*code* + *-metry*, the measurement of code; formerly MetricsExporter.Net) is a .NET command-line tool designed to extract software metrics from local .NET repositories. This tool calculates **Lines of Code (LOC)** metrics, **Chidamber-Kemerer (CK)** object-oriented design metrics, **Misra's cognitive complexity** metrics (not related to the MISRA C/C++ guidelines), and **Cyclomatic Complexity** metrics to help analyze code quality and maintainability.
 
 ## Features
 
 - ✅ **Lines of Code (LOC) Calculation** - Counts effective lines of code excluding comments and empty lines
 - ✅ **CK Metrics (Chidamber-Kemerer)** - Calculates six object-oriented design metrics:
-  - **WMC** (Weighted Methods per Class) - Method count per class
+  - **WMC** (Weighted Methods per Class) - Method count per class, or sum of their cyclomatic complexity with `--wmc-weight cyclomatic`
   - **DIT** (Depth of Inheritance Tree) - Inheritance depth
   - **NOC** (Number of Children) - Immediate subclasses count
   - **CBO** (Coupling Between Objects) - Class coupling measure
@@ -17,7 +17,7 @@ A .NET command-line tool designed to extract software metrics from local .NET re
   - **AC** (Attribute Complexity) - Complexity introduced by class attributes
   - **CLC** (Class Complexity) - Overall complexity of classes
   - **CWC** (Coupling Weight for a Class) - Complexity due to inter-class interactions
-  - **CC** (Code Complexity, *CoC* in the docs) - Overall complexity of the codebase
+  - **CoC** (Code Complexity) - Overall complexity of the codebase, following the inheritance hierarchies
 - ✅ **Cyclomatic Complexity Metrics** - Measures code complexity by counting decision points:
   - Calculates complexity for methods, classes, and files
   - Formula: CC = 1 + number of decision points (if, switch, loops, catch, operators)
@@ -38,9 +38,9 @@ A .NET command-line tool designed to extract software metrics from local .NET re
 ### Build from Source
 
 ```bash
-git clone https://github.com/jlfjunior/net-metrics-collector.git
-cd net-metrics-collector
-dotnet build src/MetricsExporter.Net/MetricsExporter.Net.csproj
+git clone https://github.com/jlfjunior/codimetry.git
+cd codimetry
+dotnet build src/Codimetry/Codimetry.csproj
 ```
 
 ## Documentation
@@ -90,6 +90,24 @@ You can analyze code using one of three input options:
 | `--ck` | | Calculate and export CK (Chidamber-Kemerer) object-oriented design metrics | `false` |
 | `--misra` | | Calculate and export MISRA (Misra's Cognitive Complexity) metrics | `false` |
 | `--cyclomatic` | `--cc` | Calculate and export Cyclomatic Complexity metrics | `false` |
+| `--mc-additive` | | MISRA: compute MC with the additive rule of v1 instead of the composition rule (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `false` |
+| `--ac-type-weights` | | MISRA: compute AC as v1 did, weighting attributes by type and counting `static`/`const` members (see [docs/misra.md](docs/misra.md#ac--attribute-complexity)) | `false` |
+| `--wmc-weight` | | CK: weight of each method in WMC, `unit` (c_i = 1) or `cyclomatic` (c_i = V(G)) (see [docs/ck.md](docs/ck.md#wmc--weighted-methods-per-class)) | `unit` |
+| `--wmc-exclude-static` | | CK: leave static methods and constructors out of WMC, as v1 did | `false` |
+| `--cc-null-operators` | | Cyclomatic: count `??`, `??=` and `?.` as decision points, also in WMC with `--wmc-weight cyclomatic` (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
+| `--cc-legacy-operators` | | Cyclomatic: operator rule of v1 (`??` and `goto` count; `??=`, `?.`, `or`/`and` do not) | `false` |
+| `--classes-only` | | Measure only classes, as v1 did; by default records, structs and record structs are measured too (see [docs/README.md](docs/README.md#which-types-are-measured)) | `false` |
+| `--cc-include-auto-accessors` | | Cyclomatic: give automatic property accessors a row with V(G) = 1 and add them to the class and file sums, as v1 did (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
+| `--mc-library-call-weight` | | MISRA: weight of a call to a library method in MC (default 0; 2 reproduces v1 for these calls). Calls to the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `0` |
+| `--mc-lambdas` | | MISRA: code of lambdas and local functions in MC: `full` (a nested layer), `calls` (only their calls), `ignore` (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `full` |
+| `--cwc-library-weight` | | MISRA: weight of a call to a library method or delegate in CWC (default 0; 3 reproduces v1). Calls to other types of the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#cwc--coupling-weight-for-a-class)) | `0` |
+| `--dit-resolve-framework` | | CK: count the ancestors of a base class from a library too, except `System.Object` (`D : Controller` = 2) (see [docs/ck.md](docs/ck.md#dit--depth-of-inheritance-tree)) | `false` |
+| `--dit-count-object` | | CK: count `System.Object` as a level of DIT, as v1 did | `false` |
+| `--cbo-bidirectional` | | CK: CBO also counts the types that use the class (CK 1994), each coupled type once (see [docs/ck.md](docs/ck.md#cbo--coupling-between-objects)) | `false` |
+| `--cbo-declared-types-only` | | CK: CBO counts only the types of fields, properties and method signatures, and only classes, as v1 did | `false` |
+| `--rfc-exclude-constructors` | | CK: leave constructor calls (`new`, `base(...)`) out of RFC, as v1 did (see [docs/ck.md](docs/ck.md#rfc--response-for-a-class)) | `false` |
+| `--coc-formula <tree\|levels>` | | MISRA: CoC of a hierarchy by subtree (CLC × Σ CoC of the subclasses, as in the example of Misra et al.) or by level (Eq. 27 read literally) (see [docs/misra.md](docs/misra.md#coc--code-complexity)) | `tree` |
+| `--coc-legacy` | | MISRA: CoC as v1 computed it, Σ CLC + Σ CWC / 2, without the hierarchy | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
@@ -104,74 +122,74 @@ You can analyze code using one of three input options:
 
 **Analyze a directory (all metrics - default):**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src
 ```
 
 **Calculate only LOC metrics:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc
 ```
 
 **Calculate only CK metrics:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --ck
 ```
 
 **Calculate only MISRA metrics:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --misra
 ```
 
 **Calculate only Cyclomatic Complexity metrics:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --cyclomatic
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --cyclomatic
 # or using the short form
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --cc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --cc
 ```
 
 **Calculate specific metric combinations:**
 ```bash
 # LOC and CK metrics
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --ck
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --ck
 
 # LOC and MISRA metrics
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --misra
 
 # CK and MISRA metrics
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --ck --misra
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --ck --misra
 
 # All metrics explicitly
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --ck --misra --cyclomatic
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --ck --misra --cyclomatic
 
 # LOC and Cyclomatic Complexity
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --loc --cc
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --loc --cc
 ```
 
 **Analyze a solution file:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --solution MySolution.sln
+dotnet run --project src/Codimetry/Codimetry.csproj -- --solution MySolution.sln
 ```
 
 **Analyze a project file:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --project ./src/MyProject/MyProject.csproj
+dotnet run --project src/Codimetry/Codimetry.csproj -- --project ./src/MyProject/MyProject.csproj
 ```
 
 **Specify custom output directory:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --out ./results
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --out ./results
 ```
 
 **Non-recursive analysis with verbose logging:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --path ./src --no-recursive --verbose
+dotnet run --project src/Codimetry/Codimetry.csproj -- --path ./src --no-recursive --verbose
 ```
 
 **Get help information:**
 ```bash
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- --help
+dotnet run --project src/Codimetry/Codimetry.csproj -- --help
 # or
-dotnet run --project src/MetricsExporter.Net/MetricsExporter.Net.csproj -- -h
+dotnet run --project src/Codimetry/Codimetry.csproj -- -h
 ```
 
 ## Output Format
@@ -181,6 +199,7 @@ The tool generates CSV files in the specified output directory. The files genera
 - **`metrics_loc.csv`** - Generated when LOC metrics are calculated
 - **`metrics_ck.csv`** - Generated when CK metrics are calculated
 - **`metrics_misra.csv`** - Generated when MISRA metrics are calculated
+- **`metrics_coc.csv`** - Generated with `metrics_misra.csv`: the CoC of each inheritance hierarchy
 - **`metrics_cyclomatic.csv`** - Generated when Cyclomatic Complexity metrics are calculated
 
 ### LOC Metrics Output (`metrics_loc.csv`)
@@ -222,36 +241,38 @@ src/Example.cs,,,12
 #### CSV Format
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind
 ```
 
 #### Columns
 
 - **FilePath**: Relative or absolute path to the source file
 - **ClassName**: Name of the class
-- **WMC**: Weighted Methods per Class (method count)
-- **DIT**: Depth of Inheritance Tree (inheritance depth; `System.Object` counts as one level, so a class with no explicit base has DIT = 1)
+- **WMC**: Weighted Methods per Class (method count, static methods included; sum of V(G) with `--wmc-weight cyclomatic`)
+- **DIT**: Depth of Inheritance Tree (declared inheritance edges; `System.Object` does not count, so a class with no explicit base has DIT = 0, and a base class from a library counts 1)
 - **NOC**: Number of Children (immediate subclasses count)
 - **CBO**: Coupling Between Objects (number of classes coupled to)
 - **RFC**: Response For a Class (methods in class + methods called)
 - **LCOM**: Lack of Cohesion of Methods (cohesion measure, lower is better)
+- **LcomMethods**: Number of methods LCOM is computed over (instance methods, constructors excluded)
+- **Kind**: `class`, `record`, `struct` or `record struct`
 
 #### Example Output
 
 ```csv
-FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM
-src/Example.cs,ExampleClass,5,1,2,3,15,8
-src/Service.cs,UserService,8,0,0,5,25,12
+FilePath,ClassName,WMC,DIT,NOC,CBO,RFC,LCOM,LcomMethods,Kind
+src/Example.cs,ExampleClass,5,1,2,3,15,8,5,class
+src/Service.cs,UserService,8,0,0,5,25,12,7,class
 ```
 
-**Note:** CK metrics are calculated at the class level only (one row per class).
+**Note:** CK metrics are calculated at the class level only (one row per class, record or struct).
 
 ### MISRA Metrics Output (`metrics_misra.csv`)
 
 #### CSV Format
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CoC,CC,Kind
 ```
 
 #### Columns
@@ -263,7 +284,9 @@ FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
 - **AC**: Attribute Complexity - Complexity from class attributes (class-level only)
 - **CLC**: Class Complexity - Overall complexity of the class (class-level only)
 - **CWC**: Coupling Weight for a Class - Complexity from inter-class interactions (class-level only)
-- **CC**: Code Complexity - Overall complexity of the codebase (codebase-level only)
+- **CoC**: Code Complexity - Overall complexity of the codebase, by inheritance hierarchy (codebase-level only)
+- **CC**: the former name of CoC, with the same value; kept for one version so that v1 scripts keep working
+- **Kind**: Kind of the type of the row: `class`, `record`, `struct` or `record struct` (empty for the codebase row)
 
 #### Output Levels
 
@@ -271,55 +294,58 @@ The CSV includes metrics at three levels:
 
 1. **Method Level**: Individual methods with their MC (Method Complexity)
 2. **Class Level**: Aggregated metrics for each class (AC, CLC, CWC)
-3. **Codebase Level**: Overall codebase complexity (CC)
+3. **Codebase Level**: Overall codebase complexity (CoC)
+
+The CoC of each inheritance hierarchy goes to `metrics_coc.csv` (`FilePath,ClassName,Classes,Levels,CoC,Kind`, one row per root class).
 
 #### Example Output
 
 ```csv
-FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CC
-src/Example.cs,ExampleClass,SimpleMethod,3,0,0,0,0
-src/Example.cs,ExampleClass,ComplexMethod,8,0,0,0,0
-src/Example.cs,ExampleClass,,0,6,25,15,0
-,,,0,0,0,0,45
+FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CoC,CC,Kind
+src/Example.cs,ExampleClass,SimpleMethod,3,0,0,0,0,0,class
+src/Example.cs,ExampleClass,ComplexMethod,8,0,0,0,0,0,class
+src/Example.cs,ExampleClass,,0,6,25,15,0,0,class
+,,,0,0,0,0,25,25,
 ```
 
 **Note:** 
 - Method-level entries show MC values only
 - Class-level entries show AC, CLC, and CWC values (MC is 0)
-- Codebase-level entry shows CC value only (all other fields are empty)
+- Codebase-level entry shows CoC (and CC, with the same value) only
 
 ### Cyclomatic Complexity Metrics Output (`metrics_cyclomatic.csv`)
 
 #### CSV Format
 
 ```csv
-FilePath,ClassName,MethodName,Complexity
+FilePath,ClassName,MethodName,Complexity,ClassKey
 ```
 
 #### Columns
 
 - **FilePath**: Relative or absolute path to the source file
 - **ClassName**: Name of the class (empty for file-level entries)
-- **MethodName**: Name of the method or constructor (empty for class/file-level entries)
+- **MethodName**: Name of the member: method, constructor, `~Name`, `op_Addition`, `Name.get`, `this[].set`... (empty for class/file-level entries)
 - **Complexity**: Cyclomatic Complexity value (CC = 1 + number of decision points)
+- **ClassKey**: Identity of the class (project + fully qualified name); partial declarations share it (empty for file-level entries)
 
 #### Output Levels
 
 The CSV includes metrics at three levels:
 
-1. **Method Level**: Individual methods, constructors, and property accessors with their cyclomatic complexity
-2. **Class Level**: Aggregated complexity for each class (sum of all methods in the class)
-3. **File Level**: Aggregated complexity for each file (sum of all methods in the file)
+1. **Member Level**: methods, constructors, destructors, operators and accessors with a body; automatic accessors are left out
+2. **Class Level**: Aggregated complexity for each class (sum of its members, joining partial declarations)
+3. **File Level**: Aggregated complexity for each file (sum of the members declared in the file)
 
 #### Example Output
 
 ```csv
-FilePath,ClassName,MethodName,Complexity
-src/Example.cs,ExampleClass,SimpleMethod,1
-src/Example.cs,ExampleClass,ComplexMethod,8
-src/Example.cs,ExampleClass,ExampleClass,1
-src/Example.cs,ExampleClass,,10
-src/Example.cs,,,10
+FilePath,ClassName,MethodName,Complexity,ClassKey
+src/Example.cs,ExampleClass,SimpleMethod,1,App|Demo.ExampleClass
+src/Example.cs,ExampleClass,ComplexMethod,8,App|Demo.ExampleClass
+src/Example.cs,ExampleClass,ExampleClass,1,App|Demo.ExampleClass
+src/Example.cs,ExampleClass,,10,App|Demo.ExampleClass
+src/Example.cs,,,10,
 ```
 
 #### Complexity Thresholds
@@ -331,11 +357,22 @@ See [cyclomatic.md](docs/cyclomatic.md#interpretation) for reference thresholds 
 | Metric | In one line | Details |
 |--------|-------------|---------|
 | LOC | Non-blank, non-comment lines of each method and constructor. Classes and files sum their methods | [loc.md](docs/loc.md) |
-| Cyclomatic Complexity | 1 + number of decision points (`if`, `case`, loops, `catch`, `?:`, `&&`, `\|\|`, `??`…) | [cyclomatic.md](docs/cyclomatic.md) |
+| Cyclomatic Complexity | 1 + number of decision points (`if`, `case`, loops, `catch`, `?:`, `&&`, `\|\|`, `or`/`and`…) | [cyclomatic.md](docs/cyclomatic.md) |
 | WMC, RFC, LCOM, CBO, DIT, NOC | Chidamber & Kemerer object-oriented design metrics | [ck.md](docs/ck.md) |
-| MC, AC, CLC, CWC, CC | Misra et al. cognitive complexity metrics, using Basic Control Structure weights | [misra.md](docs/misra.md) |
+| MC, AC, CLC, CWC, CoC | Misra et al. cognitive complexity metrics, using Basic Control Structure weights | [misra.md](docs/misra.md) |
 
 The tool's implementation differs from the textbook definitions in some places, for example in how WMC weights methods or how MC treats nesting. Each page documents these differences, so read the "How this tool computes it" section before comparing values with other tools or with published studies.
+
+## Running Tests
+
+The test suite lives in `tests/Codimetry.Tests` (xUnit). It covers the parsers, metric calculators, analysis services, CSV exporter, and CLI. It also checks every worked example in `docs/*.md`, so the documentation and the implementation cannot drift apart unnoticed.
+
+```bash
+dotnet test
+
+# with line coverage (Cobertura XML under TestResults/)
+dotnet test --collect:"XPlat Code Coverage"
+```
 
 ## Architecture
 

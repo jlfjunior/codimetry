@@ -1,0 +1,811 @@
+{
+ "_source": "master-thesis/Conteudo/04_Outros.tex (versão de 12/10/2026, commit 35c5c68). Valores copiados literalmente do texto.",
+ "counts": {
+  "participants": 48,
+  "classes": 2657,
+  "methods": 6839
+ },
+ "lcom_equals_max_pairs_pct": 99.4,
+ "dit_eq_1_pct": 94.2,
+ "noc_eq_0_pct": 97.3,
+ "dit_noc_class_level": 0.02,
+ "absolute_normal_pct": {
+  "WMC": 99.7,
+  "DIT": 100.0,
+  "NOC": 100.0
+ },
+ "lcom_avg_range": [
+  0.42,
+  57.92
+ ],
+ "by_level": {
+  "Beginner": {
+   "n": 1,
+   "fields": {
+    "wmc_avg": [
+     1.86,
+     1.86
+    ],
+    "lcom_avg": [
+     4.1,
+     4.1
+    ],
+    "mc_per_class": [
+     21.48,
+     21.48
+    ],
+    "ac_per_class": [
+     1.29,
+     1.29
+    ],
+    "cwc_per_class": [
+     30.52,
+     30.52
+    ],
+    "loc": [
+     405.0,
+     405.0
+    ],
+    "classes": [
+     21.0,
+     21.0
+    ]
+   }
+  },
+  "Mid-Level": {
+   "n": 13,
+   "fields": {
+    "wmc_avg": [
+     2.5,
+     2.31
+    ],
+    "lcom_avg": [
+     5.98,
+     4.33
+    ],
+    "mc_per_class": [
+     41.51,
+     45.73
+    ],
+    "ac_per_class": [
+     3.11,
+     3.09
+    ],
+    "cwc_per_class": [
+     62.0,
+     65.35
+    ],
+    "loc": [
+     1559.0,
+     1233.0
+    ],
+    "classes": [
+     43.9,
+     44.0
+    ]
+   }
+  },
+  "Senior": {
+   "n": 24,
+   "fields": {
+    "wmc_avg": [
+     2.44,
+     2.18
+    ],
+    "lcom_avg": [
+     7.12,
+     3.62
+    ],
+    "mc_per_class": [
+     44.96,
+     44.87
+    ],
+    "ac_per_class": [
+     2.6,
+     2.74
+    ],
+    "cwc_per_class": [
+     67.83,
+     66.54
+    ],
+    "loc": [
+     1905.0,
+     1477.0
+    ],
+    "classes": [
+     52.4,
+     46.5
+    ]
+   }
+  },
+  "Expert": {
+   "n": 10,
+   "fields": {
+    "wmc_avg": [
+     1.58,
+     1.57
+    ],
+    "lcom_avg": [
+     2.15,
+     2.06
+    ],
+    "mc_per_class": [
+     31.61,
+     33.59
+    ],
+    "ac_per_class": [
+     2.33,
+     2.31
+    ],
+    "cwc_per_class": [
+     44.39,
+     48.32
+    ],
+    "loc": [
+     2670.0,
+     2275.0
+    ],
+    "classes": [
+     80.7,
+     70.0
+    ]
+   }
+  }
+ },
+ "by_position": {
+  "Architect": {
+   "n": 27,
+   "loc": 2239,
+   "wmc_avg": 2.41,
+   "lcom_avg": 6.72
+  },
+  "Developer": {
+   "n": 21,
+   "loc": 1553,
+   "wmc_avg": 2.07,
+   "lcom_avg": 4.42
+  }
+ },
+ "correlations": {
+  "cwc_total|coc": 0.92,
+  "clc_total|coc": 0.92,
+  "mc_total|clc_total": 0.997,
+  "wmc_avg|lcom_avg": 0.76,
+  "cbo_avg|loc": -0.1,
+  "cbo_avg|classes_raw": -0.13
+ },
+ "confusion": {
+  "Beginner": {
+   "Beginner": 0,
+   "Mid-Level": 0,
+   "Senior": 0,
+   "Expert": 1
+  },
+  "Mid-Level": {
+   "Beginner": 1,
+   "Mid-Level": 7,
+   "Senior": 5,
+   "Expert": 0
+  },
+  "Senior": {
+   "Beginner": 1,
+   "Mid-Level": 8,
+   "Senior": 14,
+   "Expert": 1
+  },
+  "Expert": {
+   "Beginner": 0,
+   "Mid-Level": 2,
+   "Senior": 5,
+   "Expert": 3
+  }
+ },
+ "accuracy": {
+  "correct": 24,
+  "evaluated": 47,
+  "baseline_correct": 24
+ },
+ "spearman_staged": 0.286,
+ "spearman_mean_pct": 0.363,
+ "errors": {
+  "total": 24,
+  "adjacent": 20,
+  "two_or_more": 4
+ },
+ "per_participant": {
+  "p1": {
+   "WMC": 14.8,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 14.8,
+   "AC": 63.0,
+   "CWC": 40.7,
+   "MC": 48.4,
+   "predicted": "Mid-Level",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p2": {
+   "WMC": 58.3,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 58.3,
+   "AC": 45.8,
+   "CWC": 95.8,
+   "MC": 74.3,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p3": {
+   "WMC": 41.2,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 41.2,
+   "AC": 82.4,
+   "CWC": 41.2,
+   "MC": 60.0,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Discrepante (-2)"
+  },
+  "p4": {
+   "WMC": 65.3,
+   "DIT": 89.3,
+   "NOC": 94.7,
+   "LCOM": 65.3,
+   "AC": 74.7,
+   "CWC": 60.0,
+   "MC": 46.9,
+   "predicted": "Expert",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p5": {
+   "WMC": 30.0,
+   "DIT": 95.0,
+   "NOC": 95.0,
+   "LCOM": 30.0,
+   "AC": 45.0,
+   "CWC": 70.0,
+   "MC": 63.3,
+   "predicted": "Mid-Level",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p6": {
+   "WMC": 51.1,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 51.1,
+   "AC": 54.3,
+   "CWC": 48.9,
+   "MC": 44.1,
+   "predicted": "Mid-Level",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p7": {
+   "WMC": 42.0,
+   "DIT": 94.0,
+   "NOC": 98.0,
+   "LCOM": 42.0,
+   "AC": 32.0,
+   "CWC": 52.0,
+   "MC": 49.5,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p8": {
+   "WMC": 53.6,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 53.6,
+   "AC": 52.2,
+   "CWC": 50.7,
+   "MC": 49.6,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p9": {
+   "WMC": 69.3,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 69.3,
+   "AC": 41.3,
+   "CWC": 56.0,
+   "MC": 37.1,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p10": {
+   "WMC": 47.1,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 47.1,
+   "AC": 67.6,
+   "CWC": 41.2,
+   "MC": 29.9,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p11": {
+   "WMC": 51.1,
+   "DIT": 95.7,
+   "NOC": 93.6,
+   "LCOM": 51.1,
+   "AC": 55.3,
+   "CWC": 40.4,
+   "MC": 44.4,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p12": {
+   "WMC": 47.7,
+   "DIT": 97.7,
+   "NOC": 97.7,
+   "LCOM": 47.7,
+   "AC": 45.5,
+   "CWC": 45.5,
+   "MC": 54.4,
+   "predicted": "Mid-Level",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p13": {
+   "WMC": 47.6,
+   "DIT": 95.2,
+   "NOC": 97.6,
+   "LCOM": 47.6,
+   "AC": 76.2,
+   "CWC": 90.5,
+   "MC": 84.2,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p14": {
+   "WMC": 73.7,
+   "DIT": 94.7,
+   "NOC": 94.7,
+   "LCOM": 73.7,
+   "AC": 63.2,
+   "CWC": 68.4,
+   "MC": 68.0,
+   "predicted": "Expert",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p15": {
+   "WMC": 75.8,
+   "DIT": 93.4,
+   "NOC": 95.6,
+   "LCOM": 75.8,
+   "AC": 70.3,
+   "CWC": 65.9,
+   "MC": 42.8,
+   "predicted": "Expert",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p16": {
+   "WMC": 51.7,
+   "DIT": 83.7,
+   "NOC": 94.6,
+   "LCOM": 51.7,
+   "AC": 63.9,
+   "CWC": 61.9,
+   "MC": 64.4,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p17": {
+   "WMC": 61.5,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 61.5,
+   "AC": 67.7,
+   "CWC": 66.2,
+   "MC": 58.3,
+   "predicted": "Expert",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p18": {
+   "WMC": 61.9,
+   "DIT": 90.5,
+   "NOC": 95.2,
+   "LCOM": 61.9,
+   "AC": 85.7,
+   "CWC": 73.1,
+   "MC": 74.4,
+   "predicted": "Expert",
+   "correct": false,
+   "discrepancy": "Discrepante (+3)"
+  },
+  "p19": {
+   "WMC": 60.0,
+   "DIT": 82.2,
+   "NOC": 97.8,
+   "LCOM": 60.0,
+   "AC": 68.9,
+   "CWC": 44.4,
+   "MC": 37.8,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p20": {
+   "WMC": 39.4,
+   "DIT": 90.9,
+   "NOC": 93.9,
+   "LCOM": 39.4,
+   "AC": 57.6,
+   "CWC": 42.4,
+   "MC": 70.7,
+   "predicted": "Mid-Level",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p21": {
+   "WMC": 61.5,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 61.5,
+   "AC": 53.8,
+   "CWC": 69.2,
+   "MC": 58.8,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p22": {
+   "WMC": 23.8,
+   "DIT": 90.5,
+   "NOC": 90.5,
+   "LCOM": 23.8,
+   "AC": 33.3,
+   "CWC": 28.6,
+   "MC": 43.3,
+   "predicted": "Beginner",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p23": {
+   "WMC": 52.1,
+   "DIT": 95.8,
+   "NOC": 97.9,
+   "LCOM": 52.1,
+   "AC": 70.8,
+   "CWC": 77.1,
+   "MC": 69.9,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p24": {
+   "WMC": 50.5,
+   "DIT": 96.0,
+   "NOC": 99.0,
+   "LCOM": 50.5,
+   "AC": 57.6,
+   "CWC": 58.6,
+   "MC": 60.8,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p25": {
+   "WMC": 51.4,
+   "DIT": 94.3,
+   "NOC": 97.1,
+   "LCOM": 51.4,
+   "AC": 72.9,
+   "CWC": 55.7,
+   "MC": 69.3,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p26": {
+   "WMC": 52.0,
+   "DIT": 86.0,
+   "NOC": 92.0,
+   "LCOM": 52.0,
+   "AC": 62.0,
+   "CWC": 62.0,
+   "MC": 73.5,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p27": {
+   "WMC": 43.8,
+   "DIT": 84.4,
+   "NOC": 93.8,
+   "LCOM": 43.8,
+   "AC": 37.5,
+   "CWC": 56.2,
+   "MC": 80.5,
+   "predicted": "Mid-Level",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p28": {
+   "WMC": 40.4,
+   "DIT": 86.0,
+   "NOC": 96.5,
+   "LCOM": 40.4,
+   "AC": 63.9,
+   "CWC": 49.1,
+   "MC": 54.4,
+   "predicted": "Mid-Level",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p29": {
+   "WMC": 54.8,
+   "DIT": 88.1,
+   "NOC": 93.3,
+   "LCOM": 54.8,
+   "AC": 78.5,
+   "CWC": 48.1,
+   "MC": 49.1,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p30": {
+   "WMC": 60.9,
+   "DIT": 93.5,
+   "NOC": 95.7,
+   "LCOM": 60.9,
+   "AC": 76.1,
+   "CWC": 34.8,
+   "MC": 36.9,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p31": {
+   "WMC": 24.5,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 24.5,
+   "AC": 51.0,
+   "CWC": 14.3,
+   "MC": 46.1,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p32": {
+   "WMC": 13.0,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 13.0,
+   "AC": 69.6,
+   "CWC": 34.8,
+   "MC": 50.7,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p33": {
+   "WMC": 54.8,
+   "DIT": 88.1,
+   "NOC": 93.3,
+   "LCOM": 54.8,
+   "AC": 78.5,
+   "CWC": 48.1,
+   "MC": 49.1,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p34": {
+   "WMC": 70.3,
+   "DIT": 94.6,
+   "NOC": 97.3,
+   "LCOM": 70.3,
+   "AC": 75.7,
+   "CWC": 37.8,
+   "MC": 13.4,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p35": {
+   "WMC": 10.3,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 10.3,
+   "AC": 44.8,
+   "CWC": 41.4,
+   "MC": 46.6,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p36": {
+   "WMC": 23.3,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 23.3,
+   "AC": 56.7,
+   "CWC": 26.7,
+   "MC": 41.6,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p37": {
+   "WMC": 59.0,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 59.0,
+   "AC": 78.7,
+   "CWC": 34.4,
+   "MC": 36.9,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p38": {
+   "WMC": 22.8,
+   "DIT": 92.4,
+   "NOC": 96.2,
+   "LCOM": 22.8,
+   "AC": 53.2,
+   "CWC": 32.9,
+   "MC": 39.0,
+   "predicted": "Beginner",
+   "correct": false,
+   "discrepancy": "Discrepante (-2)"
+  },
+  "p39": {
+   "WMC": 55.7,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 55.7,
+   "AC": 60.8,
+   "CWC": 49.4,
+   "MC": 52.2,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p40": {
+   "WMC": 80.0,
+   "DIT": 87.5,
+   "NOC": 97.5,
+   "LCOM": 80.0,
+   "AC": 47.5,
+   "CWC": 47.5,
+   "MC": 42.4,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p41": {
+   "WMC": 38.2,
+   "DIT": 85.3,
+   "NOC": 94.1,
+   "LCOM": 38.2,
+   "AC": 70.6,
+   "CWC": 47.1,
+   "MC": 53.1,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p42": {
+   "WMC": 65.2,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 65.2,
+   "AC": 82.6,
+   "CWC": 30.4,
+   "MC": 45.5,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p43": {
+   "WMC": 45.7,
+   "DIT": 97.1,
+   "NOC": 97.1,
+   "LCOM": 45.7,
+   "AC": 68.6,
+   "CWC": 42.9,
+   "MC": 47.2,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Discrepante (-2)"
+  },
+  "p44": {
+   "WMC": 36.7,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 36.7,
+   "AC": 60.0,
+   "CWC": 60.0,
+   "MC": 68.3,
+   "predicted": "Senior",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p45": {
+   "WMC": 57.5,
+   "DIT": 89.7,
+   "NOC": 95.4,
+   "LCOM": 57.5,
+   "AC": 73.6,
+   "CWC": 51.7,
+   "MC": 54.3,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p46": {
+   "WMC": 64.2,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 64.2,
+   "AC": 63.3,
+   "CWC": 46.0,
+   "MC": 47.5,
+   "predicted": "Senior",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  },
+  "p47": {
+   "WMC": 38.5,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 38.5,
+   "AC": 23.1,
+   "CWC": 42.3,
+   "MC": 55.3,
+   "predicted": "Mid-Level",
+   "correct": true,
+   "discrepancy": "-"
+  },
+  "p48": {
+   "WMC": 31.9,
+   "DIT": 100.0,
+   "NOC": 100.0,
+   "LCOM": 31.9,
+   "AC": 55.3,
+   "CWC": 48.9,
+   "MC": 52.9,
+   "predicted": "Mid-Level",
+   "correct": false,
+   "discrepancy": "Adjacente"
+  }
+ },
+ "errata": {
+  "per_participant.p6.predicted": "a regra em estágios aplicada aos próprios valores publicados da linha dá Senior; a matriz de confusão publicada só fecha com Senior",
+  "per_participant.p6.correct": "consequência da errata de p6.predicted",
+  "per_participant.p6.discrepancy": "consequência da errata de p6.predicted",
+  "per_participant.p10.predicted": "a regra aplicada aos valores publicados dá Mid-Level; a própria linha publicada marca 'Não / Adjacente'",
+  "per_participant.p41.predicted": "a regra aplicada aos valores publicados dá Mid-Level; a matriz de confusão publicada só fecha com Mid-Level",
+  "per_participant.p41.correct": "consequência da errata de p41.predicted",
+  "per_participant.p41.discrepancy": "consequência da errata de p41.predicted",
+  "per_participant.p45.predicted": "a regra aplicada aos valores publicados dá Senior; a matriz de confusão publicada só fecha com Senior",
+  "per_participant.p40.AC": "47,5 é o valor do CWC da mesma linha; com o valor calculado (65,0) a regra dá o Senior publicado",
+  "per_participant.p18.CWC": "73,1% não é k/21 para nenhum k (p18 tem 21 classes); o valor calculado é 57,1% (12/21)",
+  "per_participant.p28.AC": "63,9% não é k/57 para nenhum k (p28 tem 57 classes); o valor calculado é 63,2% (36/57)",
+  "per_participant.p19.LCOM": "o valor publicado repete o WMC da linha (60,0); p19 é o único participante em que %Normal de LCOM difere do de WMC",
+  "per_participant.p19.AC": "divergência de uma ou duas classes; não altera o nível previsto",
+  "per_participant.p13.NOC": "divergência de uma classe; não altera o nível previsto",
+  "per_participant.p22.NOC": "divergência de uma classe; não altera o nível previsto",
+  "per_participant.p47.MC": "divergência de um método; não altera o nível previsto"
+ }
+}
