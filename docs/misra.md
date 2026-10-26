@@ -4,7 +4,7 @@ The **Suite of Object-Oriented Cognitive Complexity Metrics** was proposed by Sa
 
 > **Naming note.** "Misra" here is the surname of the first author. These metrics are **not** related to the MISRA C/C++ coding guidelines. The tool's CLI flag and output file still use the uppercase `--misra` / `metrics_misra.csv`.
 
-This page explains what each metric means, gives its definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026) (see [References](#references)).
+This page explains what each metric means, gives its definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output.
 
 | Metric | Name | Level | Interpretation |
 |--------|------|-------|----------------|
@@ -14,7 +14,7 @@ This page explains what each metric means, gives its definition, shows a worked 
 | [CWC](#cwc--coupling-weight-for-a-class) | Coupling Weight for a Class | Class | Lower means fewer and simpler external dependencies |
 | [CoC](#coc--code-complexity) | Code Complexity | System | Lower is easier to understand as a whole |
 
-The dissertation uses the acronym **CoC** for *Code Complexity* to avoid confusing it with McCabe's cyclomatic complexity (CC). The tool's CSV still names that column `CC`.
+This page uses the acronym **CoC** for *Code Complexity* to avoid confusing it with McCabe's cyclomatic complexity (CC). The tool's CSV still names that column `CC`.
 
 ## Collecting the metrics
 
@@ -167,7 +167,7 @@ $$
 AC = \sum_{i=1}^{n} w(a_i)
 $$
 
-where $n$ is the number of attributes of the class. In the dissertation's formulation every attribute weighs $w(a_i) = 1$, so AC is the **number of attributes**.
+where $n$ is the number of attributes of the class. In the unweighted formulation every attribute weighs $w(a_i) = 1$, so AC is the **number of attributes**.
 
 ### Interpretation
 
@@ -272,7 +272,7 @@ $$
 CWC = \sum_{c \,\in\, \text{external calls}} \left(w_{call} + MC(c)\right)
 $$
 
-In the dissertation's didactic formulation, $w_{call} = 1$.
+In the simplified formulation used in the example below, $w_{call} = 1$.
 
 ### Interpretation
 
@@ -311,7 +311,7 @@ For `CartService`:
 - MC(`IsAvailable`) = 1 (one `&&` sequence)
 - **CWC = 1 + 1 = 2**
 
-The original formulation by Misra et al. includes further weightings, such as the number of distinct coupled classes. The dissertation omits these from its didactic examples.
+The original formulation by Misra et al. includes further weightings, such as the number of distinct coupled classes. The example above omits them.
 
 ### How this tool computes it
 
@@ -349,7 +349,7 @@ CoC is a single system-wide number. It is useful for following how a codebase ev
 
 ### Example
 
-This is the example of the dissertation:
+Consider this example:
 
 ```csharp
 public class User
@@ -414,7 +414,7 @@ The samples on this page (`Address`, `Customer`, `Order`, the record `Product`, 
 - **Mixed empirical evidence.** Barón, Wyrich & Wagner (2020, 2023) found that cognitive complexity correlates with comprehension *time* and perceived difficulty. They found no equally robust correlation with *correctness* in comprehension tasks.
 - **Less validated than CK.** The Misra suite, especially CWC and CoC, is much more recent and has far fewer independent replications and public datasets than the CK metrics or cyclomatic complexity.
 - **Possible redundancy.** MC overlaps with cyclomatic complexity (both describe a method's control flow), and CLC overlaps with [WMC](ck.md#wmc--weighted-methods-per-class). Watch for high correlations when you combine these metrics.
-- **Formulations differ between tools.** As this page shows, the dissertation's didactic formulas and the tool's BCS-weighted implementation give different numbers for the same code. Always state which formulation you used, and don't compare absolute values across tools.
+- **Formulations differ between tools.** As this page shows, the simplified formulas of the examples and the tool's BCS-weighted implementation give different numbers for the same code. Always state which formulation you used, and don't compare absolute values across tools.
 - **Tool-specific scope.** Analysis is syntactic, and calls are matched by simple name. Classes, records and structs are measured; interfaces and enums do not produce rows (see [which types are measured](README.md#which-types-are-measured)).
 
 ## References
@@ -425,4 +425,3 @@ The samples on this page (`Address`, `Customer`, `Order`, the record `Product`, 
 - BARÓN, M. M.; WYRICH, M.; WAGNER, S. *An empirical validation of cognitive complexity as a measure of source code understandability*. 14th ACM/IEEE International Symposium on Empirical Software Engineering and Measurement (ESEM), p. 1–12, 2020.
 - BARÓN, M. M.; WYRICH, M.; WAGNER, S. *An empirical evaluation of the "cognitive complexity" measure as a predictor of code understandability*. Journal of Systems and Software, v. 197, 111561, 2023.
 - McCABE, T. J. *A complexity measure*. IEEE Transactions on Software Engineering, SE-2, n. 4, p. 308–320, 1976.
-- SILVA JUNIOR, J. L. F. *Avaliação da Experiência do Desenvolvedor de Software Por Meio de Métricas Orientadas a Objetos*. Master's dissertation, Universidade Federal de Sergipe, 2026.

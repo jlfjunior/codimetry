@@ -2,7 +2,7 @@
 
 The **CK metrics** were proposed by Shyam R. Chidamber and Chris F. Kemerer in 1994 as a suite of six measures for object-oriented design. McCabe's cyclomatic complexity works at the method level and ignores how classes relate to each other. The CK suite looks at the structure of the **class** instead: its internal complexity, its coupling to other classes, its cohesion, and where it sits in the inheritance hierarchy.
 
-This page explains what each metric means, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026) (see [References](#references)).
+This page explains what each metric means, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output.
 
 | Metric | Name | Dimension | Interpretation |
 |--------|------|-----------|----------------|
@@ -43,7 +43,7 @@ $$
 WMC = \sum_{i=1}^{n} c_i
 $$
 
-where $n$ is the number of methods defined in the class and $c_i$ is the complexity of method $i$. Chidamber and Kemerer deliberately left the choice of $c_i$ open. A common choice, and the one the dissertation adopts, is the method's **cyclomatic complexity** ($V(G) = D + 1$, where $D$ is the number of decision points). If every $c_i = 1$, WMC is simply the **number of methods** in the class.
+where $n$ is the number of methods defined in the class and $c_i$ is the complexity of method $i$. Chidamber and Kemerer deliberately left the choice of $c_i$ open. A common choice is the method's **cyclomatic complexity** ($V(G) = D + 1$, where $D$ is the number of decision points). If every $c_i = 1$, WMC is simply the **number of methods** in the class.
 
 ### Interpretation
 
@@ -416,4 +416,3 @@ The tool counts the classes **in the analysed code** whose direct base is the cl
 - HENDERSON-SELLERS, B. *Object-Oriented Metrics: Measures of Complexity*. Prentice Hall, 1996.
 - KULKARNI, U. L.; KALSHETTY, Y.; ARDE, V. G. *Validation of CK metrics for object oriented design measurement*. 3rd International Conference on Emerging Trends in Engineering and Technology, IEEE, p. 646–651, 2010.
 - MEI, Y. et al. *Deriving thresholds of object-oriented metrics to predict defect-proneness of classes: A large-scale meta-analysis*. International Journal of Software Engineering and Knowledge Engineering, v. 33, p. 651–695, 2023.
-- SILVA JUNIOR, J. L. F. *Avaliação da Experiência do Desenvolvedor de Software Por Meio de Métricas Orientadas a Objetos*. Master's dissertation, Universidade Federal de Sergipe, 2026.

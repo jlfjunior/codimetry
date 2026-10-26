@@ -2,7 +2,7 @@
 
 **Cyclomatic complexity** was proposed by Thomas J. McCabe in 1976. It measures the logical complexity of a method from the structure of its **control flow**. It is the number of linearly independent paths through the method, and therefore the minimum number of test cases needed to exercise every decision at least once (*basis path testing*).
 
-This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the values in its output. The definitions follow the master's dissertation by Silva Junior (2026).
+This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the values in its output.
 
 ## Collecting the metric
 
@@ -121,7 +121,7 @@ The tool starts each method at **1** and adds **1** for each of the following:
 **Not counted:**
 
 - `goto`: an unconditional jump has a single outgoing edge, so it creates no independent path.
-- `??`, `??=` and `?.`: the dissertation's definition does not list them. They branch on null, so the three follow one rule: none counts by default, and `--cc-null-operators` counts each one.
+- `??`, `??=` and `?.`: the classic list of decision points does not include them. They branch on null, so the three follow one rule: none counts by default, and `--cc-null-operators` counts each one.
 
 `--cc-legacy-operators` restores the legacy operator rule: `??` and `goto` count; `??=`, `?.`, `or` and `and` do not. The two options cannot be used together. The `switch` rules above apply in every mode: the legacy count of `default` and `_` was a defect. The options also apply to WMC with `--wmc-weight cyclomatic`, which uses this same count, and the log records which rule was used.
 
@@ -181,4 +181,3 @@ The class-level value is a cyclomatic-weighted [WMC](ck.md#wmc--weighted-methods
 - LANDMAN, D. et al. *Empirical analysis of the relationship between CC and SLOC in a large corpus of Java methods and C functions*. Journal of Software: Evolution and Process, v. 28, n. 7, p. 589–618, 2016.
 - ESPOSITO, M. et al. *Early career developers' perceptions of code understandability: A study of complexity metrics*. Information and Software Technology, v. 170, 107492, 2024.
 - SOFTWARE ENGINEERING INSTITUTE. *C4 Software Technology Reference Guide — A Prototype*. CMU/SEI-97-HB-001, Carnegie Mellon University, 1997.
-- SILVA JUNIOR, J. L. F. *Avaliação da Experiência do Desenvolvedor de Software Por Meio de Métricas Orientadas a Objetos*. Master's dissertation, Universidade Federal de Sergipe, 2026.

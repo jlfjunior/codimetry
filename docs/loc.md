@@ -2,7 +2,7 @@
 
 **Lines of Code** is the oldest and most widely used size metric. It is used both to estimate development effort and cost (it is the main input of Boehm's COCOMO model) and as a size *proxy* in empirical software-engineering studies. Unlike the other metrics this tool collects, LOC says nothing about logical, structural, or cognitive complexity. It measures **volume** only, which is why it is mostly used alongside complexity metrics, either as a control variable or to normalise them.
 
-This page explains the metric, shows a worked example in modern C#, and states how **Codimetry** counts lines. The definitions follow the master's dissertation by Silva Junior (2026).
+This page explains the metric, shows a worked example in modern C#, and states how **Codimetry** counts lines.
 
 ## Collecting the metric
 
@@ -115,4 +115,3 @@ Because properties and fields are excluded, a class made only of auto-properties
 - ALBRECHT, A. J. *Measuring application development productivity*. Proceedings of the Joint SHARE/GUIDE/IBM Application Development Symposium, p. 83–92, 1979.
 - CHOWDHURY, S. A.; UDDIN, G.; HOLMES, R. *An empirical study on maintainable method size in Java*. Proceedings of the 19th International Conference on Mining Software Repositories (MSR), p. 252–264, 2022.
 - LANDMAN, D. et al. *Empirical analysis of the relationship between CC and SLOC in a large corpus of Java methods and C functions*. Journal of Software: Evolution and Process, v. 28, n. 7, p. 589–618, 2016.
-- SILVA JUNIOR, J. L. F. *Avaliação da Experiência do Desenvolvedor de Software Por Meio de Métricas Orientadas a Objetos*. Master's dissertation, Universidade Federal de Sergipe, 2026.
