@@ -1,5 +1,5 @@
 commit: a4fac3eca29fe47725007a42a7f75349b342c516
-artefatos: dd4abc54fdacc166193f108d48b519981bb12dc9
+participants: dd4abc54fdacc166193f108d48b519981bb12dc9
 sdk: 10.0.101
 options: 
 date: 2026-10-26T12:26:41Z

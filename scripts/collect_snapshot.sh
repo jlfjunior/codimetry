@@ -40,7 +40,7 @@ done
 
 {
   echo "commit: $(git rev-parse "$commit^{commit}")"
-  echo "artefatos: $(git -C "$participants" rev-parse HEAD)"
+  echo "participants: $(git -C "$participants" rev-parse HEAD)"
   echo "sdk: $(dotnet --version)"
   echo "options: $*"
   echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
