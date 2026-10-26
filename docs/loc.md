@@ -2,7 +2,7 @@
 
 **Lines of Code** is the oldest and most widely used size metric. It is used both to estimate development effort and cost (it is the main input of Boehm's COCOMO model) and as a size *proxy* in empirical software-engineering studies. Unlike the other metrics this tool collects, LOC says nothing about logical, structural, or cognitive complexity. It measures **volume** only, which is why it is mostly used alongside complexity metrics, either as a control variable or to normalise them.
 
-This page explains the metric, shows a worked example in modern C#, and states how **Codimetry** counts lines. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.3.
+This page explains the metric, shows a worked example in modern C#, and states how **Codimetry** counts lines. The definitions follow the master's dissertation by Silva Junior (2026).
 
 ## Collecting the metric
 

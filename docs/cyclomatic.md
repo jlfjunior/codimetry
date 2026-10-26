@@ -2,7 +2,7 @@
 
 **Cyclomatic complexity** was proposed by Thomas J. McCabe in 1976. It measures the logical complexity of a method from the structure of its **control flow**. It is the number of linearly independent paths through the method, and therefore the minimum number of test cases needed to exercise every decision at least once (*basis path testing*).
 
-This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the values in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.4.
+This page explains the metric, gives its formal definition, shows a worked example in modern C#, and states how **Codimetry** computes the values in its output. The definitions follow the master's dissertation by Silva Junior (2026).
 
 ## Collecting the metric
 
@@ -121,7 +121,7 @@ The tool starts each method at **1** and adds **1** for each of the following:
 **Not counted:**
 
 - `goto`: an unconditional jump has a single outgoing edge, so it creates no independent path.
-- `??`, `??=` and `?.`: the dissertation's definition (Section 2.4) does not list them. They branch on null, so the three follow one rule: none counts by default, and `--cc-null-operators` counts each one.
+- `??`, `??=` and `?.`: the dissertation's definition does not list them. They branch on null, so the three follow one rule: none counts by default, and `--cc-null-operators` counts each one.
 
 `--cc-legacy-operators` restores the operator rule of v1: `??` and `goto` count; `??=`, `?.`, `or` and `and` do not. The two options cannot be used together. The `switch` rules above apply in every mode: the v1 count of `default` and `_` was a defect. The options also apply to WMC with `--wmc-weight cyclomatic`, which uses this same count, and the log records which rule was used.
 
