@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Collects the metrics of every participant with the tool as of one commit, then runs the CBTAM analysis.
 #
-#   scripts/collect_snapshot.sh <commit> <results-dir> <analysis-dir> [tool options...]
+#   PARTICIPANTS_DIR=<dir> scripts/collect_snapshot.sh <commit> <results-dir> <analysis-dir> [tool options...]
+#
+# PARTICIPANTS_DIR holds one folder per participant, named p{n}-{position}-{level}.
 #
 # The tool is built in a temporary worktree of <commit>. The collection runs from the repository root with
-# --path ../artefatos-mestrado/<p>/, as in earlier collections, so that FilePath keeps the same form and classes
-# pair across collections. The console log of each participant goes to <results-dir>/<p>/run.log.
-# Requires the artefacts restored (dotnet restore in each participant folder).
+# --path $PARTICIPANTS_DIR/<p>/; give PARTICIPANTS_DIR relative to the repository root, as earlier collections
+# did, so that FilePath keeps the same form and classes pair across collections. The console log of each
+# participant goes to <results-dir>/<p>/run.log.
+# Requires the participants' projects restored (dotnet restore in each participant folder).
 set -euo pipefail
 
 commit="$1"
@@ -15,7 +18,7 @@ analysis="$3"
 shift 3
 
 root="$(git rev-parse --show-toplevel)"
-artefatos="../artefatos-mestrado"
+participants="${PARTICIPANTS_DIR:?set PARTICIPANTS_DIR to the folder of the participants}"
 worktree="$(mktemp -d)/tool"
 
 cd "$root"
@@ -29,7 +32,7 @@ dotnet build "$project" -c Release --nologo -v quiet -o "$worktree/out" >/dev/nu
 dll="$worktree/out/$(basename "$project" .csproj).dll"
 
 mkdir -p "$results"
-for dir in "$artefatos"/p*/; do
+for dir in "$participants"/p*/; do
   name="$(basename "$dir")"
   mkdir -p "$results/$name"
   dotnet "$dll" --path "$dir" --out "$results/$name" "$@" > "$results/$name/run.log" 2>&1
@@ -37,7 +40,7 @@ done
 
 {
   echo "commit: $(git rev-parse "$commit^{commit}")"
-  echo "artefatos: $(git -C "$artefatos" rev-parse HEAD)"
+  echo "artefatos: $(git -C "$participants" rev-parse HEAD)"
   echo "sdk: $(dotnet --version)"
   echo "options: $*"
   echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
