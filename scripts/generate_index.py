@@ -88,7 +88,7 @@ def main():
 
     # Header
     lines += [
-        f"# Metrics Summary — Artefatos Mestrado",
+        f"# Metrics Summary",
         "",
         f"> Generated: {date.today()}  ",
         f"> Tool: [Codimetry](https://github.com/jlfjunior/codimetry)  ",

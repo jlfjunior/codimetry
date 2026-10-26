@@ -1,4 +1,4 @@
-# Metrics Summary — Artefatos Mestrado
+# Metrics Summary
 
 > Generated: 2026-10-26  
 > Tool: [Codimetry](https://github.com/jlfjunior/codimetry)  
