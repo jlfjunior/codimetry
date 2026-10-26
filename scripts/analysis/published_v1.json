@@ -1,5 +1,5 @@
 {
- "_source": "master-thesis/Conteudo/05_Estudo_de_Caso.tex (commit 648b513). Valores copiados literalmente do texto; as tabelas tab:per_class_averages, tab:codebase_size, tab:confusion_matrix e tab:per_participant_results foram extraídas do .tex. Nas correlações dadas como faixa (\"r entre 0,81 e 0,97\"), entram os extremos.",
+ "_source": "Números de referência da análise dos 47 participantes de results/, coletados com a tag v1 sobre artefatos-mestrado@dd4abc5. Nas correlações dadas como faixa, entram os extremos.",
  "counts": {
   "participants": 47,
   "classes": 3185,

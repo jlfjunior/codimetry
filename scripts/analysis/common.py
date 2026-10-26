@@ -36,7 +36,7 @@ def read_csv(path):
 
 
 def last_per_key(rows, keys):
-    """One record per key, keeping the last occurrence (rule used in Cap. 4).
+    """One record per key, keeping the last occurrence (rule of the CBTAM analysis).
 
     v1 of the tool emits a partial or homonymous class once per declaration, all
     with the same FilePath; when the copies disagree, the last one is kept.

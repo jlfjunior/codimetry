@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Reproducible CBTAM analysis of the case-study results (Cap. 5 of the dissertation).
+"""Reproducible CBTAM analysis of the case-study results.
 
 Reads a results directory (one folder per participant, named p{n}-{position}-{level},
 each holding the four CSVs exported by the tool) and writes CSV tables and a
-report.md with every number reported in Cap. 5.
+report.md with every number of the analysis.
 
 Standard library only (Python >= 3.9), so the numbers do not depend on the
 versions of numpy/pandas/scipy installed on the machine.
@@ -252,7 +252,7 @@ def analyse(participants):
 # --------------------------------------------------------------------------- output
 
 def fmt(value, digits=2):
-    """Brazilian decimal format, as in the dissertation text."""
+    """Brazilian decimal format."""
     return f"{value:.{digits}f}".replace(".", ",")
 
 
@@ -385,7 +385,7 @@ def render_report(r, label):
 # --------------------------------------------------------------------------- golden check
 
 def check_published(result, path):
-    """Compare against the numbers published in the dissertation.
+    """Compare against the reference numbers.
 
     Returns (unexpected, known): mismatches not explained by the "errata" section of
     the JSON, and those that are (key -> explanation).
@@ -397,7 +397,7 @@ def check_published(result, path):
 
     def cmp(name, got, expected, digits):
         if round(got, digits) != round(expected, digits):
-            mismatches.append(f"{name}: calculado {round(got, digits)}, publicado {expected}")
+            mismatches.append(f"{name}: calculado {round(got, digits)}, referência {expected}")
 
     c = result["counts"]
     for k in ["participants", "classes", "methods"]:
@@ -455,11 +455,11 @@ def check_published(result, path):
         for m, _ in CBTAM_METRICS:
             cmp(f"per_participant.{pid}.{m}", got[m], exp[m], 1)
         if got["predicted"] != exp["predicted"]:
-            mismatches.append(f"per_participant.{pid}.predicted: calculado {got['predicted']}, publicado {exp['predicted']}")
+            mismatches.append(f"per_participant.{pid}.predicted: calculado {got['predicted']}, referência {exp['predicted']}")
         if got["correct"] != exp["correct"]:
-            mismatches.append(f"per_participant.{pid}.correct: calculado {got['correct']}, publicado {exp['correct']}")
+            mismatches.append(f"per_participant.{pid}.correct: calculado {got['correct']}, referência {exp['correct']}")
         if got["discrepancy"] != exp["discrepancy"]:
-            mismatches.append(f"per_participant.{pid}.discrepancy: calculado {got['discrepancy']}, publicado {exp['discrepancy']}")
+            mismatches.append(f"per_participant.{pid}.discrepancy: calculado {got['discrepancy']}, referência {exp['discrepancy']}")
 
     errata = pub.get("errata", {})
     key = lambda m: m.split(":")[0]
@@ -476,7 +476,7 @@ def main():
     parser.add_argument("--out", required=True, help="output directory (e.g. analysis)")
     parser.add_argument("--label", help="label shown in report.md (default: results directory name)")
     parser.add_argument("--exclude", nargs="*", default=[], help="participant ids to leave out (e.g. p33)")
-    parser.add_argument("--check", help="JSON with the published numbers; exits 1 on any mismatch")
+    parser.add_argument("--check", help="JSON with the reference numbers; exits 1 on any mismatch")
     args = parser.parse_args()
 
     participants = load_results(args.results, set(args.exclude))
@@ -493,7 +493,7 @@ def main():
             f.write(f"# Conferência contra {os.path.basename(args.check)}\n\n")
             f.write("## Divergências não explicadas\n\n")
             f.write("\n".join(f"- {m}" for m in unexpected) if unexpected else "Nenhuma.")
-            f.write("\n\n## Erratas conhecidas da versão publicada\n\n")
+            f.write("\n\n## Erratas conhecidas da referência\n\n")
             f.write("\n".join(f"- {m} — {why}" for m, why in known) if known else "Nenhuma.")
             f.write("\n")
         print(f"{len(unexpected)} divergência(s) não explicada(s), {len(known)} errata(s) conhecida(s) — ver {report}")
