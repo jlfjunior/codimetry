@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Reproducible CBTAM analysis of the case-study results (Cap. 4 of the dissertation).
+"""Reproducible CBTAM analysis of the case-study results (Cap. 5 of the dissertation).
 
 Reads a results directory (one folder per participant, named p{n}-{position}-{level},
 each holding the four CSVs exported by the tool) and writes CSV tables and a
-report.md with every number reported in Cap. 4.
+report.md with every number reported in Cap. 5.
 
 Standard library only (Python >= 3.9), so the numbers do not depend on the
 versions of numpy/pandas/scipy installed on the machine.
@@ -188,7 +188,9 @@ def analyse(participants):
     def lcom_methods(r):
         return num(r, "LcomMethods" if "LcomMethods" in r else "WMC")
 
-    lcom_equals_max_pairs = sum(1 for r in all_classes
+    # Only classes with two or more such methods have pairs, so only they can reach the maximum
+    lcom_pair_classes = [r for r in all_classes if lcom_methods(r) >= 2]
+    lcom_equals_max_pairs = sum(1 for r in lcom_pair_classes
                                 if num(r, "LCOM") == lcom_methods(r) * (lcom_methods(r) - 1) / 2)
 
     # DIT x NOC in metric_redundancy is a class-level correlation, unlike the others
@@ -223,7 +225,9 @@ def analyse(participants):
                         for k in sorted({r.get("Kind", "class") for r in all_classes})},
         },
         "dit_noc_class_level": dit_noc_class_level,
-        "lcom_equals_max_pairs_pct": 100 * lcom_equals_max_pairs / len(all_classes),
+        "lcom_pair_classes": len(lcom_pair_classes),
+        "lcom_equals_max_pairs_pct": 100 * lcom_equals_max_pairs / len(lcom_pair_classes),
+        "dit_eq_0_pct": 100 * sum(1 for r in all_classes if num(r, "DIT") == 0) / len(all_classes),
         "dit_eq_1_pct": 100 * sum(1 for r in all_classes if num(r, "DIT") == 1) / len(all_classes),
         "noc_eq_0_pct": 100 * sum(1 for r in all_classes if num(r, "NOC") == 0) / len(all_classes),
         "lcom_avg_range": (min(s["lcom_avg"] for s in summaries), max(s["lcom_avg"] for s in summaries)),
@@ -336,7 +340,8 @@ def render_report(r, label):
                  ("cbo_avg", "classes_raw"), ("dit_avg", "noc_avg")]:
         L.append(f"- {a} × {b}: r = {fmt(corr(a, b), 3)}")
     L.append(f"- DIT × NOC por classe (n = {c['classes']}): r = {fmt(r['dit_noc_class_level'], 3)}")
-    L += ["", f"- Classes com DIT = 1: {fmt(r['dit_eq_1_pct'], 1)}%",
+    L += ["", f"- Classes com DIT = 0: {fmt(r['dit_eq_0_pct'], 1)}%",
+          f"- Classes com DIT = 1: {fmt(r['dit_eq_1_pct'], 1)}%",
           f"- Classes com NOC = 0: {fmt(r['noc_eq_0_pct'], 1)}%",
           f"- Amplitude da LCOM média por participante: {fmt(r['lcom_avg_range'][0])} – {fmt(r['lcom_avg_range'][1])}"]
 
@@ -347,7 +352,8 @@ def render_report(r, label):
     L += ["", "## empirical_application", "",
           "Limiares absolutos (% Normal sobre todas as classes): " +
           ", ".join(f"{m} {fmt(v, 1)}%" for m, v in r["absolute_normal_pct"].items()), "",
-          f"LCOM = n(n−1)/2 (n = métodos da LCOM; WMC na v1) em {fmt(r['lcom_equals_max_pairs_pct'])}% das classes.", "",
+          f"LCOM = n(n−1)/2 (n = métodos da LCOM; WMC na v1) em {fmt(r['lcom_equals_max_pairs_pct'], 1)}% "
+          f"das {r['lcom_pair_classes']} classes com n ≥ 2.", "",
           "Tipos medidos por Kind: " + ", ".join(f"{k} {n}" for k, n in r["counts"]["by_kind"].items()) + ".", "",
           "Limiares relativos (amostra combinada):", "", "| Métrica | População | P50 | P90 |", "|---|---:|---:|---:|"]
     for m, th in r["thresholds"].items():
@@ -396,7 +402,9 @@ def check_published(result, path):
     c = result["counts"]
     for k in ["participants", "classes", "methods"]:
         cmp(k, c[k], pub["counts"][k], 0)
-    cmp("lcom_equals_max_pairs_pct", result["lcom_equals_max_pairs_pct"], pub["lcom_equals_max_pairs_pct"], 2)
+    cmp("lcom_pair_classes", result["lcom_pair_classes"], pub["lcom_pair_classes"], 0)
+    cmp("lcom_equals_max_pairs_pct", result["lcom_equals_max_pairs_pct"], pub["lcom_equals_max_pairs_pct"], 1)
+    cmp("dit_eq_0_pct", result["dit_eq_0_pct"], pub["dit_eq_0_pct"], 1)
     cmp("dit_eq_1_pct", result["dit_eq_1_pct"], pub["dit_eq_1_pct"], 1)
     cmp("noc_eq_0_pct", result["noc_eq_0_pct"], pub["noc_eq_0_pct"], 1)
     for m, v in pub["absolute_normal_pct"].items():
