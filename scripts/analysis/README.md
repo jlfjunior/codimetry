@@ -28,4 +28,4 @@ python3 scripts/analysis/cbtam_analysis.py --results results --out analysis \
 
 ## `published.json`
 
-Números de referência da análise dos 47 participantes de `results/`, gerados com a tag `v1` da ferramenta. Com `--check`, o script compara o resultado com esses números. A seção `errata` lista os valores de referência que não conferem com os dados, cada um com a justificativa; hoje ela está vazia. A conferência falha (exit 1) para qualquer divergência fora dessa lista, ou se uma errata deixar de ser necessária.
+Números de referência da análise da coleta de `results/`, gerados com a tag `v1` da ferramenta. Com `--check`, o script compara o resultado com esses números. A seção `errata` lista os valores de referência que não conferem com os dados, cada um com a justificativa; hoje ela está vazia. A conferência falha (exit 1) para qualquer divergência fora dessa lista, ou se uma errata deixar de ser necessária.
