@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Codimetry.Parsers;
 
 /// <summary>
-/// The types measured as "classes" by every metric (D19): classes, records (<c>record</c>,
+/// The types measured as "classes" by every metric: classes, records (<c>record</c>,
 /// <c>record class</c>), structs and record structs. Interfaces and enums are not measured. The same
 /// scope is used by every service, so that all CSV files agree on which types exist.
 /// </summary>

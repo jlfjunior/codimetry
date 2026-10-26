@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Codimetry.Parsers;
 
 /// <summary>
-/// Which operators count as decision points in V(G), besides the ones of Cap. 2.
+/// Which operators count as decision points in V(G), besides the default ones.
 /// </summary>
 /// <param name="NullOperators">`??`, `??=` and `?.` add one each (--cc-null-operators).</param>
 /// <param name="LegacyOperators">The operator rule of v1 (--cc-legacy-operators): `??` and `goto` add one,

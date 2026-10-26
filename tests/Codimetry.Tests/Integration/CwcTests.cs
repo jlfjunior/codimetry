@@ -3,7 +3,7 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Integration;
 
 /// <summary>
-/// INC-19: CWC = Σ (2 + MC of the called method) over the calls to other types of the analysed code (Eq. 24, D13, D14).
+/// CWC = Σ (2 + MC of the called method) over the calls to other types of the analysed code (Eq. 24).
 /// </summary>
 public class CwcTests : IDisposable
 {

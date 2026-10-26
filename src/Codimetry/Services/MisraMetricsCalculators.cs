@@ -154,14 +154,14 @@ public class ClcCalculator
 
 /// <summary>
 /// Calculator for CWC (Coupling Weight for a Class) metric, Eq. 24: CWC = Σ (2 + MC of the called method)
-/// over the calls to methods of **other types of the analysed code** (D13).
+/// over the calls to methods of **other types of the analysed code**.
 /// </summary>
 public class CwcCalculator
 {
     public const int CallWeight = 2;
 
     /// <summary>
-    /// MC assumed for a called abstract or interface method without exactly one implementation (D14).
+    /// MC assumed for a called abstract or interface method without exactly one implementation.
     /// </summary>
     public const int UnknownMc = 1;
 
@@ -175,7 +175,7 @@ public class CwcCalculator
     }
 
     /// <summary>
-    /// Calculates CWC. Each call counts, repeated ones included (RF-6):
+    /// Calculates CWC. Each call counts, repeated ones included:
     /// <list type="bullet">
     /// <item>a call to a method of another measured type of the analysed code, inherited methods of a base
     /// class included, adds 2 + MC of the called method;</item>
@@ -195,7 +195,7 @@ public class CwcCalculator
     {
         var totalCwc = 0;
 
-        // Constructors are not calls of eq. 24 (RF-6 of INC-06): new X() couples through CBO, not CWC
+        // Constructors are not calls of eq. 24: new X() couples through CBO, not CWC
         foreach (var call in allMethods.Where(m => m.ContainingClassKey == classKey).SelectMany(m => m.Calls)
                      .Where(c => c.Kind != CallKind.Constructor))
         {
@@ -212,7 +212,7 @@ public class CwcCalculator
 
             if (call.IsAbstract)
             {
-                // Interface or abstract member of the analysed code: its only implementation (D14)
+                // Interface or abstract member of the analysed code: its only implementation
                 var implementation = implementations != null && implementations.TryGetValue(call.TargetKey, out var impls) && impls.Count == 1
                     ? impls[0]
                     : null;
@@ -222,7 +222,7 @@ public class CwcCalculator
                 continue;
             }
 
-            // A method of another type: it counts when that type is measured (D19)
+            // A method of another type: it counts when that type is measured
             if (allClasses.ContainsKey(call.TargetClassKey!))
             {
                 totalCwc += CallWeight + (methodBcsInfo.TryGetValue(call.TargetKey, out var bcs) ? bcs.CalculateMc() : UnknownMc);
@@ -288,7 +288,7 @@ public class CcCalculator
 }
 
 /// <summary>
-/// How CoC combines the CLC of the classes of an inheritance hierarchy (D1).
+/// How CoC combines the CLC of the classes of an inheritance hierarchy.
 /// </summary>
 public enum CocFormula
 {
@@ -305,7 +305,7 @@ public sealed record CocHierarchy(string RootKey, int Classes, int Levels, long 
 
 /// <summary>
 /// Calculator for CoC (Code Complexity, Eq. 27 of Misra et al., 2018): CLC of classes in the same level add, levels of
-/// a hierarchy multiply, distinct hierarchies add (INC-20). CWC does not enter.
+/// a hierarchy multiply, distinct hierarchies add. CWC does not enter.
 /// </summary>
 public class CocCalculator
 {

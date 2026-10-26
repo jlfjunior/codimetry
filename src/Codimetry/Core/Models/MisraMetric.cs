@@ -52,7 +52,7 @@ public class MisraMetric
     public long CoC { get; set; }
 
     /// <summary>
-    /// The former name of <see cref="CoC"/>, kept in the CSV with the same value for one version (RF-6 of INC-20).
+    /// The former name of <see cref="CoC"/>, kept in the CSV with the same value for one version.
     /// </summary>
     public long CC
     {

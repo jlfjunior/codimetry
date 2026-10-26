@@ -4,18 +4,18 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Codimetry.Parsers;
 
 /// <summary>
-/// MC of every method of the analysed code with the weight of its calls (INC-16, Cap. 2):
+/// MC of every method of the analysed code with the weight of its calls:
 /// <list type="bullet">
 /// <item>a call to a method declared in the analysed code adds 2 + MC of the called method, own class
 /// included;</item>
 /// <item>a call inside a recursion, direct or mutual (a cycle of the call graph), adds 2 only;</item>
 /// <item>a call to an abstract or interface method adds 2 + MC of its implementation when the analysed
-/// code has exactly one, and 2 + 1 otherwise (D14);</item>
-/// <item>a call to a library method adds the library call weight, 0 by default (D10);</item>
+/// code has exactly one, and 2 + 1 otherwise;</item>
+/// <item>a call to a library method adds the library call weight, 0 by default;</item>
 /// <item>an unresolved call adds 2 + 1;</item>
 /// <item>invoking a delegate, a lambda or a local function, and <c>nameof</c>, add nothing (the body of a
-/// lambda or local function written in the method is already counted, INC-17); object creation is not a
-/// call (D20).</item>
+/// lambda or local function written in the method is already counted); object creation is not a
+/// call.</item>
 /// </list>
 /// Each strongly connected component of the call graph is a recursion: calls between its methods weigh 2
 /// whichever method is computed first, and every other call goes to a component computed before.
@@ -175,7 +175,7 @@ public sealed class MethodComplexityGraph
         var key = TypeKeys.SourceMethodKey(definition);
         if (definition.IsAbstract)
         {
-            // Interface or abstract member: the MC of its only implementation in the analysed code (D14)
+            // Interface or abstract member: the MC of its only implementation in the analysed code
             return key != null && _implementations.TryGetValue(key, out var implementations) &&
                    implementations.Count == 1 && _methods.ContainsKey(implementations[0])
                 ? new Call(CallKind.System, implementations[0])

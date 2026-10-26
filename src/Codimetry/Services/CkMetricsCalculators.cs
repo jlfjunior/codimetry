@@ -58,7 +58,7 @@ public class DitCalculator
     }
 
     /// <summary>
-    /// Calculates DIT as the number of declared inheritance edges above the class (D7): the base classes
+    /// Calculates DIT as the number of declared inheritance edges above the class: the base classes
     /// in the analysed code, plus one for a base class outside it (Exception, ControllerBase). System.Object
     /// is not a base class, so a class without an explicit base has DIT = 0.
     /// </summary>
@@ -108,7 +108,7 @@ public class CboCalculator
 {
     /// <summary>
     /// The types a class can be coupled to: the measured types and, unless v1 is reproduced, the interfaces
-    /// declared in the analysed code (D8). Framework and package types are never targets.
+    /// declared in the analysed code. Framework and package types are never targets.
     /// </summary>
     public static Dictionary<string, CouplingTarget> Targets(
         IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses, IEnumerable<CouplingTarget> interfaces)
@@ -123,13 +123,13 @@ public class CboCalculator
     }
 
     /// <summary>
-    /// Calculates CBO as the number of other types of the analysed code the class uses (D9: outgoing coupling).
+    /// Calculates CBO as the number of other types of the analysed code the class uses (outgoing coupling).
     /// </summary>
     public int CalculateCbo(ClassDependency dependency, IReadOnlyDictionary<string, CouplingTarget> targets) =>
         Coupled(dependency, targets).Count;
 
     /// <summary>
-    /// The keys of the other types of the analysed code the class references (INC-10): resolved types are matched
+    /// The keys of the other types of the analysed code the class references: resolved types are matched
     /// by key, so <c>Task</c> does not couple to <c>BackgroundTask</c> and homonymous types stay apart. Unresolved
     /// type names are matched by exact simple name; among homonyms, the one in the class's namespace is preferred,
     /// then the first by key.
@@ -200,7 +200,7 @@ public class RfcCalculator
 
     /// <summary>
     /// Calculates RFC as the number of methods that can be invoked in response to a message:
-    /// |M ∪ R|, where M is the methods of the class and R the methods and constructors they call (INC-06).
+    /// |M ∪ R|, where M is the methods of the class and R the methods and constructors they call.
     /// <list type="bullet">
     /// <item>a resolved call enters R by its target unless the target is in M; calls to the class's other members
     /// (local functions, members the compiler generates) stay out, but its implicit constructor

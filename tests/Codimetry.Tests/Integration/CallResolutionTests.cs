@@ -109,7 +109,7 @@ public class CallResolutionTests : IDisposable
         var ck = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
         var misra = await Analyzers.Misra(_dir.Path);
 
-        Assert.Equal(0, Assert.Single(misra, m => m.ClassName == "Client" && m.MethodName == "").CWC);   // INC-19: libraries do not count
+        Assert.Equal(0, Assert.Single(misra, m => m.ClassName == "Client" && m.MethodName == "").CWC);   // libraries do not count
         Assert.Equal(1 + 2, ck["Client"].RFC); // Run + List.Add + Console.WriteLine
     }
 }

@@ -4,7 +4,7 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Integration;
 
 /// <summary>
-/// INC-13: records, structs and record structs are measured like classes in every CSV (D19);
+/// Records, structs and record structs are measured like classes in every CSV;
 /// --classes-only restores the scope of v1.
 /// </summary>
 public class TypeScopeTests : IDisposable

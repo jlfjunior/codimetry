@@ -5,7 +5,7 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Integration;
 
 /// <summary>
-/// INC-20: CoC follows the inheritance hierarchy (Eq. 27): CLC of a class times the CoC of its subclasses
+/// CoC follows the inheritance hierarchy (Eq. 27): CLC of a class times the CoC of its subclasses
 /// (tree, the default, as in the example of Misra et al.) or the product of the Σ CLC of each level (levels);
 /// hierarchies add and CWC does not enter.
 /// </summary>
@@ -93,9 +93,9 @@ public class CocTests : IDisposable
     [Theory]
     [InlineData(CocFormula.Tree)]
     [InlineData(CocFormula.Levels)]
-    public async Task Cap2_UsuarioCliente_Is4(CocFormula formula)
+    public async Task UsuarioCliente_Is4(CocFormula formula)
     {
-        var (coc, hierarchies, _) = await Misra(Samples.Cap2Coc, formula);
+        var (coc, hierarchies, _) = await Misra(Samples.UsuarioClienteCoc, formula);
 
         Assert.Equal(4, coc);
         var hierarchy = Assert.Single(hierarchies);

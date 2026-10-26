@@ -87,7 +87,7 @@ public class DocumentationExamplesTests : IDisposable
         Assert.Equal(4, metrics["User"].LCOM);
         Assert.Equal(2, metrics["PaymentService"].CBO);
         Assert.Equal(0, metrics["PaymentService"].LCOM);
-        Assert.Equal(0, metrics["Entity"].DIT);    // INC-12: System.Object does not count
+        Assert.Equal(0, metrics["Entity"].DIT);    // System.Object does not count
         Assert.Equal(1, metrics["Person"].DIT);
         Assert.Equal(2, metrics["Employee"].DIT);
         Assert.Equal(2, metrics["Animal"].NOC);
@@ -95,15 +95,15 @@ public class DocumentationExamplesTests : IDisposable
     }
 
     [Fact]
-    public async Task Ck_Cap2Usuario_LcomIs3_AndAttributesOfOtherObjectsDoNotCount()
+    public async Task Ck_HighLcomUsuario_LcomIs3_AndAttributesOfOtherObjectsDoNotCount()
     {
-        _dir.WriteFile("Usuario.cs", Samples.Cap2Usuario);
+        _dir.WriteFile("Usuario.cs", Samples.HighLcomUsuario);
         _dir.WriteFile("LcomFalse.cs", Samples.LcomFalse);
 
         var metrics = (await Analyzers.Ck(_dir.Path)).ToDictionary(m => m.ClassName);
 
         Assert.Equal(3, metrics["Usuario"].LCOM);
-        Assert.Equal(3, metrics["LcomFalse"].LCOM);   // INC-07: Nome of a Dto is not an attribute of LcomFalse
+        Assert.Equal(3, metrics["LcomFalse"].LCOM);   // Nome of a Dto is not an attribute of LcomFalse
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class DocumentationExamplesTests : IDisposable
 
         var metric = (await Analyzers.Ck(_dir.Path)).Single(m => m.ClassName == "LcomCtor");
 
-        Assert.Equal(1, metric.LCOM);   // INC-09: with the constructor it would be 0
+        Assert.Equal(1, metric.LCOM);   // with the constructor it would be 0
     }
 
     [Fact]
@@ -123,12 +123,12 @@ public class DocumentationExamplesTests : IDisposable
 
         var metric = (await Analyzers.Ck(_dir.Path)).Single(m => m.ClassName == "StaticCtor");
 
-        Assert.Equal(2, metric.WMC);    // INC-05/INC-08: static constructor counts as a static method
+        Assert.Equal(2, metric.WMC);    // static constructor counts as a static method
         Assert.Equal(0, metric.LCOM);
     }
 
     [Theory]
-    [InlineData("Calculator", 3, 4)]   // Cap. 2: Add and Subtract V(G) 1, Multiply V(G) 2
+    [InlineData("Calculator", 3, 4)]   // Add and Subtract V(G) 1, Multiply V(G) 2
     [InlineData("Mixed", 3, 3)]        // 1 instance + 2 static methods, V(G) 1 each
     [InlineData("WithCtor", 2, 3)]     // constructor V(G) 2 + 1 method V(G) 1
     [InlineData("StaticCtor", 2, 2)]   // static C() + 1 method
@@ -190,13 +190,13 @@ public class DocumentationExamplesTests : IDisposable
 
         Assert.Equal(12, method["Process"].MC);
         Assert.Equal(3, method["Total"].MC);
-        Assert.Equal(2, method["CalculateDiscount"].MC);   // INC-15: the body is a ternary, 2 × 1
+        Assert.Equal(2, method["CalculateDiscount"].MC);   // the body is a ternary, 2 × 1
         Assert.Equal(5, @class["Customer"].AC);
         Assert.Equal(3, @class["Order"].AC);
         Assert.Equal(5, @class["Order"].CLC);
-        Assert.Equal(2 + 1, @class["CartService"].CWC);   // INC-19: IsAvailable only; Console.WriteLine does not count
-        Assert.Equal(5, method["Checkout"].MC);    // INC-16: the condition calls IsAvailable, 2 + MC 1
-        Assert.Equal(34, codebase.CoC);   // INC-20: no sample inherits from another, so each is a hierarchy and CoC = ΣCLC
+        Assert.Equal(2 + 1, @class["CartService"].CWC);   // IsAvailable only; Console.WriteLine does not count
+        Assert.Equal(5, method["Checkout"].MC);    // the condition calls IsAvailable, 2 + MC 1
+        Assert.Equal(34, codebase.CoC);   // no sample inherits from another, so each is a hierarchy and CoC = ΣCLC
     }
 
     [Fact]

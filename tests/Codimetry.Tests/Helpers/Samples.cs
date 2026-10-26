@@ -125,8 +125,8 @@ public static class Samples
         }
         """;
 
-    /// <summary>Cap. 2, exemplo de LCOM alto: LCOM = 3.</summary>
-    public const string Cap2Usuario = """
+    /// <summary>Exemplo de LCOM alto: LCOM = 3.</summary>
+    public const string HighLcomUsuario = """
         using System;
 
         public class Usuario
@@ -151,7 +151,7 @@ public static class Samples
         }
         """;
 
-    /// <summary>Sonda INC-07: nenhum par de métodos compartilha atributo do objeto (LCOM = 3).</summary>
+    /// <summary>Nenhum par de métodos compartilha atributo do objeto (LCOM = 3).</summary>
     public const string LcomFalse = """
         public class Dto { public string Nome = ""; }
 
@@ -165,7 +165,7 @@ public static class Samples
         }
         """;
 
-    /// <summary>Sonda INC-09: o construtor inicializa os dois campos, mas não entra na LCOM (LCOM = 1).</summary>
+    /// <summary>O construtor inicializa os dois campos, mas não entra na LCOM (LCOM = 1).</summary>
     public const string LcomCtor = """
         public class LcomCtor
         {
@@ -183,7 +183,7 @@ public static class Samples
         }
         """;
 
-    /// <summary>Sonda INC-08: o construtor estático conta no WMC como método estático e não entra na LCOM (WMC = 2, LCOM = 0).</summary>
+    /// <summary>O construtor estático conta no WMC como método estático e não entra na LCOM (WMC = 2, LCOM = 0).</summary>
     public const string StaticCtor = """
         public class StaticCtor
         {
@@ -194,7 +194,7 @@ public static class Samples
         }
         """;
 
-    /// <summary>Sondas INC-05: métodos estáticos e construtores entram no WMC.</summary>
+    /// <summary>Métodos estáticos e construtores entram no WMC.</summary>
     public const string WmcProbes = """
         public class Mixed
         {
@@ -376,9 +376,9 @@ public static class Samples
     // ---------- Misra et al. (2018), appendix, ported to C# ----------
 
     /// <summary>
-    /// Cap. 2, CoC: a hierarchy of two levels, CLC 2 each, CoC = 2 × 2 = 4.
+    /// CoC: a hierarchy of two levels, CLC 2 each, CoC = 2 × 2 = 4.
     /// </summary>
-    public const string Cap2Coc = """
+    public const string UsuarioClienteCoc = """
         using System;
 
         namespace Samples.Coc;

@@ -138,7 +138,7 @@ public class OrderService
 - $M$ includes every method and constructor declared in the class, static ones included.
 - $R$ is the set of **distinct methods and constructors** called inside those bodies that are not already in $M$. Each call is identified by the semantic model, by the method it binds to: `a.Save()` and `b.Save()` count once when both are `Repo.Save`, twice when they are methods of different types. Overloads are distinct methods.
 - $R$ includes calls to framework methods (e.g. `Console.WriteLine`) and to methods of other types of the analysed code. Calls to the class's own methods are already in $M$, and calls to its local functions do not count.
-- Constructors are methods executed in response to a message (D20), so they enter $R$ like methods: `new Repo()`, the target-typed `new()` and `: base(...)` each add the called constructor, declared or implicit (a class without constructors still has one). `: this(...)` calls a constructor already in $M$. `new T()` of a type parameter and the creation of a delegate (`new Action(M)`) call no constructor of the analysed code and do not count. `--rfc-exclude-constructors` restores the rule of v1, which left constructors out.
+- Constructors are methods executed in response to a message, so they enter $R$ like methods: `new Repo()`, the target-typed `new()` and `: base(...)` each add the called constructor, declared or implicit (a class without constructors still has one). `: this(...)` calls a constructor already in $M$. `new T()` of a type parameter and the creation of a delegate (`new Action(M)`) call no constructor of the analysed code and do not count. `--rfc-exclude-constructors` restores the rule of v1, which left constructors out.
 - Property accessors do not count: in C#, reading `other.Name` is an attribute access, not a method call.
 - A call the semantic model cannot bind enters $R$ by its simple name, unless a method of the class has that name; an unresolved `new X()` enters as the constructor of `X`, unless `X` is the class itself. The log reports the share of invocations and constructor calls that were bound.
 - Only direct calls are considered; the tool does not follow calls transitively.
@@ -346,7 +346,7 @@ public class Employee : Person
 
 ### How this tool computes it
 
-DIT is the number of **declared** inheritance edges above the class (D7): the tool follows the base classes while they are in the analysed code. `System.Object`, implicit or written (`class E : object`), never counts, so a class with no explicit base has **DIT = 0**, and the tool reports the values shown above.
+DIT is the number of **declared** inheritance edges above the class: the tool follows the base classes while they are in the analysed code. `System.Object`, implicit or written (`class E : object`), never counts, so a class with no explicit base has **DIT = 0**, and the tool reports the values shown above.
 
 A base class from outside the analysed code, such as `Exception`, `ControllerBase` or `DbContext`, counts as one level, and its own ancestors are not followed: `class D : Controller` has DIT = 1. `--dit-resolve-framework` follows them too, through the referenced assemblies, counting every edge except the one that reaches `System.Object`: `D : Controller` is then D → Controller → ControllerBase = 2. An ancestor that cannot be resolved (a missing reference) ends the count.
 

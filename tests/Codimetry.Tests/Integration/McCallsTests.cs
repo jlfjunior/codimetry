@@ -4,8 +4,8 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Integration;
 
 /// <summary>
-/// INC-16: a call to a method of the analysed code adds 2 + MC of the called method; library calls add
-/// nothing by default; recursion adds 2; abstract calls use the only implementation (D10, D14, D20).
+/// A call to a method of the analysed code adds 2 + MC of the called method; library calls add
+/// nothing by default; recursion adds 2; abstract calls use the only implementation.
 /// </summary>
 public class McCallsTests : IDisposable
 {
@@ -42,7 +42,7 @@ public class McCallsTests : IDisposable
             }
             """);
 
-        Assert.Equal(1, mc["Loja.RealizarCompra"]);   // Cap. 2
+        Assert.Equal(1, mc["Loja.RealizarCompra"]);
         Assert.Equal(1, mc["Filtro.M"]);
     }
 
@@ -81,7 +81,7 @@ public class McCallsTests : IDisposable
 
         Assert.Equal(2, mc["C.B"]);
         Assert.Equal(1 + (2 + 2), mc["C.A"]);
-        Assert.Equal(2 * (1 + (2 + 1)), mc["C.D"]);   // the call is in the ternary's layer; the ternary is the body (D23)
+        Assert.Equal(2 * (1 + (2 + 1)), mc["C.D"]);   // the call is in the ternary's layer; the ternary is the body
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class McCallsTests : IDisposable
         Assert.Equal(1 + 2 + 1, mc["U.M"]);
     }
 
-    // ---------- INC-17: lambdas and local functions (D11) ----------
+    // ---------- Lambdas and local functions ----------
 
     private const string Lambdas = """
         public class L
@@ -185,7 +185,7 @@ public class McCallsTests : IDisposable
     {
         var mc = await Mc(Lambdas, lambdas: rule);
 
-        Assert.Equal(forEach, mc["L.ForEach"]);   // INC-17 acceptance: library calls add nothing
+        Assert.Equal(forEach, mc["L.ForEach"]);   // library calls add nothing
         Assert.Equal(calls, mc["L.Calls"]);       // a call in a lambda adds 2 + MC(B)
         Assert.Equal(local, mc["L.Local"]);       // the call to the local function adds nothing
     }

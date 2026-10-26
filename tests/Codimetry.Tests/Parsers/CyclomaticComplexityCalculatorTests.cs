@@ -64,7 +64,7 @@ public class CyclomaticComplexityCalculatorTests
         Assert.Equal(4, Complexity(body)); // 1 + case 1 + case 2 + case 3; default is the complementary path
     }
 
-    // INC-02: each case and arm is one more edge, except default and the catch-all (_ or var x without when)
+    // Each case and arm is one more edge, except default and the catch-all (_ or var x without when)
     [Theory]
     [InlineData("switch (x) { case 1: return 1; case 2: return 2; default: return 0; }", 3)]
     [InlineData("switch (o) { case int n when n > 0: return 1; case string t: return 2; } return 0;", 3)]
@@ -80,7 +80,7 @@ public class CyclomaticComplexityCalculatorTests
         Assert.Equal(expected, Complexity(body));
     }
 
-    // INC-03: ??, ??= and ?. follow one rule; goto never counts; or/and count like ||/&&
+    // ??, ??= and ?. follow one rule; goto never counts; or/and count like ||/&&
     [Theory]
     [InlineData("return s ?? \"\";", 1, 2, 2)]
     [InlineData("s ??= \"\"; return s;", 1, 2, 1)]

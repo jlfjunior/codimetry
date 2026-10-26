@@ -109,7 +109,7 @@ The rule is recursive over statement lists:
 - all simple statements of a layer form **one** sequence, even when a structure separates them (`a(); if (c) { x(); } b();` = 2 + 1 = 3);
 - blocks, `try`/`catch`/`finally`, `using`, `lock`, `checked`, `unsafe`, `fixed` and labels are transparent: their statements belong to the enclosing list;
 - `else if` is an `if` nested in the `else` branch, as written: `if (a) x(); else if (b) y(); else z();` = 2 × (1 + 2 × 1) = 6;
-- a ternary is an if-then-else over its two expressions, and a `switch` expression a Case over its arms (D23): a branch or arm that is itself a ternary or a `switch` expression is a structure of that layer, any other one a simple statement. The structure adds to the layer where it appears, and the statement that contains it **is** that structure, not one more sequence: `return c ? 1 : 0;` = 2 × 1 = 2, while `var v = c ? 1 : 0; x();` = 2 + 1 because `x();` is a sequence. The governing expression and the `when` clauses of a `switch` expression belong to the enclosing layer;
+- a ternary is an if-then-else over its two expressions, and a `switch` expression a Case over its arms: a branch or arm that is itself a ternary or a `switch` expression is a structure of that layer, any other one a simple statement. The structure adds to the layer where it appears, and the statement that contains it **is** that structure, not one more sequence: `return c ? 1 : 0;` = 2 × 1 = 2, while `var v = c ? 1 : 0; x();` = 2 + 1 because `x();` is a sequence. The governing expression and the `when` clauses of a `switch` expression belong to the enclosing layer;
 - `catch` adds no weight (Table 2.1 has no weight for exceptions), and `??`, `?.` and patterns (`is`, `and`, `or`) are not BCSs;
 - an expression-bodied method (`=> ...`) is a list with one simple statement, or the structure itself when the expression holds a ternary or a `switch` expression; an empty body (`{ }`) weighs 0; methods without a body (abstract, interface) have no MC row.
 
@@ -128,7 +128,7 @@ For the `Process` method above, the tool reports **MC = 2 × (3 × (2 × 1)) = 1
 
 Object creation (`new X()`) is not a call. The MC of the called method is computed with the same rules, so it includes its own calls. All the methods of a recursion are treated alike, whichever is computed first. In the article's example, `CheckSupportedSw` = 1 + (2 + MC(`IsAppropriate`) = 7) + 2 × 1 = **12**. The log reports how many calls fell in each row of the table.
 
-**Lambdas and local functions** (D11). The code of a lambda, anonymous method or local function written in a method is read as part of it: its body is a layer nested where it is written, of weight 1 × that layer, added to the structures of the enclosing layer. An expression body has no sequence of its own, so `l.Any(x => x > 0)` adds nothing, while `x => x > 0 ? 1 : 0` adds its ternary. The statement that holds the lambda is still a simple statement, and a local function declaration is not one. Calls inside follow the table above; a call to the local function adds nothing, since its body is already counted. For example, `l.ForEach(x => { if (x > 0) Console.WriteLine(x); });` = 1 + (2 × 1) = **3**, and a local function with an `if`, called once, also gives 3.
+**Lambdas and local functions**. The code of a lambda, anonymous method or local function written in a method is read as part of it: its body is a layer nested where it is written, of weight 1 × that layer, added to the structures of the enclosing layer. An expression body has no sequence of its own, so `l.Any(x => x > 0)` adds nothing, while `x => x > 0 ? 1 : 0` adds its ternary. The statement that holds the lambda is still a simple statement, and a local function declaration is not one. Calls inside follow the table above; a call to the local function adds nothing, since its body is already counted. For example, `l.ForEach(x => { if (x > 0) Console.WriteLine(x); });` = 1 + (2 × 1) = **3**, and a local function with an `if`, called once, also gives 3.
 
 `--mc-lambdas` chooses another treatment: `calls` (the rule before this change: a lambda contributes only its calls, a local function body is inlined into the enclosing layer) or `ignore` (their bodies are left out).
 
@@ -315,12 +315,12 @@ The original formulation by Misra et al. includes further weightings, such as th
 
 ### How this tool computes it
 
-The tool follows Eq. 24: only calls to methods of **other types of the analysed code** count (D13). Each call is resolved by the semantic model, and each one counts, repeated ones included:
+The tool follows Eq. 24: only calls to methods of **other types of the analysed code** count. Each call is resolved by the semantic model, and each one counts, repeated ones included:
 
 | Call | Adds |
 |------|------|
 | to a method of another class, record or struct of the analysed code, including a method inherited from a base class (`base.M()` or `M()`) | 2 + MC of the called method |
-| to an abstract or interface method declared in the analysed code | 2 + MC of its only implementation; 2 + 1 when there are none or several (D14) |
+| to an abstract or interface method declared in the analysed code | 2 + MC of its only implementation; 2 + 1 when there are none or several |
 | to the class's own methods (any `partial` declaration) or its local functions | 0 |
 | to a library method (`Console.WriteLine`, LINQ, `ILogger`...) or a delegate | 0 (`--cwc-library-weight N` sets it) |
 | unresolved by the semantic model | 0, and the log reports how many there are |
@@ -380,7 +380,7 @@ $$
 CoC = 4 \times (14 + 20 \times (3 + 3)) = 536
 $$
 
-which multiplies each class by its own subclasses only. Read level by level, Eq. 27 would give $4 \times (14 + 20) \times (3 + 3) = 816$, multiplying `Software` by the subclasses of `Hardware`. The tool follows the paper's example (D1) by default:
+which multiplies each class by its own subclasses only. Read level by level, Eq. 27 would give $4 \times (14 + 20) \times (3 + 3) = 816$, multiplying `Software` by the subclasses of `Hardware`. The tool follows the paper's example by default:
 
 $$
 CoC(c) = \begin{cases} CLC(c) & \text{if } c \text{ has no subclasses in the analysed code} \\ CLC(c) \times \sum_{d \,\in\, \text{subclasses}(c)} CoC(d) & \text{otherwise} \end{cases}

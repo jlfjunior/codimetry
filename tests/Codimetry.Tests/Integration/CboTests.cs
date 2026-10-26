@@ -4,9 +4,9 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Integration;
 
 /// <summary>
-/// INC-10: CBO matches the referenced types by their resolved key, not by a suffix of the name.
-/// INC-11: every form of type reference couples, interfaces of the analysed code included (D8); outgoing by
-/// default, both directions with --cbo-bidirectional (D9).
+/// CBO matches the referenced types by their resolved key, not by a suffix of the name.
+/// Every form of type reference couples, interfaces of the analysed code included; outgoing by
+/// default, both directions with --cbo-bidirectional.
 /// </summary>
 public class CboTests : IDisposable
 {

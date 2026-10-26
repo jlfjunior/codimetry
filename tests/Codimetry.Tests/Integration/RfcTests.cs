@@ -5,7 +5,7 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Integration;
 
 /// <summary>
-/// INC-06: constructors called by <c>new</c> and <c>: base(...)</c> enter the response set R (D20); an unresolved
+/// Constructors called by <c>new</c> and <c>: base(...)</c> enter the response set R; an unresolved
 /// call to a method of the class does not enter R again.
 /// </summary>
 public class RfcTests : IDisposable

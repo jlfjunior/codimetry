@@ -148,7 +148,7 @@ public class CkSyntaxVisitorTests
         Assert.All(methods.Values, m => Assert.Equal("C", m.ContainingClass));
     }
 
-    // INC-07: an access is a use of an attribute of the current object, identified by the symbol
+    // An access is a use of an attribute of the current object, identified by the symbol
     // the semantic model binds the identifier to ("field:X", "prop:X", "event:X", "param:X").
 
     private const string AccessClass = """
@@ -251,7 +251,7 @@ public class CkSyntaxVisitorTests
     [InlineData("class C { string Nome; int A() => this.Nome.Length; int B() => Nome.Length; }", 0)]
     [InlineData("class Repo { public void Save() { } } class C(Repo repo) { void A() => repo.Save(); void B() => repo.Save(); }", 0)]
     [InlineData("class C { System.Action _h; void A() => _h(); void B() => _h(); }", 0)]
-    [InlineData("class C { int a, b; C() { a = 1; b = 2; } int M1() => a; int M2() => b; }", 1)]  // INC-09: constructor does not enter
+    [InlineData("class C { int a, b; C() { a = 1; b = 2; } int M1() => a; int M2() => b; }", 1)]  // the constructor does not enter
     [InlineData("class C(int a, int b) { int M1() => a; int M2() => b; }", 1)]                       // primary constructor never enters
     public void Lcom_CountsSharedAttributesOfTheCurrentObject(string code, int expected)
     {

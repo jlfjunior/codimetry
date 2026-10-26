@@ -5,9 +5,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Codimetry.Tests.Parsers;
 
 /// <summary>
-/// MC by the composition rule of Eq. 23 (INC-14): sum per layer, product along nesting, one sequence
+/// MC by the composition rule of Eq. 23: sum per layer, product along nesting, one sequence
 /// per layer. The calculator is used here without a call weight, so the expected values leave calls out;
-/// the weight of calls (INC-16) is covered by McCallsTests.
+/// the weight of calls is covered by McCallsTests.
 /// </summary>
 public class MethodComplexityCalculatorTests
 {
@@ -35,7 +35,7 @@ public class MethodComplexityCalculatorTests
                 _ => false
             }));
 
-    // ---------- Examples of Cap. 2 and of the article ----------
+    // ---------- Worked examples and the example of the article ----------
 
     [Fact]
     public void Process_MultipliesNestedLayers()
@@ -78,7 +78,7 @@ public class MethodComplexityCalculatorTests
         Assert.Equal(1 + (2 * 1), Article("CheckSupportedSw"));
     }
 
-    // ---------- Acceptance criteria of INC-14 ----------
+    // ---------- Composition rule: acceptance criteria ----------
 
     [Fact]
     public void SimpleStatementsOfALayer_AreOneSequence()
@@ -168,17 +168,17 @@ public class MethodComplexityCalculatorTests
     [Fact]
     public void Ternary_IsABranchOfItsTwoExpressions()
     {
-        // D23: the statement that contains it is the if-then-else, not one more sequence
+        // The statement that contains it is the if-then-else, not one more sequence
         Assert.Equal(2 * 1, Mc("return c ? 1 : 0;", "int M(bool c)"));
         Assert.Equal(2 * ((2 * 1) + 1), Mc("return a ? (b ? 1 : 2) : 3;", "int M(bool a, bool b)"));
         Assert.Equal((2 * 1) + 1, Mc("var v = c ? 1 : 0; x();", "void M(bool c)"));   // x() is the sequence
     }
 
-    // ---------- INC-15: acceptance criteria ----------
+    // ---------- Structure weights: acceptance criteria ----------
 
     [Theory]
     [InlineData("if (c) return 1; else return 2;", 2 * 1)]
-    [InlineData("if (a) x(); else if (b) y(); else x();", 2 * (1 + (2 * 1)))]   // D12: else if nested in the else
+    [InlineData("if (a) x(); else if (b) y(); else x();", 2 * (1 + (2 * 1)))]   // else if nested in the else
     [InlineData("switch (k) { case 1: return 1; case 2: return 2; default: return 0; }", 3 * 1)]
     [InlineData("return k switch { 1 => 1, 2 => 2, _ => 0 };", 3 * 1)]
     [InlineData("return c ? 1 : 0;", 2 * 1)]
@@ -205,7 +205,7 @@ public class MethodComplexityCalculatorTests
         Assert.Equal((2 * 1) + (2 * 1), Mc("if (a ? b : c) x();"));
     }
 
-    // ---------- INC-17: lambdas and local functions (D11) ----------
+    // ---------- Lambdas and local functions ----------
 
     [Theory]
     [InlineData("System.Array.ForEach(l, i => { if (i > 0) x(); });", 1 + (2 * 1), 1, 1)]

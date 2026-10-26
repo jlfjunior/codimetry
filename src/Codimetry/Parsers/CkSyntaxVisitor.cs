@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Codimetry.Parsers;
 
 /// <summary>
-/// How DIT treats the ancestors outside the analysed code (D7).
+/// How DIT treats the ancestors outside the analysed code.
 /// </summary>
 /// <param name="CountObject">System.Object is the base of a class without an explicit one and counts as one
 /// level, as in v1 (--dit-count-object).</param>
@@ -69,7 +69,7 @@ public enum CallKind
 /// <param name="TargetClassKey">Key of the type that declares the called method, or null when unresolved.</param>
 /// <param name="TargetKey">"{classKey}::{methodKey}" when the called method is declared in the analysed code.</param>
 /// <param name="IsAbstract">The called method has no body of its own (interface or abstract member).</param>
-/// <param name="Kind">Method or constructor (INC-06).</param>
+/// <param name="Kind">Method or constructor.</param>
 public sealed record CallInfo(
     string Name,
     string? TargetId = null,
@@ -209,7 +209,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     public IReadOnlyList<ClassDependency> GetDependencies() => _dependencies;
 
     /// <summary>
-    /// Interfaces declared in the code: not measured, but coupling targets of CBO (D8).
+    /// Interfaces declared in the code: not measured, but coupling targets of CBO.
     /// </summary>
     public IReadOnlyList<CouplingTarget> GetInterfaces() => _interfaces;
 
@@ -300,7 +300,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             if (symbol != null)
             {
                 fullyQualifiedName = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                // Only declared inheritance counts (D7): the implicit or explicit System.Object is no base class
+                // Only declared inheritance counts: the implicit or explicit System.Object is no base class
                 var isObject = symbol.BaseType?.SpecialType == SpecialType.System_Object;
                 baseClass = symbol.BaseType != null && !isValueType && (!isObject || _ditOptions.CountObject)
                     ? TypeKeys.Of(symbol.BaseType)
@@ -636,7 +636,7 @@ internal class MethodCallCollector : CSharpSyntaxWalker
 
     public override void VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
     {
-        // Without a resolved constructor there is no written type to name it by (RF-8)
+        // Without a resolved constructor there is no written type to name it by
         if (Resolve(node) is { } target)
         {
             AddConstructor(target);

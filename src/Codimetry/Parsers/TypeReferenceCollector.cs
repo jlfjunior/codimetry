@@ -5,10 +5,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Codimetry.Parsers;
 
 /// <summary>
-/// How CBO collects and counts couplings (D8, D9).
+/// How CBO collects and counts couplings.
 /// </summary>
 /// <param name="DeclaredTypesOnly">Only the types of fields, properties, method parameters and return types, and
-/// only classes as targets, as v1 did (--cbo-declared-types-only); types are still matched by key (INC-10).</param>
+/// only classes as targets, as v1 did (--cbo-declared-types-only); types are still matched by key.</param>
 /// <param name="Bidirectional">Also count the types that use the class, as in CK 1994 (--cbo-bidirectional).</param>
 public sealed record CboOptions(bool DeclaredTypesOnly = false, bool Bidirectional = false)
 {
@@ -16,7 +16,7 @@ public sealed record CboOptions(bool DeclaredTypesOnly = false, bool Bidirection
 }
 
 /// <summary>
-/// Collects the types a type declaration references (INC-11): base class and interfaces, member signatures,
+/// Collects the types a type declaration references: base class and interfaces, member signatures,
 /// locals, <c>new</c>, patterns, <c>typeof</c>, casts, <c>catch</c>, attributes, generic arguments, receivers of
 /// static members, and the types whose members it uses. Nested types are left to their own declaration.
 /// </summary>

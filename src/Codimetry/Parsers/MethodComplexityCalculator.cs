@@ -4,13 +4,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Codimetry.Parsers;
 
 /// <summary>
-/// How MC treats the code of lambdas, anonymous methods and local functions (D11, --mc-lambdas).
+/// How MC treats the code of lambdas, anonymous methods and local functions (--mc-lambdas).
 /// </summary>
 public enum McLambdaRule
 {
     /// <summary>Their body is a layer nested where they are written: its structures, sequence and calls count.</summary>
     Full,
-    /// <summary>The rule before INC-17: lambdas contribute only their calls, local function bodies are inlined.</summary>
+    /// <summary>The former rule: lambdas contribute only their calls, local function bodies are inlined.</summary>
     Calls,
     /// <summary>Their bodies are left out.</summary>
     Ignore
@@ -29,7 +29,7 @@ public enum McLambdaRule
 /// A call adds the weight given by the caller of <see cref="Calculate"/> to the layer where it appears
 /// (<see cref="MethodComplexityGraph"/>: 2 + MC of the called method of the analysed code).
 /// <para>The body of a lambda, anonymous method or local function is a layer nested where it is written, of
-/// weight 1 × its layer, added to the structures of that layer (D11). An expression body has no sequence of
+/// weight 1 × its layer, added to the structures of that layer. An expression body has no sequence of
 /// its own: <c>x => x > 0</c> adds nothing, <c>x => x > 0 ? 1 : 0</c> adds its ternary. A call to a local
 /// function adds nothing, since its body is already counted.</para>
 /// </summary>
@@ -146,7 +146,7 @@ public static class MethodComplexityCalculator
                         }
                         else
                         {
-                            // A statement holding a ternary or a switch expression is that structure (D23)
+                            // A statement holding a ternary or a switch expression is that structure
                             _hasSimpleStatement |= !composer.HasBranchExpression(statement);
                             _structures += composer.Expressions(statement);
                         }
@@ -201,7 +201,7 @@ public static class MethodComplexityCalculator
         }
 
         /// <summary>
-        /// Weight of a lambda or anonymous method in the layer where it is written (D11).
+        /// Weight of a lambda or anonymous method in the layer where it is written.
         /// </summary>
         private int Lambda(AnonymousFunctionExpressionSyntax lambda) => lambdas switch
         {
@@ -211,7 +211,7 @@ public static class MethodComplexityCalculator
         };
 
         /// <summary>
-        /// Weight of a local function in the layer where it is declared: its body, like a lambda's (D11).
+        /// Weight of a local function in the layer where it is declared: its body, like a lambda's.
         /// </summary>
         public int LocalFunction(LocalFunctionStatementSyntax localFunction) => lambdas switch
         {
@@ -230,7 +230,7 @@ public static class MethodComplexityCalculator
                 .Any(n => n is ConditionalExpressionSyntax or SwitchExpressionSyntax);
 
         /// <summary>
-        /// A ternary is an if-then-else (D23): weight 2 × the layer of its two expressions.
+        /// A ternary is an if-then-else: weight 2 × the layer of its two expressions.
         /// </summary>
         private int Ternary(ConditionalExpressionSyntax conditional) =>
             Expressions(conditional.Condition) + BranchWeight * Branches([conditional.WhenTrue, conditional.WhenFalse]);

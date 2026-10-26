@@ -3,7 +3,7 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Integration;
 
 /// <summary>
-/// INC-04: which members enter the class and file sums of V(G) (D18), and how classes are identified.
+/// Which members enter the class and file sums of V(G), and how classes are identified.
 /// </summary>
 public class CyclomaticAggregationTests : IDisposable
 {

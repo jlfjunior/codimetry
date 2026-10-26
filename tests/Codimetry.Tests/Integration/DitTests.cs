@@ -4,7 +4,7 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Integration;
 
 /// <summary>
-/// INC-12: DIT counts the declared inheritance edges; System.Object never counts (D7).
+/// DIT counts the declared inheritance edges; System.Object never counts.
 /// </summary>
 public class DitTests : IDisposable
 {

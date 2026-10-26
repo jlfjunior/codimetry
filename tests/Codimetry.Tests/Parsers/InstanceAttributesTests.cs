@@ -3,7 +3,7 @@ using Codimetry.Tests.Helpers;
 namespace Codimetry.Tests.Parsers;
 
 /// <summary>
-/// The attributes behind AC (INC-18): one per instance attribute, whatever its type; static, const,
+/// The attributes behind AC: one per instance attribute, whatever its type; static, const,
 /// computed and inherited members do not count. Each case runs with and without a semantic model.
 /// </summary>
 public class InstanceAttributesTests

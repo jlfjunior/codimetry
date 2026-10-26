@@ -129,7 +129,7 @@ public class AnalysisServicesTests : IDisposable
         Assert.Equal(2, account["Balance.get"].Complexity);
         Assert.Equal(2, account["Balance.set"].Complexity);
         Assert.Equal(1, account["Run"].Complexity);
-        Assert.DoesNotContain("Count.get", account.Keys);   // INC-04: automatic accessors have no flow of their own
+        Assert.DoesNotContain("Count.get", account.Keys);   // automatic accessors have no flow of their own
         Assert.Equal(2 + 2 + 2 + 1, account[""].Complexity);
         Assert.DoesNotContain(metrics, m => m.ClassName == "Base" && m.MethodName == "Run");
     }

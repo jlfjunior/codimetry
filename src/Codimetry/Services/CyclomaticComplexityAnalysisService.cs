@@ -11,11 +11,11 @@ namespace Codimetry.Services;
 /// Service that orchestrates the calculation of Cyclomatic Complexity metrics for all methods, classes, and files.
 /// </summary>
 /// <remarks>
-/// The members measured (D18) are those with control flow written by the developer: methods,
+/// The members measured are those with control flow written by the developer: methods,
 /// constructors, destructors, operators, conversions, and the accessors with a body (block or
 /// expression) of properties, indexers and events. Accessors without a body, and members without a body
 /// (abstract, interface, extern, partial definitions), have no flow graph and are left out. Decisions in
-/// lambdas and local functions count for the member that contains them (D21).
+/// lambdas and local functions count for the member that contains them.
 /// </remarks>
 public class CyclomaticComplexityAnalysisService
 {
