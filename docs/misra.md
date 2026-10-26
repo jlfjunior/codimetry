@@ -4,7 +4,7 @@ The **Suite of Object-Oriented Cognitive Complexity Metrics** was proposed by Sa
 
 > **Naming note.** "Misra" here is the surname of the first author. These metrics are **not** related to the MISRA C/C++ coding guidelines. The tool's CLI flag and output file still use the uppercase `--misra` / `metrics_misra.csv`.
 
-This page explains what each metric means, gives its definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026), Section 2.6 (see [References](#references)).
+This page explains what each metric means, gives its definition, shows a worked example in modern C#, and states how **Codimetry** computes the value in its output. The definitions follow the master's dissertation by Silva Junior (2026) (see [References](#references)).
 
 | Metric | Name | Level | Interpretation |
 |--------|------|-------|----------------|
@@ -110,12 +110,12 @@ The rule is recursive over statement lists:
 - blocks, `try`/`catch`/`finally`, `using`, `lock`, `checked`, `unsafe`, `fixed` and labels are transparent: their statements belong to the enclosing list;
 - `else if` is an `if` nested in the `else` branch, as written: `if (a) x(); else if (b) y(); else z();` = 2 × (1 + 2 × 1) = 6;
 - a ternary is an if-then-else over its two expressions, and a `switch` expression a Case over its arms: a branch or arm that is itself a ternary or a `switch` expression is a structure of that layer, any other one a simple statement. The structure adds to the layer where it appears, and the statement that contains it **is** that structure, not one more sequence: `return c ? 1 : 0;` = 2 × 1 = 2, while `var v = c ? 1 : 0; x();` = 2 + 1 because `x();` is a sequence. The governing expression and the `when` clauses of a `switch` expression belong to the enclosing layer;
-- `catch` adds no weight (Table 2.1 has no weight for exceptions), and `??`, `?.` and patterns (`is`, `and`, `or`) are not BCSs;
+- `catch` adds no weight (the BCS table above has no weight for exceptions), and `??`, `?.` and patterns (`is`, `and`, `or`) are not BCSs;
 - an expression-bodied method (`=> ...`) is a list with one simple statement, or the structure itself when the expression holds a ternary or a `switch` expression; an empty body (`{ }`) weighs 0; methods without a body (abstract, interface) have no MC row.
 
 For the `Process` method above, the tool reports **MC = 2 × (3 × (2 × 1)) = 12** (`Console.WriteLine` is a library call and adds nothing): the outer `if` (2) contains the `for` (3), which contains the inner `if` (2), whose body is one sequence (1).
 
-**Calls** (Cap. 2: "a call to another method contributes the call weight (2) plus the MC of the called method"). A call adds to the layer where it appears, like a structure; a call in the condition of an `if` belongs to the layer that contains the `if`:
+**Calls**. A call to another method contributes the call weight (2) plus the MC of the called method. A call adds to the layer where it appears, like a structure; a call in the condition of an `if` belongs to the layer that contains the `if`:
 
 | Call | Adds |
 |------|------|
@@ -349,7 +349,7 @@ CoC is a single system-wide number. It is useful for following how a codebase ev
 
 ### Example
 
-This is the example of the dissertation (Cap. 2):
+This is the example of the dissertation:
 
 ```csharp
 public class User
