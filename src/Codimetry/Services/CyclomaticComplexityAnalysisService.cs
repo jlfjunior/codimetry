@@ -57,7 +57,7 @@ public class CyclomaticComplexityAnalysisService
 
         _logger?.LogInformation("Discovered {Count} C# files for cyclomatic complexity analysis", files.Count);
         _logger?.LogInformation("Cyclomatic aggregation: {Rule}", _options.IncludeAutoAccessors
-            ? "automatic accessors included with V(G) = 1, v1 (--cc-include-auto-accessors)"
+            ? "automatic accessors included with V(G) = 1, legacy (--cc-include-auto-accessors)"
             : "methods, constructors, destructors, operators and accessors with a body");
 
         // The semantic model gives the class key (project + fully qualified name)

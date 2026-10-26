@@ -9,7 +9,7 @@ namespace Codimetry.Parsers;
 /// <c>record class</c>), structs and record structs. Interfaces and enums are not measured. The same
 /// scope is used by every service, so that all CSV files agree on which types exist.
 /// </summary>
-/// <param name="ClassesOnly">Measure only classes, as v1 did (--classes-only).</param>
+/// <param name="ClassesOnly">Measure only classes, as earlier versions did (--classes-only).</param>
 public sealed record TypeScope(bool ClassesOnly = false)
 {
     public static TypeScope Default { get; } = new();

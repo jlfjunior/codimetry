@@ -98,7 +98,7 @@ public class MisraSyntaxVisitorTests
             }
             """;
 
-        // Composition rule: 2 × (3 × (2 × 1)) = 12; the additive rule of v1 gives 1 + 2*2 + 3 + 2 = 10
+        // Composition rule: 2 × (3 × (2 × 1)) = 12; the legacy additive rule gives 1 + 2*2 + 3 + 2 = 10
         var bcs = Bcs(body);
         AssertCounts(bcs, sequence: 1, branch: 2, iteration: 1, call: 1);
         Assert.Equal(12, bcs.CalculateMc());

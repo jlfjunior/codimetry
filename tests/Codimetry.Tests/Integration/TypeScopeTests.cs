@@ -5,7 +5,7 @@ namespace Codimetry.Tests.Integration;
 
 /// <summary>
 /// Records, structs and record structs are measured like classes in every CSV;
-/// --classes-only restores the scope of v1.
+/// --classes-only restores the legacy scope.
 /// </summary>
 public class TypeScopeTests : IDisposable
 {

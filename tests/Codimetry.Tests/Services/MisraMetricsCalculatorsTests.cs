@@ -127,13 +127,13 @@ public class MisraMetricsCalculatorsTests
         List<CkMethodInfo> methods = [Calling("A", "C", ToLibrary("WriteLine"), ToLibrary("Write"))];
 
         Assert.Equal(0, Cwc("C", methods));
-        Assert.Equal(2 * 3, Cwc("C", methods, libraryWeight: 3));   // the library rule of v1
+        Assert.Equal(2 * 3, Cwc("C", methods, libraryWeight: 3));   // the legacy library rule
     }
 
     [Fact]
     public void Cwc_UnresolvedCalls_AreNotCounted_NorMatchedByName()
     {
-        // v1 matched "Ext" with the first method of that name in any class
+        // Earlier versions matched "Ext" with the first method of that name in any class
         List<CkMethodInfo> methods = [Method("A", "C", "Ext", "WriteLine")];
 
         Assert.Equal(0, Cwc("C", methods));

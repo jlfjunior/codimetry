@@ -92,7 +92,7 @@ WMC is the sum of $c_i$ over the **methods and constructors** declared in the cl
 
 A method without a body (abstract, interface, `extern`) has $c_i = 1$ in both variants: it counts once in `unit`, and it has a single path in `cyclomatic`.
 
-`--wmc-exclude-static` restores the rule of v1, which left static methods and static constructors out. With it, a utility class made only of static methods has WMC = 0.
+`--wmc-exclude-static` restores the legacy rule, which left static methods and static constructors out. With it, a utility class made only of static methods has WMC = 0.
 
 The class-level rows of `metrics_cyclomatic.csv` are not the same as `--wmc-weight cyclomatic`: they also add destructors, operators, conversions and the accessors with a body of properties, indexers and events.
 
@@ -138,7 +138,7 @@ public class OrderService
 - $M$ includes every method and constructor declared in the class, static ones included.
 - $R$ is the set of **distinct methods and constructors** called inside those bodies that are not already in $M$. Each call is identified by the semantic model, by the method it binds to: `a.Save()` and `b.Save()` count once when both are `Repo.Save`, twice when they are methods of different types. Overloads are distinct methods.
 - $R$ includes calls to framework methods (e.g. `Console.WriteLine`) and to methods of other types of the analysed code. Calls to the class's own methods are already in $M$, and calls to its local functions do not count.
-- Constructors are methods executed in response to a message, so they enter $R$ like methods: `new Repo()`, the target-typed `new()` and `: base(...)` each add the called constructor, declared or implicit (a class without constructors still has one). `: this(...)` calls a constructor already in $M$. `new T()` of a type parameter and the creation of a delegate (`new Action(M)`) call no constructor of the analysed code and do not count. `--rfc-exclude-constructors` restores the rule of v1, which left constructors out.
+- Constructors are methods executed in response to a message, so they enter $R$ like methods: `new Repo()`, the target-typed `new()` and `: base(...)` each add the called constructor, declared or implicit (a class without constructors still has one). `: this(...)` calls a constructor already in $M$. `new T()` of a type parameter and the creation of a delegate (`new Action(M)`) call no constructor of the analysed code and do not count. `--rfc-exclude-constructors` restores the legacy rule, which left constructors out.
 - Property accessors do not count: in C#, reading `other.Name` is an attribute access, not a method call.
 - A call the semantic model cannot bind enters $R$ by its simple name, unless a method of the class has that name; an unresolved `new X()` enters as the constructor of `X`, unless `X` is the class itself. The log reports the share of invocations and constructor calls that were bound.
 - Only direct calls are considered; the tool does not follow calls transitively.
@@ -302,7 +302,7 @@ A type the semantic model cannot resolve is matched by its **exact** simple name
 
 `--cbo-bidirectional` also counts the types of the analysed code that use the class (incoming coupling, as in Chidamber and Kemerer, 1994), without counting twice a type that is coupled in both directions. In the example of Misra et al. (2018), `Hardware` inherits from `Computer` and uses `Software` (CBO = 2); with the option, `Desktop` and `Notebook`, which inherit from it, count too (CBO = 4).
 
-`--cbo-declared-types-only` restores the rule of v1: only the types of fields, properties, method return types and method parameters, and only classes as targets. The types are still matched by identity, so the suffix matches of v1 (`Task` → `BackgroundTask`) are not reproduced.
+`--cbo-declared-types-only` restores the legacy rule: only the types of fields, properties, method return types and method parameters, and only classes as targets. The types are still matched by identity, so the legacy suffix matches (`Task` → `BackgroundTask`) are not reproduced.
 
 For `PaymentService` the tool reports **CBO = 2**: `EmailService` and `Logger`, through the fields and the constructor parameters.
 
@@ -352,7 +352,7 @@ A base class from outside the analysed code, such as `Exception`, `ControllerBas
 
 `System.Object` is not part of the inheritance tree either, so NOC sees no artificial root. Interfaces are not part of the tree.
 
-`--dit-count-object` restores the rule of v1: `System.Object` counts as one level, so a class with no explicit base has DIT = 1. In v1 this held only for hierarchies entirely in the code: a class whose root extends `Exception` got the same DIT as if it extended `object`.
+`--dit-count-object` restores the legacy rule: `System.Object` counts as one level, so a class with no explicit base has DIT = 1. In earlier versions this held only for hierarchies entirely in the code: a class whose root extends `Exception` got the same DIT as if it extended `object`.
 
 A record follows the same rule as a class (`record Student(...) : Person(...)` is one level below `Person`). A struct or record struct has no base class, so its DIT and NOC are 0.
 

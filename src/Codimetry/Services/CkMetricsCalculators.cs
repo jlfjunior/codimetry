@@ -23,7 +23,7 @@ public class WmcCalculator
     private readonly bool _excludeStatic;
 
     /// <param name="weight">Weight of each method (--wmc-weight).</param>
-    /// <param name="excludeStatic">Leave static methods and constructors out, as v1 did (--wmc-exclude-static).</param>
+    /// <param name="excludeStatic">Leave static methods and constructors out, as earlier versions did (--wmc-exclude-static).</param>
     public WmcCalculator(WmcWeight weight = WmcWeight.Unit, bool excludeStatic = false)
     {
         _weight = weight;
@@ -107,7 +107,7 @@ public class NocCalculator
 public class CboCalculator
 {
     /// <summary>
-    /// The types a class can be coupled to: the measured types and, unless v1 is reproduced, the interfaces
+    /// The types a class can be coupled to: the measured types and, unless the legacy rule is reproduced, the interfaces
     /// declared in the analysed code. Framework and package types are never targets.
     /// </summary>
     public static Dictionary<string, CouplingTarget> Targets(
@@ -192,7 +192,7 @@ public class RfcCalculator
 {
     private readonly bool _excludeConstructors;
 
-    /// <param name="excludeConstructors">Leave constructor calls out of R, as v1 did (--rfc-exclude-constructors).</param>
+    /// <param name="excludeConstructors">Leave constructor calls out of R, as earlier versions did (--rfc-exclude-constructors).</param>
     public RfcCalculator(bool excludeConstructors = false)
     {
         _excludeConstructors = excludeConstructors;

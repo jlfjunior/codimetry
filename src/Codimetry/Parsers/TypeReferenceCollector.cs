@@ -8,7 +8,7 @@ namespace Codimetry.Parsers;
 /// How CBO collects and counts couplings.
 /// </summary>
 /// <param name="DeclaredTypesOnly">Only the types of fields, properties, method parameters and return types, and
-/// only classes as targets, as v1 did (--cbo-declared-types-only); types are still matched by key.</param>
+/// only classes as targets, as earlier versions did (--cbo-declared-types-only); types are still matched by key.</param>
 /// <param name="Bidirectional">Also count the types that use the class, as in CK 1994 (--cbo-bidirectional).</param>
 public sealed record CboOptions(bool DeclaredTypesOnly = false, bool Bidirectional = false)
 {

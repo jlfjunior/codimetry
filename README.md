@@ -90,24 +90,24 @@ You can analyze code using one of three input options:
 | `--ck` | | Calculate and export CK (Chidamber-Kemerer) object-oriented design metrics | `false` |
 | `--misra` | | Calculate and export MISRA (Misra's Cognitive Complexity) metrics | `false` |
 | `--cyclomatic` | `--cc` | Calculate and export Cyclomatic Complexity metrics | `false` |
-| `--mc-additive` | | MISRA: compute MC with the additive rule of v1 instead of the composition rule (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `false` |
-| `--ac-type-weights` | | MISRA: compute AC as v1 did, weighting attributes by type and counting `static`/`const` members (see [docs/misra.md](docs/misra.md#ac--attribute-complexity)) | `false` |
+| `--mc-additive` | | MISRA: compute MC with the legacy additive rule instead of the composition rule (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `false` |
+| `--ac-type-weights` | | MISRA: compute AC as earlier versions did, weighting attributes by type and counting `static`/`const` members (see [docs/misra.md](docs/misra.md#ac--attribute-complexity)) | `false` |
 | `--wmc-weight` | | CK: weight of each method in WMC, `unit` (c_i = 1) or `cyclomatic` (c_i = V(G)) (see [docs/ck.md](docs/ck.md#wmc--weighted-methods-per-class)) | `unit` |
-| `--wmc-exclude-static` | | CK: leave static methods and constructors out of WMC, as v1 did | `false` |
+| `--wmc-exclude-static` | | CK: leave static methods and constructors out of WMC, as earlier versions did | `false` |
 | `--cc-null-operators` | | Cyclomatic: count `??`, `??=` and `?.` as decision points, also in WMC with `--wmc-weight cyclomatic` (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
-| `--cc-legacy-operators` | | Cyclomatic: operator rule of v1 (`??` and `goto` count; `??=`, `?.`, `or`/`and` do not) | `false` |
-| `--classes-only` | | Measure only classes, as v1 did; by default records, structs and record structs are measured too (see [docs/README.md](docs/README.md#which-types-are-measured)) | `false` |
-| `--cc-include-auto-accessors` | | Cyclomatic: give automatic property accessors a row with V(G) = 1 and add them to the class and file sums, as v1 did (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
-| `--mc-library-call-weight` | | MISRA: weight of a call to a library method in MC (default 0; 2 reproduces v1 for these calls). Calls to the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `0` |
+| `--cc-legacy-operators` | | Cyclomatic: legacy operator rule (`??` and `goto` count; `??=`, `?.`, `or`/`and` do not) | `false` |
+| `--classes-only` | | Measure only classes, as earlier versions did; by default records, structs and record structs are measured too (see [docs/README.md](docs/README.md#which-types-are-measured)) | `false` |
+| `--cc-include-auto-accessors` | | Cyclomatic: give automatic property accessors a row with V(G) = 1 and add them to the class and file sums, as earlier versions did (see [docs/cyclomatic.md](docs/cyclomatic.md#how-this-tool-computes-it)) | `false` |
+| `--mc-library-call-weight` | | MISRA: weight of a call to a library method in MC (default 0; 2 reproduces earlier versions for these calls). Calls to the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `0` |
 | `--mc-lambdas` | | MISRA: code of lambdas and local functions in MC: `full` (a nested layer), `calls` (only their calls), `ignore` (see [docs/misra.md](docs/misra.md#mc--method-complexity)) | `full` |
-| `--cwc-library-weight` | | MISRA: weight of a call to a library method or delegate in CWC (default 0; 3 reproduces v1). Calls to other types of the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#cwc--coupling-weight-for-a-class)) | `0` |
+| `--cwc-library-weight` | | MISRA: weight of a call to a library method or delegate in CWC (default 0; 3 reproduces earlier versions). Calls to other types of the analysed code add 2 + MC of the called method (see [docs/misra.md](docs/misra.md#cwc--coupling-weight-for-a-class)) | `0` |
 | `--dit-resolve-framework` | | CK: count the ancestors of a base class from a library too, except `System.Object` (`D : Controller` = 2) (see [docs/ck.md](docs/ck.md#dit--depth-of-inheritance-tree)) | `false` |
-| `--dit-count-object` | | CK: count `System.Object` as a level of DIT, as v1 did | `false` |
+| `--dit-count-object` | | CK: count `System.Object` as a level of DIT, as earlier versions did | `false` |
 | `--cbo-bidirectional` | | CK: CBO also counts the types that use the class (CK 1994), each coupled type once (see [docs/ck.md](docs/ck.md#cbo--coupling-between-objects)) | `false` |
-| `--cbo-declared-types-only` | | CK: CBO counts only the types of fields, properties and method signatures, and only classes, as v1 did | `false` |
-| `--rfc-exclude-constructors` | | CK: leave constructor calls (`new`, `base(...)`) out of RFC, as v1 did (see [docs/ck.md](docs/ck.md#rfc--response-for-a-class)) | `false` |
+| `--cbo-declared-types-only` | | CK: CBO counts only the types of fields, properties and method signatures, and only classes, as earlier versions did | `false` |
+| `--rfc-exclude-constructors` | | CK: leave constructor calls (`new`, `base(...)`) out of RFC, as earlier versions did (see [docs/ck.md](docs/ck.md#rfc--response-for-a-class)) | `false` |
 | `--coc-formula <tree\|levels>` | | MISRA: CoC of a hierarchy by subtree (CLC × Σ CoC of the subclasses, as in the example of Misra et al.) or by level (Eq. 27 read literally) (see [docs/misra.md](docs/misra.md#coc--code-complexity)) | `tree` |
-| `--coc-legacy` | | MISRA: CoC as v1 computed it, Σ CLC + Σ CWC / 2, without the hierarchy | `false` |
+| `--coc-legacy` | | MISRA: CoC as earlier versions computed it, Σ CLC + Σ CWC / 2, without the hierarchy | `false` |
 | `--help` | `-h`, `-?` | Show help and usage information | |
 
 **Metric Selection:**
@@ -285,7 +285,7 @@ FilePath,ClassName,MethodName,MC,AC,CLC,CWC,CoC,CC,Kind
 - **CLC**: Class Complexity - Overall complexity of the class (class-level only)
 - **CWC**: Coupling Weight for a Class - Complexity from inter-class interactions (class-level only)
 - **CoC**: Code Complexity - Overall complexity of the codebase, by inheritance hierarchy (codebase-level only)
-- **CC**: the former name of CoC, with the same value; kept for one version so that v1 scripts keep working
+- **CC**: the former name of CoC, with the same value; kept for one version so that scripts written for earlier versions keep working
 - **Kind**: Kind of the type of the row: `class`, `record`, `struct` or `record struct` (empty for the codebase row)
 
 #### Output Levels

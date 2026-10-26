@@ -126,7 +126,7 @@ public class MetricsAnalysisService
                 });
             }
 
-            // File row: LOC keeps the v1 sum of classes; LLOC and physical LOC are measured on the whole file,
+            // File row: LOC keeps the legacy sum of classes; LLOC and physical LOC are measured on the whole file,
             // so records, structs, enums, nested types and files without classes are all covered.
             metrics.Add(new LocMetric
             {

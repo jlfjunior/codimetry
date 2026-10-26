@@ -84,7 +84,7 @@ public class RootCommandHandlerTests : IDisposable
         Assert.Equal(0, await Run("--path", Source, "--out", Output, "--misra", "--ac-type-weights"));
         var weighted = File.ReadAllLines(Path.Combine(Output, "metrics_misra.csv"));
 
-        // One per instance attribute: _item, _n = 2; v1: Max (1) + Item (2) + int (1) = 4
+        // One per instance attribute: _item, _n = 2; legacy rule: Max (1) + Item (2) + int (1) = 4
         Assert.Contains(counted, l => l.EndsWith(",Holder,,0,2,2,0,0,0,class"));
         Assert.Contains(weighted, l => l.EndsWith(",Holder,,0,4,4,0,0,0,class"));
     }

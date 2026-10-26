@@ -41,7 +41,7 @@ public class BcsInfo
     public bool HasBody { get; set; } = true;
 
     /// <summary>
-    /// The method's MC: the composition rule when it was calculated, otherwise the additive rule of v1,
+    /// The method's MC: the composition rule when it was calculated, otherwise the legacy additive rule,
     /// MC = (SequenceCount * 1) + (BranchCount * 2) + (IterationCount * 3) + (CallCount * 2).
     /// </summary>
     public int CalculateMc()
@@ -68,8 +68,8 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     /// Keys follow <see cref="TypeKeys"/>: "{classKey}::{methodKey}" for methods and the class key for
     /// attributes. Without a semantic model the class key is derived from the syntax alone.
     /// </summary>
-    /// <param name="additiveMc">Use the additive MC of v1 instead of the composition rule (--mc-additive).</param>
-    /// <param name="acTypeWeights">Collect the attributes as v1 did, every field and property including
+    /// <param name="additiveMc">Use the legacy additive MC instead of the composition rule (--mc-additive).</param>
+    /// <param name="acTypeWeights">Collect the attributes as earlier versions did, every field and property including
     /// static and const ones (--ac-type-weights), instead of the instance attributes.</param>
     /// <param name="scope">Which types are measured (--classes-only).</param>
     /// <param name="mcGraph">MC with the weight of calls, over the whole analysed code; without it, calls weigh nothing.</param>
@@ -139,8 +139,8 @@ public class MisraSyntaxVisitor : CSharpSyntaxWalker
     }
 
     /// <summary>
-    /// The attributes of v1: every field and property, static and const ones included (and the positional
-    /// properties of a record, which v1 did not measure).
+    /// The legacy attributes: every field and property, static and const ones included (and the positional
+    /// properties of a record, which earlier versions did not measure).
     /// </summary>
     private IEnumerable<(string Name, string Type)> AllFieldsAndProperties(TypeDeclarationSyntax node)
     {

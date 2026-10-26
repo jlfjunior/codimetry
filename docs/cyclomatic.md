@@ -123,7 +123,7 @@ The tool starts each method at **1** and adds **1** for each of the following:
 - `goto`: an unconditional jump has a single outgoing edge, so it creates no independent path.
 - `??`, `??=` and `?.`: the dissertation's definition does not list them. They branch on null, so the three follow one rule: none counts by default, and `--cc-null-operators` counts each one.
 
-`--cc-legacy-operators` restores the operator rule of v1: `??` and `goto` count; `??=`, `?.`, `or` and `and` do not. The two options cannot be used together. The `switch` rules above apply in every mode: the v1 count of `default` and `_` was a defect. The options also apply to WMC with `--wmc-weight cyclomatic`, which uses this same count, and the log records which rule was used.
+`--cc-legacy-operators` restores the legacy operator rule: `??` and `goto` count; `??=`, `?.`, `or` and `and` do not. The two options cannot be used together. The `switch` rules above apply in every mode: the legacy count of `default` and `_` was a defect. The options also apply to WMC with `--wmc-weight cyclomatic`, which uses this same count, and the log records which rule was used.
 
 An example using these modern C# constructs:
 
@@ -156,7 +156,7 @@ What gets measured: every member whose control flow the developer wrote. Each ge
 | indexer accessor with a body | `this[].get`, `this[].set` |
 | event accessor | `Name.add`, `Name.remove` |
 
-**Not measured:** automatic accessors (`{ get; set; }`), which have no flow of their own, and members without a body (abstract, interface, `extern`, partial definitions). A class made only of automatic properties has V(G) = 0. `--cc-include-auto-accessors` restores the rule of v1: each automatic property accessor gets a row with V(G) = 1 and enters the sums.
+**Not measured:** automatic accessors (`{ get; set; }`), which have no flow of their own, and members without a body (abstract, interface, `extern`, partial definitions). A class made only of automatic properties has V(G) = 0. `--cc-include-auto-accessors` restores the legacy rule: each automatic property accessor gets a row with V(G) = 1 and enters the sums.
 
 Lambdas and local functions are not members: their decisions are added to the member that contains them.
 

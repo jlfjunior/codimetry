@@ -70,16 +70,16 @@ public class CkMetricsAnalysisService
 
         _logger?.LogInformation("Discovered {Count} C# files for CK metrics analysis", files.Count);
         _logger?.LogInformation("DIT rule: {Rule}", _ditOptions.CountObject
-            ? "System.Object counts as a level, v1 (--dit-count-object)"
+            ? "System.Object counts as a level, legacy (--dit-count-object)"
             : _ditOptions.ResolveFramework
                 ? "declared inheritance, with the ancestors of external base classes (--dit-resolve-framework)"
                 : "declared inheritance; an external base class counts 1, System.Object does not count");
         _logger?.LogInformation("CBO rule: {Rule}, {Direction}", _cboOptions.DeclaredTypesOnly
-                ? "types of fields, properties and method signatures, classes only, v1 (--cbo-declared-types-only)"
+                ? "types of fields, properties and method signatures, classes only, legacy (--cbo-declared-types-only)"
                 : "every type reference to classes and interfaces of the analysed code",
             _cboOptions.Bidirectional ? "outgoing and incoming (--cbo-bidirectional)" : "outgoing");
         _logger?.LogInformation("RFC rule: {Rule}", _rfcExcludeConstructors
-            ? "methods only, v1 (--rfc-exclude-constructors)"
+            ? "methods only, legacy (--rfc-exclude-constructors)"
             : "methods and constructors (new, base(...))");
 
         // Phase 1: Build class relationship graph

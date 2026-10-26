@@ -83,15 +83,15 @@ public class MisraMetricsAnalysisService
 
         _logger?.LogInformation("Discovered {Count} C# files for MISRA metrics analysis", files.Count);
         _logger?.LogInformation("MC rule: {Rule}", _additiveMc
-            ? "additive, v1 (--mc-additive)"
+            ? "additive, legacy (--mc-additive)"
             : $"composition, Eq. 23 (sum per layer, product along nesting); a call to the analysed code adds 2 + MC, a library call adds {_libraryCallWeight}; lambdas and local functions: {_lambdaRule.ToString().ToLowerInvariant()}");
         _logger?.LogInformation("AC rule: {Rule}", _acTypeWeights
-            ? "fields and properties weighted by type, static and const included, v1 (--ac-type-weights)"
+            ? "fields and properties weighted by type, static and const included, legacy (--ac-type-weights)"
             : "one per instance attribute (Eq. 25)");
         _logger?.LogInformation("CWC rule: 2 + MC per call to another type of the analysed code (Eq. 24); a library call adds {Weight}",
             _cwcLibraryCallWeight);
         _logger?.LogInformation("CoC rule: {Rule}", _cocLegacy
-            ? "Σ CLC + Σ CWC / 2, v1 (--coc-legacy)"
+            ? "Σ CLC + Σ CWC / 2, legacy (--coc-legacy)"
             : _cocFormula == CocFormula.Tree
                 ? "Eq. 27 by subtree, as in the example of Misra et al.: CLC of a class × Σ CoC of its subclasses; hierarchies add"
                 : "Eq. 27 by level (--coc-formula levels): Π over levels of Σ CLC of the level; hierarchies add");
@@ -168,7 +168,7 @@ public class MisraMetricsAnalysisService
             if (string.IsNullOrEmpty(method.ContainingClassKey))
                 continue;
 
-            // A method without a body has no MC; v1 reported it as 0
+            // A method without a body has no MC; earlier versions reported it as 0
             if (!_additiveMc && allBcsInfo.TryGetValue($"{method.ContainingClassKey}::{method.Key}", out var bcs) && !bcs.HasBody)
                 continue;
 

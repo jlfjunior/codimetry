@@ -63,12 +63,12 @@ public class RootCommandHandler
         var mcAdditiveOption = new Option<bool>(
             aliases: new[] { "--mc-additive" },
             getDefaultValue: () => false,
-            description: "MISRA: compute MC with the additive rule of v1 (weights summed at any depth) instead of the composition rule of Eq. 23");
+            description: "MISRA: compute MC with the legacy additive rule (weights summed at any depth) instead of the composition rule of Eq. 23");
 
         var acTypeWeightsOption = new Option<bool>(
             aliases: new[] { "--ac-type-weights" },
             getDefaultValue: () => false,
-            description: "MISRA: compute AC as v1 did, weighting attributes by type (simple = 1, other = 2) and counting static and const members");
+            description: "MISRA: compute AC as earlier versions did, weighting attributes by type (simple = 1, other = 2) and counting static and const members");
 
         var wmcWeightOption = new Option<WmcWeight>(
             aliases: new[] { "--wmc-weight" },
@@ -78,7 +78,7 @@ public class RootCommandHandler
         var wmcExcludeStaticOption = new Option<bool>(
             aliases: new[] { "--wmc-exclude-static" },
             getDefaultValue: () => false,
-            description: "CK: leave static methods and constructors out of WMC, as v1 did");
+            description: "CK: leave static methods and constructors out of WMC, as earlier versions did");
 
         var ccNullOperatorsOption = new Option<bool>(
             aliases: new[] { "--cc-null-operators" },
@@ -88,17 +88,17 @@ public class RootCommandHandler
         var ccLegacyOperatorsOption = new Option<bool>(
             aliases: new[] { "--cc-legacy-operators" },
             getDefaultValue: () => false,
-            description: "Cyclomatic: operator rule of v1 (?? and goto count; ??=, ?. and the pattern combinators or/and do not)");
+            description: "Cyclomatic: legacy operator rule (?? and goto count; ??=, ?. and the pattern combinators or/and do not)");
 
         var ccIncludeAutoAccessorsOption = new Option<bool>(
             aliases: new[] { "--cc-include-auto-accessors" },
             getDefaultValue: () => false,
-            description: "Cyclomatic: give automatic property accessors ({ get; set; }) a row with V(G) = 1 and add them to the class and file sums, as v1 did");
+            description: "Cyclomatic: give automatic property accessors ({ get; set; }) a row with V(G) = 1 and add them to the class and file sums, as earlier versions did");
 
         var mcLibraryCallWeightOption = new Option<int>(
             aliases: new[] { "--mc-library-call-weight" },
             getDefaultValue: () => 0,
-            description: "MISRA: weight of a call to a library method in MC (2 reproduces v1 for these calls); calls to the analysed code add 2 + MC of the called method");
+            description: "MISRA: weight of a call to a library method in MC (2 reproduces earlier versions for these calls); calls to the analysed code add 2 + MC of the called method");
 
         var mcLambdasOption = new Option<Parsers.McLambdaRule>(
             aliases: new[] { "--mc-lambdas" },
@@ -108,12 +108,12 @@ public class RootCommandHandler
         var cwcLibraryWeightOption = new Option<int>(
             aliases: new[] { "--cwc-library-weight" },
             getDefaultValue: () => 0,
-            description: "MISRA: weight of a call to a library method or delegate in CWC (3 reproduces the library rule of v1); calls to other types of the analysed code add 2 + MC");
+            description: "MISRA: weight of a call to a library method or delegate in CWC (3 reproduces the legacy library rule); calls to other types of the analysed code add 2 + MC");
 
         var ditCountObjectOption = new Option<bool>(
             aliases: new[] { "--dit-count-object" },
             getDefaultValue: () => false,
-            description: "CK: count System.Object as a level of DIT, as v1 did (a class without an explicit base has DIT = 1)");
+            description: "CK: count System.Object as a level of DIT, as earlier versions did (a class without an explicit base has DIT = 1)");
 
         var ditResolveFrameworkOption = new Option<bool>(
             aliases: new[] { "--dit-resolve-framework" },
@@ -123,7 +123,7 @@ public class RootCommandHandler
         var cboDeclaredTypesOnlyOption = new Option<bool>(
             aliases: new[] { "--cbo-declared-types-only" },
             getDefaultValue: () => false,
-            description: "CK: CBO counts only the types of fields, properties and method signatures, and only classes, as v1 did (types still matched by symbol)");
+            description: "CK: CBO counts only the types of fields, properties and method signatures, and only classes, as earlier versions did (types still matched by symbol)");
 
         var cboBidirectionalOption = new Option<bool>(
             aliases: new[] { "--cbo-bidirectional" },
@@ -133,7 +133,7 @@ public class RootCommandHandler
         var rfcExcludeConstructorsOption = new Option<bool>(
             aliases: new[] { "--rfc-exclude-constructors" },
             getDefaultValue: () => false,
-            description: "CK: leave constructor calls (new, base(...)) out of RFC, as v1 did");
+            description: "CK: leave constructor calls (new, base(...)) out of RFC, as earlier versions did");
 
         var cocFormulaOption = new Option<CocFormula>(
             aliases: new[] { "--coc-formula" },
@@ -143,12 +143,12 @@ public class RootCommandHandler
         var cocLegacyOption = new Option<bool>(
             aliases: new[] { "--coc-legacy" },
             getDefaultValue: () => false,
-            description: "MISRA: compute CoC as v1 did, Σ CLC + Σ CWC / 2, without the inheritance hierarchy");
+            description: "MISRA: compute CoC as earlier versions did, Σ CLC + Σ CWC / 2, without the inheritance hierarchy");
 
         var classesOnlyOption = new Option<bool>(
             aliases: new[] { "--classes-only" },
             getDefaultValue: () => false,
-            description: "Measure only classes, as v1 did; by default records, structs and record structs are measured too");
+            description: "Measure only classes, as earlier versions did; by default records, structs and record structs are measured too");
 
         var rootCommand = new RootCommand("Codimetry - Extract LOC, CK, MISRA, and Cyclomatic Complexity metrics from .NET codebases")
         {
@@ -293,11 +293,11 @@ public class RootCommandHandler
                 logger.LogInformation("Recursive: {Recursive}", !noRecursive);
             }
             logger.LogInformation("Cyclomatic operators: {Rule}",
-                cyclomaticOptions.LegacyOperators ? "legacy (v1: ?? and goto count)"
+                cyclomaticOptions.LegacyOperators ? "legacy (?? and goto count)"
                 : cyclomaticOptions.NullOperators ? "null operators (??, ??= and ?. count)"
                 : "default (??, ??=, ?. and goto do not count)");
             logger.LogInformation("Measured types: {Scope}", typeScope.ClassesOnly
-                ? "classes only, v1 (--classes-only)"
+                ? "classes only, legacy (--classes-only)"
                 : "classes, records, structs and record structs");
 
             // Determine which metrics to calculate

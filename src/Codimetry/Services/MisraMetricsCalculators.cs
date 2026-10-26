@@ -49,7 +49,7 @@ public class AcCalculator
 {
     private readonly bool _typeWeights;
 
-    /// <param name="typeWeights">Weight each attribute by its type as v1 did (simple = 1, other = 2),
+    /// <param name="typeWeights">Weight each attribute by its type as earlier versions did (simple = 1, other = 2),
     /// instead of counting it as one unit (--ac-type-weights).</param>
     public AcCalculator(bool typeWeights = false)
     {
@@ -168,7 +168,7 @@ public class CwcCalculator
     private readonly int _libraryCallWeight;
 
     /// <param name="libraryCallWeight">Weight of a call to a library method (--cwc-library-weight); 0 leaves
-    /// them out, 3 reproduces the library rule of v1.</param>
+    /// them out, 3 reproduces the legacy library rule.</param>
     public CwcCalculator(int libraryCallWeight = 0)
     {
         _libraryCallWeight = libraryCallWeight;
@@ -255,7 +255,7 @@ public class CcCalculator
     }
 
     /// <summary>
-    /// The CoC of v1 (--coc-legacy): Σ(CLC for all classes) + Σ(CWC for all classes) / 2, without the inheritance
+    /// The legacy CoC (--coc-legacy): Σ(CLC for all classes) + Σ(CWC for all classes) / 2, without the inheritance
     /// hierarchy. See <see cref="CocCalculator"/> for Eq. 27.
     /// </summary>
     public int CalculateCc(

@@ -8,10 +8,10 @@ namespace Codimetry.Parsers;
 /// Which operators count as decision points in V(G), besides the default ones.
 /// </summary>
 /// <param name="NullOperators">`??`, `??=` and `?.` add one each (--cc-null-operators).</param>
-/// <param name="LegacyOperators">The operator rule of v1 (--cc-legacy-operators): `??` and `goto` add one,
+/// <param name="LegacyOperators">The legacy operator rule (--cc-legacy-operators): `??` and `goto` add one,
 /// `??=`, `?.` and the pattern combinators `or`/`and` do not. Takes precedence over <paramref name="NullOperators"/>.</param>
 /// <param name="IncludeAutoAccessors">Automatic property accessors (<c>{ get; set; }</c>) get a row with V(G) = 1 and
-/// enter the class and file sums, as in v1 (--cc-include-auto-accessors).</param>
+/// enter the class and file sums, as in earlier versions (--cc-include-auto-accessors).</param>
 public sealed record CyclomaticOptions(bool NullOperators = false, bool LegacyOperators = false, bool IncludeAutoAccessors = false)
 {
     public static CyclomaticOptions Default { get; } = new();
@@ -186,7 +186,7 @@ public class CyclomaticComplexityVisitor : CSharpSyntaxWalker
 
     public override void VisitBinaryPattern(BinaryPatternSyntax node)
     {
-        // The pattern combinators or/and branch like || and && (v1 did not count them)
+        // The pattern combinators or/and branch like || and && (earlier versions did not count them)
         if (!_options.LegacyOperators)
         {
             _complexity++;
@@ -197,7 +197,7 @@ public class CyclomaticComplexityVisitor : CSharpSyntaxWalker
 
     public override void VisitGotoStatement(GotoStatementSyntax node)
     {
-        // An unconditional jump has a single outgoing edge; v1 counted it
+        // An unconditional jump has a single outgoing edge; earlier versions counted it
         if (_options.LegacyOperators)
         {
             _complexity++;
@@ -206,6 +206,6 @@ public class CyclomaticComplexityVisitor : CSharpSyntaxWalker
         base.VisitGotoStatement(node);
     }
 
-    // ??= and ?. were not counted by v1, so the legacy rule leaves them out
+    // ??= and ?. were not counted by earlier versions, so the legacy rule leaves them out
     private bool CountsNewNullOperators => _options.NullOperators && !_options.LegacyOperators;
 }

@@ -32,7 +32,7 @@ Every metric that works per class measures **classes, records (`record`, `record
 
 A method belongs to the **nearest** enclosing type: the methods of a record nested in a class are measured for the record, never for the class. `metrics_ck.csv` and `metrics_misra.csv` have a `Kind` column (`class`, `record`, `struct`, `record struct`) to filter by type.
 
-`--classes-only` restores the scope of v1: only classes get rows. Methods of records and structs then still get rows in `metrics_cyclomatic.csv` and `metrics_loc.csv`, with an empty `ClassName`.
+`--classes-only` restores the legacy scope: only classes get rows. Methods of records and structs then still get rows in `metrics_cyclomatic.csv` and `metrics_loc.csv`, with an empty `ClassName`.
 
 **Which metric for which question?**
 

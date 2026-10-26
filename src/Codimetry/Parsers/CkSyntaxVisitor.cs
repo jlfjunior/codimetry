@@ -8,7 +8,7 @@ namespace Codimetry.Parsers;
 /// How DIT treats the ancestors outside the analysed code.
 /// </summary>
 /// <param name="CountObject">System.Object is the base of a class without an explicit one and counts as one
-/// level, as in v1 (--dit-count-object).</param>
+/// level, as in earlier versions (--dit-count-object).</param>
 /// <param name="ResolveFramework">Also count the ancestors of an external base class, except System.Object
 /// (--dit-resolve-framework): <c>D : Controller</c> is D → Controller → ControllerBase = 2.</param>
 public sealed record DitOptions(bool CountObject = false, bool ResolveFramework = false)
@@ -410,7 +410,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     }
 
     /// <summary>
-    /// A type of the class's fields, properties and method signatures: the whole CBO of v1 (--cbo-declared-types-only),
+    /// A type of the class's fields, properties and method signatures: the whole legacy CBO (--cbo-declared-types-only),
     /// a subset of what <see cref="TypeReferenceCollector"/> collects otherwise.
     /// </summary>
     private void AddDeclaredType(ClassDependency dependency, TypeSyntax? type)

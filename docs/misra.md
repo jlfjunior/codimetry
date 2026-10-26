@@ -151,7 +151,7 @@ public class PriceCalculator
 - the two simple statements of the method body form one sequence (1), and the `if` adds 2 × 1
 - **MC = 2 + 1 = 3**, which is what the tool reports
 
-`--mc-additive` restores the rule of v1 (every call, library ones included, weighs 2 and the MC of the called method does not enter), which adds the weights at any depth and counts each statement and each call: $MC = 1 \cdot N_{seq} + 2 \cdot N_{branch} + 3 \cdot N_{iter} + 2 \cdot N_{call}$, where each `else` is one more branch. With it, `Process` is 10 and `Total` is 9.
+`--mc-additive` restores the legacy rule (every call, library ones included, weighs 2 and the MC of the called method does not enter), which adds the weights at any depth and counts each statement and each call: $MC = 1 \cdot N_{seq} + 2 \cdot N_{branch} + 3 \cdot N_{iter} + 2 \cdot N_{call}$, where each `else` is one more branch. With it, `Process` is 10 and `Total` is 9.
 
 Because the two models differ, **MC values from this tool are not comparable** with Campbell/SonarQube cognitive complexity values.
 
@@ -211,7 +211,7 @@ These do **not** count:
 
 For `Customer`, that is five auto-properties, so the tool reports **AC = 5**.
 
-Records, structs and record structs follow the same rules. `--ac-type-weights` restores the rule of v1: every field and property, `static` and `const` included, weighted 1 for simple types (numeric primitives, `bool`, `char`, `string`, `object`, `DateTime`, `TimeSpan`, `Guid`) and 2 for any other type. With it, `Customer` is 1 + 1 + 1 + 1 + 2 = 6.
+Records, structs and record structs follow the same rules. `--ac-type-weights` restores the legacy rule: every field and property, `static` and `const` included, weighted 1 for simple types (numeric primitives, `bool`, `char`, `string`, `object`, `DateTime`, `TimeSpan`, `Guid`) and 2 for any other type. With it, `Customer` is 1 + 1 + 1 + 1 + 2 = 6.
 
 ---
 
@@ -333,7 +333,7 @@ For `CartService`:
 - `WriteLine`: a library method, so it adds nothing;
 - **CWC = 3**, which is what the tool reports.
 
-`--cwc-library-weight 3` restores the library rule of v1, which added 3 for every library or delegate call; with `--mc-additive` as well, it reproduces v1 except for one defect that is not restored: v1 matched an unresolved call with the first method of the same name in any class.
+`--cwc-library-weight 3` restores the legacy library rule, which added 3 for every library or delegate call; with `--mc-additive` as well, it reproduces earlier versions except for one defect that is not restored: earlier versions matched an unresolved call with the first method of the same name in any class.
 
 ---
 
@@ -393,7 +393,7 @@ $$
 - CWC does not enter.
 - The value is a 64-bit integer: with CLC in the hundreds and hierarchies of 3–4 levels, CoC reaches $10^8$–$10^{10}$, so compare codebases on a logarithmic scale. If a hierarchy overflows 64 bits, the log warns and the value is reported as the largest 64-bit integer.
 
-The value goes in the `CoC` column of the codebase row of `metrics_misra.csv`. The `CC` column repeats it for one version, so that scripts written for v1 keep working. `metrics_coc.csv` has one row per hierarchy, named by its root:
+The value goes in the `CoC` column of the codebase row of `metrics_misra.csv`. The `CC` column repeats it for one version, so that scripts written for earlier versions keep working. `metrics_coc.csv` has one row per hierarchy, named by its root:
 
 ```csv
 FilePath,ClassName,Classes,Levels,CoC,Kind
@@ -402,7 +402,7 @@ src/Computer.cs,Computer,5,3,536,class
 
 `--coc-formula levels` uses Eq. 27 read level by level (816 for the example of the paper). The two agree when every level above the last has a single class, as in `User`/`Customer` (4) or a class with two subclasses that have none; they differ as soon as a level has several classes and one of them has subclasses.
 
-`--coc-legacy` restores the rule of v1, which ignored the hierarchy and added half of the CWC: $\sum_k CLC_k + \lfloor \sum_k CWC_k / 2 \rfloor$.
+`--coc-legacy` restores the legacy rule, which ignored the hierarchy and added half of the CWC: $\sum_k CLC_k + \lfloor \sum_k CWC_k / 2 \rfloor$.
 
 The samples on this page (`Address`, `Customer`, `Order`, the record `Product`, `StockService`, `CartService`, `Processor`, `PriceCalculator`) do not inherit from each other, so each is a hierarchy of its own and **CoC = $\sum CLC$ = 34**. `Product` adds 1: its positional parameter `Sku` is an attribute, and it has no methods. `CartService.Checkout` has MC 5: its `if` (2) plus the call to `IsAvailable` in the condition (2 + MC 1).
 
