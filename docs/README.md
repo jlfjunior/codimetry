@@ -42,10 +42,3 @@ A method belongs to the **nearest** enclosing type: the methods of a record nest
 - *How hard is it to understand?* → [Misra](misra.md)
 
 The metric families overlap: MC and cyclomatic complexity both describe control flow, and CLC and WMC both aggregate complexity per class. Expect them to be correlated, and use them together rather than in isolation.
-
-## Research
-
-| Document | Contents |
-|----------|----------|
-| [research/reproducing-dissertation.md](research/reproducing-dissertation.md) | How the data for the master's dissertation case study was collected and summarised |
-| [research/descricao-ferramenta.md](research/descricao-ferramenta.md) | Description of the tool for the dissertation (in Portuguese): motivation, technical overview, suggested paragraphs |

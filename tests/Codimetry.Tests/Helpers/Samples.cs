@@ -373,7 +373,7 @@ public static class Samples
         }
         """;
 
-    // ---------- Misra et al. (2018), appendix, ported to C# (docs/research/plano-correcao-metricas.md) ----------
+    // ---------- Misra et al. (2018), appendix, ported to C# ----------
 
     /// <summary>
     /// Cap. 2, CoC: a hierarchy of two levels, CLC 2 each, CoC = 2 × 2 = 4.

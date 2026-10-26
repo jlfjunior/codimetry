@@ -6,7 +6,7 @@
 # The tool is built in a temporary worktree of <commit>. The collection runs from the repository root with
 # --path ../artefatos-mestrado/<p>/, as in the v1 protocol, so that FilePath keeps the same form and classes
 # pair across collections. The console log of each participant goes to <results-dir>/<p>/run.log.
-# Requires the artefacts restored (dotnet restore), see docs/research/protocolo-recoleta.md, Fase 3.
+# Requires the artefacts restored (dotnet restore in each participant folder).
 set -euo pipefail
 
 commit="$1"
@@ -36,7 +36,7 @@ for dir in "$artefatos"/p*/; do
 done
 
 {
-  echo "commit: $(git rev-parse "$commit")"
+  echo "commit: $(git rev-parse "$commit^{commit}")"
   echo "artefatos: $(git -C "$artefatos" rev-parse HEAD)"
   echo "sdk: $(dotnet --version)"
   echo "options: $*"

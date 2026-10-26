@@ -3,12 +3,7 @@
 `cbtam_analysis.py` recalcula todos os números do Cap. 4 da dissertação a partir de um diretório de resultados da ferramenta. Usa só a biblioteca padrão do Python (≥ 3.9).
 
 ```bash
-# v1 (dados da dissertação) + conferência contra os números publicados
-python3 scripts/analysis/cbtam_analysis.py --results results-v1 --out analysis/v1 \
-    --check scripts/analysis/published_v1.json
-
-# sensibilidade: sem a duplicata p33
-python3 scripts/analysis/cbtam_analysis.py --results results-v1 --out analysis/v1-sem-p33 --exclude p33
+python3 scripts/analysis/cbtam_analysis.py --results results --out analysis
 ```
 
 ## Saídas (`--out`)

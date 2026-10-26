@@ -4,20 +4,15 @@
 Usage: python3 scripts/generate_index.py [results-dir]   (default: results)
 """
 
-import csv
 import math
 import os
 import sys
 from datetime import date
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "analysis"))
+from common import load_results, pearson  # noqa: E402
+
 RESULTS_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "results")
-
-
-def read_csv(path):
-    if not os.path.exists(path):
-        return []
-    with open(path) as f:
-        return list(csv.DictReader(f))
 
 
 def avg(rows, field):
@@ -39,54 +34,15 @@ def sumf(rows, field):
     return sum(float(r[field]) for r in rows if r.get(field, "").strip() != "")
 
 
-def pearson(xs, ys):
-    n = len(xs)
-    mx, my = sum(xs) / n, sum(ys) / n
-    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-    dx = math.sqrt(sum((x - mx) ** 2 for x in xs))
-    dy = math.sqrt(sum((y - my) ** 2 for y in ys))
-    if dx == 0 or dy == 0:
-        return float("nan")
-    return num / (dx * dy)
-
-
-def load_participant(p_dir, pid, pos, lvl):
-    ck = read_csv(os.path.join(p_dir, "metrics_ck.csv"))
-    misra = read_csv(os.path.join(p_dir, "metrics_misra.csv"))
-    loc = read_csv(os.path.join(p_dir, "metrics_loc.csv"))
-    cyc = read_csv(os.path.join(p_dir, "metrics_cyclomatic.csv"))
-
-    # LOC — file-level rows (ClassName='' AND MethodName='', FilePath set)
-    loc_file = [r for r in loc if r.get("ClassName", "").strip() == "" and r.get("MethodName", "").strip() == "" and r.get("FilePath", "").strip() != ""]
-    total_loc = int(sumf(loc_file, "LOC"))
-
-    # Cyclomatic — file-level rows
-    cyc_file = [r for r in cyc if r.get("ClassName", "").strip() == "" and r.get("MethodName", "").strip() == "" and r.get("FilePath", "").strip() != ""]
-    total_cyc = int(sumf(cyc_file, "Complexity"))
-
-    # MISRA rows by level
-    m_method = [r for r in misra if r.get("MethodName", "").strip() != ""]
-    m_class  = [r for r in misra if r.get("MethodName", "").strip() == "" and r.get("ClassName", "").strip() != ""]
-    m_cb     = next(r for r in misra if r.get("MethodName", "").strip() == "" and r.get("ClassName", "").strip() == "")
-
-    total_mc  = int(sumf(m_method, "MC"))
-    total_ac  = int(sumf(m_class,  "AC"))
-    total_clc = int(sumf(m_class,  "CLC"))
-    total_cwc = int(sumf(m_class,  "CWC"))
-    total_cc  = int(float(m_cb["CC"]))
-
-    mc_min  = int(mingt0(m_method, "MC"))
-    mc_max  = int(maxv(m_method,   "MC"))
-    ac_min  = int(mingt0(m_class,  "AC"))
-    ac_max  = int(maxv(m_class,    "AC"))
-    clc_min = int(mingt0(m_class,  "CLC"))
-    clc_max = int(maxv(m_class,    "CLC"))
-    cwc_min = int(mingt0(m_class,  "CWC"))
-    cwc_max = int(maxv(m_class,    "CWC"))
+def summarize(p):
+    # Classes = rows of metrics_ck.csv, before the per-(file, class) consolidation of cbtam_analysis.py
+    ck = p["classes_raw"]
+    m_method = p["methods"]
+    m_class = p["misra_classes_raw"]
 
     return {
-        "pid": pid, "pos": pos, "lvl": lvl,
-        "loc": total_loc,
+        "pid": p["pid"], "pos": p["position_code"], "lvl": p["level_code"],
+        "loc": p["loc"],
         "classes": len(ck),
         "wmc_avg": avg(ck, "WMC"), "wmc_min": mingt0(ck, "WMC"), "wmc_max": maxv(ck, "WMC"),
         "dit_avg": avg(ck, "DIT"), "dit_min": mingt0(ck, "DIT"), "dit_max": maxv(ck, "DIT"),
@@ -94,12 +50,12 @@ def load_participant(p_dir, pid, pos, lvl):
         "cbo_avg": avg(ck, "CBO"), "cbo_min": mingt0(ck, "CBO"), "cbo_max": maxv(ck, "CBO"),
         "rfc_avg": avg(ck, "RFC"), "rfc_min": mingt0(ck, "RFC"), "rfc_max": maxv(ck, "RFC"),
         "lcom_avg": avg(ck, "LCOM"), "lcom_min": mingt0(ck, "LCOM"), "lcom_max": maxv(ck, "LCOM"),
-        "mc_total": total_mc, "mc_min": mc_min, "mc_max": mc_max,
-        "ac_total": total_ac, "ac_min": ac_min, "ac_max": ac_max,
-        "clc_total": total_clc, "clc_min": clc_min, "clc_max": clc_max,
-        "cwc_total": total_cwc, "cwc_min": cwc_min, "cwc_max": cwc_max,
-        "cc": total_cc,
-        "cyc": total_cyc,
+        "mc_total": int(sumf(m_method, "MC")), "mc_min": int(mingt0(m_method, "MC")), "mc_max": int(maxv(m_method, "MC")),
+        "ac_total": int(sumf(m_class, "AC")), "ac_min": int(mingt0(m_class, "AC")), "ac_max": int(maxv(m_class, "AC")),
+        "clc_total": int(sumf(m_class, "CLC")), "clc_min": int(mingt0(m_class, "CLC")), "clc_max": int(maxv(m_class, "CLC")),
+        "cwc_total": int(sumf(m_class, "CWC")), "cwc_min": int(mingt0(m_class, "CWC")), "cwc_max": int(maxv(m_class, "CWC")),
+        "cc": p["coc"],
+        "cyc": p["cyclomatic"],
     }
 
 
@@ -126,16 +82,7 @@ def group_avg(data, key, fields):
 
 
 def main():
-    participants = sorted(
-        [d for d in os.listdir(RESULTS_DIR) if os.path.isdir(os.path.join(RESULTS_DIR, d))],
-        key=lambda x: int(x.split("-")[0][1:])
-    )
-
-    data = []
-    for p in participants:
-        parts = p.split("-")
-        pid, pos, lvl = parts[0], parts[1], parts[2]
-        data.append(load_participant(os.path.join(RESULTS_DIR, p), pid, pos, lvl))
+    data = [summarize(p) for p in load_results(RESULTS_DIR)]
 
     lines = []
 
@@ -380,7 +327,7 @@ def main():
         table(
             ["Metric", "Description"],
             [
-                ["**LOC**", "Effective lines of code (excludes comments and blank lines)"],
+                ["**LOC**", "Logical lines of code (LLOC, Park 1992); results without the LLOC column use the tool's original LOC"],
                 ["**WMC**", "Weighted Methods per Class — method count per class"],
                 ["**DIT**", "Depth of Inheritance Tree — levels of inheritance from root (external base classes not counted)"],
                 ["**NOC**", "Number of Children — direct subclasses within the analysed codebase"],
