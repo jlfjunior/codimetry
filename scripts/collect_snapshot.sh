@@ -4,7 +4,7 @@
 #   scripts/collect_snapshot.sh <commit> <results-dir> <analysis-dir> [tool options...]
 #
 # The tool is built in a temporary worktree of <commit>. The collection runs from the repository root with
-# --path ../artefatos-mestrado/<p>/, as in the v1 protocol, so that FilePath keeps the same form and classes
+# --path ../artefatos-mestrado/<p>/, as in earlier collections, so that FilePath keeps the same form and classes
 # pair across collections. The console log of each participant goes to <results-dir>/<p>/run.log.
 # Requires the artefacts restored (dotnet restore in each participant folder).
 set -euo pipefail

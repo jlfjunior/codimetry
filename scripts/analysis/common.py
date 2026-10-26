@@ -38,7 +38,7 @@ def read_csv(path):
 def last_per_key(rows, keys):
     """One record per key, keeping the last occurrence (rule of the CBTAM analysis).
 
-    v1 of the tool emits a partial or homonymous class once per declaration, all
+    The tool can emit a partial or homonymous class once per declaration, all
     with the same FilePath; when the copies disagree, the last one is kept.
     """
     out = {}
@@ -80,10 +80,10 @@ def load_participant(directory):
         "misra_classes": last_per_key(misra_classes_raw, ["FilePath", "ClassName"]),
         "misra_classes_raw": misra_classes_raw,
         "methods": [r for r in misra if r["MethodName"]],
-        # Tamanho = LLOC (Park, 1992); resultados v1 sem a coluna caem na LOC antiga
+        # Tamanho = LLOC (Park, 1992); coletas antigas sem a coluna caem na LOC antiga
         "loc": int(sum(num(r, "LLOC" if "LLOC" in r else "LOC") for r in file_level(loc))),
         "cyclomatic": int(sum(num(r, "Complexity") for r in file_level(cyc))),
-        # CoC since INC-20; older collections only have the CC column
+        # Older collections only have the CC column
         "coc": int(num(codebase_rows[0], "CoC" if "CoC" in codebase_rows[0] else "CC")) if codebase_rows else 0,
     }
 

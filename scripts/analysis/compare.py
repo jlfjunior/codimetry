@@ -2,7 +2,7 @@
 """Compares two or more outputs of cbtam_analysis.py, in order (waterfall).
 
 Usage:
-    python3 scripts/analysis/compare.py analysis/v1 analysis/01-x analysis/02-y [--out comparison.md]
+    python3 scripts/analysis/compare.py analysis/00-base analysis/01-x analysis/02-y [--out comparison.md]
 
 For each step it reports the headline numbers, how many classes changed in each metric
 relative to the previous step (classes paired by participant + file + class), and which

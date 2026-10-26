@@ -4,7 +4,7 @@
 
 ```bash
 python3 scripts/analysis/cbtam_analysis.py --results results --out analysis \
-    --check scripts/analysis/published_v1.json
+    --check scripts/analysis/published.json
 ```
 
 ## Saídas (`--out`)
@@ -26,6 +26,6 @@ python3 scripts/analysis/cbtam_analysis.py --results results --out analysis \
 - **Acurácia e linha de base** excluem o participante Beginner; **ρ de Spearman** usa todos os participantes.
 - **Correlações de Pearson** são entre participantes, com duas exceções: DIT × NOC é por classe, e CBO × classes usa o nº de classes antes da consolidação (o do `index.md`).
 
-## `published_v1.json`
+## `published.json`
 
 Números de referência da análise dos 47 participantes de `results/`, gerados com a tag `v1` da ferramenta. Com `--check`, o script compara o resultado com esses números. A seção `errata` lista os valores de referência que não conferem com os dados, cada um com a justificativa; hoje ela está vazia. A conferência falha (exit 1) para qualquer divergência fora dessa lista, ou se uma errata deixar de ser necessária.

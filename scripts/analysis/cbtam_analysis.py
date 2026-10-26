@@ -183,7 +183,7 @@ def analyse(participants):
     correlations = {(a, b): pearson([s[a] for s in summaries], [s[b] for s in summaries])
                     for i, a in enumerate(corr_fields) for b in corr_fields[i + 1:]}
 
-    # LCOM is at most n(n−1)/2 over its own methods; v1 results have no LcomMethods column and
+    # LCOM is at most n(n−1)/2 over its own methods; older collections have no LcomMethods column and
     # computed LCOM over the same methods WMC counted
     def lcom_methods(r):
         return num(r, "LcomMethods" if "LcomMethods" in r else "WMC")
@@ -220,7 +220,7 @@ def analyse(participants):
             "classes_raw": sum(len(p["classes_raw"]) for p in participants),
             "classes": len(all_classes),
             "methods": sum(len(p["methods"]) for p in participants),
-            # Records and structs are measured since INC-13; v1 results have no Kind column (only classes)
+            # Records and structs are measured by default; older collections have no Kind column (only classes)
             "by_kind": {k: sum(1 for r in all_classes if r.get("Kind", "class") == k)
                         for k in sorted({r.get("Kind", "class") for r in all_classes})},
         },
@@ -272,7 +272,7 @@ def write_outputs(result, participants, out_dir, label):
     write_csv(os.path.join(out_dir, "per_participant_results.csv"), result["per_participant"],
               ["pid", "level"] + metric_names + ["predicted", "correct", "distance", "discrepancy", "mean_pct_normal"])
 
-    # Stable per-class key (participant + file + class) for the v1 x v2 comparison
+    # Stable per-class key (participant + file + class) for comparing collections
     per_class = []
     misra_by_key = {}
     for p in participants:
@@ -352,7 +352,7 @@ def render_report(r, label):
     L += ["", "## empirical_application", "",
           "Limiares absolutos (% Normal sobre todas as classes): " +
           ", ".join(f"{m} {fmt(v, 1)}%" for m, v in r["absolute_normal_pct"].items()), "",
-          f"LCOM = n(n−1)/2 (n = métodos da LCOM; WMC na v1) em {fmt(r['lcom_equals_max_pairs_pct'], 1)}% "
+          f"LCOM = n(n−1)/2 (n = métodos da LCOM; WMC nas coletas antigas) em {fmt(r['lcom_equals_max_pairs_pct'], 1)}% "
           f"das {r['lcom_pair_classes']} classes com n ≥ 2.", "",
           "Tipos medidos por Kind: " + ", ".join(f"{k} {n}" for k, n in r["counts"]["by_kind"].items()) + ".", "",
           "Limiares relativos (amostra combinada):", "", "| Métrica | População | P50 | P90 |", "|---|---:|---:|---:|"]
