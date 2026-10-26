@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproducible CBTAM analysis of the case-study results.
+"""Reproducible CBTAM analysis of a results directory.
 
 Reads a results directory (one folder per participant, named p{n}-{position}-{level},
 each holding the four CSVs exported by the tool) and writes CSV tables and a
@@ -23,7 +23,7 @@ from common import load_results, num, pearson
 
 LEVEL_ORDER = ["Beginner", "Mid-Level", "Senior", "Expert"]
 
-# The seven CBTAM metrics, in the column order of tab:per_participant_results,
+# The seven CBTAM metrics, in the column order of the per-participant table,
 # with the population each one is classified over.
 CBTAM_METRICS = [
     ("WMC", "classes"),
@@ -35,10 +35,10 @@ CBTAM_METRICS = [
     ("MC", "methods"),
 ]
 
-# Absolute literature thresholds (tab:reference_thresholds), upper bound of Normal.
+# Absolute literature thresholds, upper bound of Normal.
 ABSOLUTE_NORMAL_MAX = {"WMC": 20, "DIT": 5, "NOC": 5}
 
-# Staged aggregation rule (empirical_application): level -> (min metrics, min % Normal).
+# Staged aggregation rule: level -> (min metrics, min % Normal).
 STAGES = [("Mid-Level", 4, 40.0), ("Senior", 5, 50.0), ("Expert", 6, 60.0)]
 
 
@@ -100,7 +100,7 @@ def participant_summary(p):
         "cbo_avg": mean(col(p["classes"], "CBO")),
         "rfc_avg": mean(col(p["classes"], "RFC")),
         "lcom_avg": mean(col(p["classes"], "LCOM")),
-        # Misra metrics normalised by the number of classes analysed (tab:per_class_averages)
+        # Misra metrics normalised by the number of classes analysed
         "mc_per_class": sum(col(p["methods"], "MC")) / n,
         "ac_per_class": sum(col(p["misra_classes"], "AC")) / n,
         "cwc_per_class": sum(col(p["misra_classes"], "CWC")) / n,
@@ -193,7 +193,7 @@ def analyse(participants):
     lcom_equals_max_pairs = sum(1 for r in lcom_pair_classes
                                 if num(r, "LCOM") == lcom_methods(r) * (lcom_methods(r) - 1) / 2)
 
-    # DIT x NOC in metric_redundancy is a class-level correlation, unlike the others
+    # DIT x NOC is a class-level correlation, unlike the others
     dit_noc_class_level = pearson([num(r, "DIT") for r in all_classes], [num(r, "NOC") for r in all_classes])
 
     absolute_normal = {m: 100 * sum(1 for r in all_classes if num(r, m) <= limit) / len(all_classes)
@@ -320,18 +320,18 @@ def render_report(r, label):
           f"Participantes: {c['participants']} · classes: {c['classes']} "
           f"(de {c['classes_raw']} linhas, um registro por arquivo + classe) · métodos: {c['methods']}", ""]
 
-    L += ["## tab:per_class_averages", "",
+    L += ["## Médias por classe, por nível", "",
           "| Nível | N | WMC | LCOM | MC/classe | AC/classe | CWC/classe |", "|---|---:|---:|---:|---:|---:|---:|"]
     for lvl, g in r["by_level"].items():
         cells = [f"{fmt(g[k][0])} ({fmt(g[k][1])})" for k in ["wmc_avg", "lcom_avg", "mc_per_class", "ac_per_class", "cwc_per_class"]]
         L.append(f"| {lvl} | {g['n']} | " + " | ".join(cells) + " |")
 
-    L += ["", "## tab:codebase_size", "", "| Nível | N | LOC média (mediana) | Classes média (mediana) |", "|---|---:|---:|---:|"]
+    L += ["", "## Tamanho da base de código, por nível", "", "| Nível | N | LOC média (mediana) | Classes média (mediana) |", "|---|---:|---:|---:|"]
     for lvl, g in r["by_level"].items():
         L.append(f"| {lvl} | {g['n']} | {g['loc'][0]:.0f} ({g['loc'][1]:.0f}) | {fmt(g['classes'][0], 1)} ({fmt(g['classes'][1], 1)}) |")
 
     corr = lambda a, b: r["correlations"].get((a, b), r["correlations"].get((b, a)))
-    L += ["", "## metric_redundancy", "",
+    L += ["", "## Redundância das métricas e tamanho do código", "",
           "Pearson entre participantes:", ""]
     for a, b in [("clc_total", "loc"), ("cwc_total", "loc"), ("coc", "loc"), ("cyclomatic", "loc"),
                  ("clc_total", "classes"), ("cwc_total", "classes"), ("coc", "classes"), ("cyclomatic", "classes"),
@@ -345,11 +345,11 @@ def render_report(r, label):
           f"- Classes com NOC = 0: {fmt(r['noc_eq_0_pct'], 1)}%",
           f"- Amplitude da LCOM média por participante: {fmt(r['lcom_avg_range'][0])} – {fmt(r['lcom_avg_range'][1])}"]
 
-    L += ["", "## position_analysis", "", "| Cargo | N | LOC média | WMC média | LCOM média |", "|---|---:|---:|---:|---:|"]
+    L += ["", "## Por cargo", "", "| Cargo | N | LOC média | WMC média | LCOM média |", "|---|---:|---:|---:|---:|"]
     for pos, g in r["by_position"].items():
         L.append(f"| {pos} | {g['n']} | {g['loc'][0]:.0f} | {fmt(g['wmc_avg'][0])} | {fmt(g['lcom_avg'][0])} |")
 
-    L += ["", "## empirical_application", "",
+    L += ["", "## Classificação", "",
           "Limiares absolutos (% Normal sobre todas as classes): " +
           ", ".join(f"{m} {fmt(v, 1)}%" for m, v in r["absolute_normal_pct"].items()), "",
           f"LCOM = n(n−1)/2 (n = métodos da LCOM; WMC nas coletas antigas) em {fmt(r['lcom_equals_max_pairs_pct'], 1)}% "
@@ -359,7 +359,7 @@ def render_report(r, label):
     for m, th in r["thresholds"].items():
         L.append(f"| {m} | {th['n']} | {fmt(th['p50'])} | {fmt(th['p90'])} |")
 
-    L += ["", "## tab:confusion_matrix", "", "| Conhecido \\ Previsto | " + " | ".join(LEVEL_ORDER) + " |",
+    L += ["", "## Matriz de confusão", "", "| Conhecido \\ Previsto | " + " | ".join(LEVEL_ORDER) + " |",
           "|---|" + "---:|" * len(LEVEL_ORDER)]
     for known in LEVEL_ORDER:
         n = sum(r["confusion"][known].values())
@@ -373,7 +373,7 @@ def render_report(r, label):
           f"- ρ de Spearman (média simples do % Normal × nível conhecido): {fmt(r['spearman_mean_pct'], 3)}",
           f"- Erros: {r['errors']['total']} ({r['errors']['adjacent']} adjacentes, {r['errors']['two_or_more']} a dois ou mais níveis)"]
 
-    L += ["", "## tab:per_participant_results", "",
+    L += ["", "## Resultados por participante", "",
           "| ID | Nível | " + " | ".join(m for m, _ in CBTAM_METRICS) + " | Previsto | Corr. | Discrepância |",
           "|---|---|" + "---:|" * len(CBTAM_METRICS) + "---|---|---|"]
     for p in r["per_participant"]:
