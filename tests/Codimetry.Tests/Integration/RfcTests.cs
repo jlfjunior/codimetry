@@ -76,7 +76,7 @@ public class RfcTests : IDisposable
 
     private static int RfcWithoutModel(string code)
     {
-        var visitor = new CkSyntaxVisitor();
+        var visitor = new TypeModelCollector();
         visitor.Visit(Code.Parse(code).GetRoot());
         var methods = visitor.GetMethods().ToList();
         return new RfcCalculator().CalculateRfc(methods[0].ContainingClassKey!, methods);

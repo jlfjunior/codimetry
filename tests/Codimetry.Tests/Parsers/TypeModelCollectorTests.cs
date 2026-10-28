@@ -4,12 +4,12 @@ using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Parsers;
 
-public class CkSyntaxVisitorTests
+public class TypeModelCollectorTests
 {
     [Fact]
     public void CollectsClassesWithBaseClassAndModifiers()
     {
-        var visitor = Code.VisitCk("""
+        var visitor = Code.VisitTypes("""
             namespace N
             {
                 public abstract class Base { }
@@ -29,109 +29,9 @@ public class CkSyntaxVisitorTests
     }
 
     [Fact]
-    public void InstanceMemberNames_ExcludeStaticAndConst()
-    {
-        var visitor = Code.VisitCk("""
-            class C
-            {
-                private int _a, _b;
-                private static int _shared;
-                private const int Max = 1;
-                public string Name { get; set; } = "";
-                public static string Default { get; } = "";
-            }
-            """);
-
-        var dependency = visitor.GetDependencies().Single();
-
-        Assert.Equal(["field:_a", "field:_b", "prop:Name"], dependency.InstanceMemberNames.Order());
-    }
-
-    [Fact]
-    public void InstanceMemberNames_IncludeFieldLikeEventsAndPrimaryConstructorParameters()
-    {
-        var visitor = Code.VisitCk("""
-            using System;
-            class C(int n)
-            {
-                public event EventHandler? Changed;
-                public static event EventHandler? Shared;
-            }
-            """);
-
-        var dependency = visitor.GetDependencies().Single();
-
-        Assert.Equal(["event:Changed", "param:n"], dependency.InstanceMemberNames.Order());
-    }
-
-    [Fact]
-    public void InstanceMemberNames_WithoutSemanticModel_AreNames()
-    {
-        var visitor = new CkSyntaxVisitor();
-        visitor.Visit(Code.Parse("class C { int _a; public string Name { get; set; } }").GetRoot());
-
-        Assert.Equal(["_a", "Name"], visitor.GetDependencies().Single().InstanceMemberNames.Order());
-    }
-
-    [Fact]
-    public void DependentTypes_IncludeFieldPropertyReturnAndParameterTypes()
-    {
-        var visitor = Code.VisitCk("""
-            class A { } class B { } class D { } class E { }
-            class C
-            {
-                private A _a;
-                public B B { get; set; }
-                public D Get(E e) => default;
-            }
-            """);
-
-        var dependency = visitor.GetDependencies().Single(d => d.ClassName == "C");
-
-        Assert.Superset(new HashSet<string> { "Test|A", "Test|B", "Test|D", "Test|E" }, dependency.DependentTypes);
-        Assert.Empty(dependency.UnresolvedTypeNames);
-        Assert.Equal(["A"], dependency.FieldTypes);
-        Assert.Equal(["B"], dependency.PropertyTypes);
-    }
-
-    [Fact]
-    public void DependentTypes_DecomposeGenericArgumentsArraysAndNullables()
-    {
-        var visitor = Code.VisitCk("""
-            using System.Collections.Generic;
-            class Item { }
-            struct Point { }
-            class C<T>
-            {
-                private Dictionary<string, List<Item[]>> _map;
-                private Point? _p;
-                private T _t;
-            }
-            """);
-
-        var dependency = visitor.GetDependencies().Single(d => d.ClassName == "C");
-
-        Assert.Contains("Test|Item", dependency.DependentTypes);
-        Assert.Contains("Test|Point", dependency.DependentTypes);
-        Assert.DoesNotContain(dependency.DependentTypes, k => k.EndsWith("|T"));
-    }
-
-    [Fact]
-    public void DependentTypes_WithoutSemanticModel_RecordSimpleNames()
-    {
-        var visitor = new CkSyntaxVisitor();
-        visitor.Visit(Code.Parse("class C { private N.Repo<Item>[] _r; public global::X.Logger? L { get; set; } }").GetRoot());
-
-        var dependency = visitor.GetDependencies().Single();
-
-        Assert.Empty(dependency.DependentTypes);
-        Assert.Equal(["Item", "Logger", "Repo"], dependency.UnresolvedTypeNames.Order());
-    }
-
-    [Fact]
     public void Methods_RecordStaticAbstractAndCalls()
     {
-        var visitor = Code.VisitCk("""
+        var visitor = Code.VisitTypes("""
             abstract class C
             {
                 public static void S() { }
@@ -169,7 +69,7 @@ public class CkSyntaxVisitorTests
         }
         """;
 
-    private static IEnumerable<string> Accessed(CkSyntaxVisitor visitor, string method) =>
+    private static IEnumerable<string> Accessed(TypeModelCollector visitor, string method) =>
         visitor.GetMethods().Single(m => m.Name == method).AccessedFields.Distinct().Order(StringComparer.Ordinal);
 
     [Theory]
@@ -194,7 +94,7 @@ public class CkSyntaxVisitorTests
     [InlineData("void M() { Action a = () => Console.WriteLine(Nome); }", "field:Nome")]
     public void AccessedFields_AreAttributesOfTheCurrentObject(string member, string expected)
     {
-        var visitor = Code.VisitCk(AccessClass.Replace("MEMBER", member));
+        var visitor = Code.VisitTypes(AccessClass.Replace("MEMBER", member));
 
         Assert.Equal(expected.Split(',', StringSplitOptions.RemoveEmptyEntries), Accessed(visitor, "M"));
     }
@@ -202,7 +102,7 @@ public class CkSyntaxVisitorTests
     [Fact]
     public void AccessedFields_PrimaryConstructorParameter_OnlyWhenNoMemberHidesIt()
     {
-        var visitor = Code.VisitCk("""
+        var visitor = Code.VisitTypes("""
             class Repo { public void Save() { } }
             class C(Repo repo, int n)
             {
@@ -224,7 +124,7 @@ public class CkSyntaxVisitorTests
     [Fact]
     public void AccessedFields_WithoutSemanticModel_MatchNamesWithSyntacticExclusions()
     {
-        var visitor = new CkSyntaxVisitor();
+        var visitor = new TypeModelCollector();
         visitor.Visit(Code.Parse("""
             class C
             {
@@ -239,29 +139,10 @@ public class CkSyntaxVisitorTests
         Assert.Equal(2, visitor.MethodsWithoutSemanticModel);
     }
 
-    private static int Lcom(string code)
-    {
-        var visitor = Code.VisitCk(code);
-        var key = visitor.GetClasses().Single(c => c.Name == "C").ClassKey!;
-        return new LcomCalculator().CalculateLcom(key, visitor.GetMethods(), ClassDependency.MergeByClass(visitor.GetDependencies()));
-    }
-
-    [Theory]
-    [InlineData("class C { string Nome; void A() { var Nome = 1; } int B() => Nome.Length; }", 1)]
-    [InlineData("class C { string Nome; int A() => this.Nome.Length; int B() => Nome.Length; }", 0)]
-    [InlineData("class Repo { public void Save() { } } class C(Repo repo) { void A() => repo.Save(); void B() => repo.Save(); }", 0)]
-    [InlineData("class C { System.Action _h; void A() => _h(); void B() => _h(); }", 0)]
-    [InlineData("class C { int a, b; C() { a = 1; b = 2; } int M1() => a; int M2() => b; }", 1)]  // the constructor does not enter
-    [InlineData("class C(int a, int b) { int M1() => a; int M2() => b; }", 1)]                       // primary constructor never enters
-    public void Lcom_CountsSharedAttributesOfTheCurrentObject(string code, int expected)
-    {
-        Assert.Equal(expected, Lcom(code));
-    }
-
     [Fact]
     public void Constructors_AreCollected_IncludingExpressionBodied()
     {
-        var visitor = Code.VisitCk("""
+        var visitor = Code.VisitTypes("""
             class A { int _x; A(int x) => _x = x; }
             class B { int _y; B(int y) { _y = y; Init(); } void Init() { } }
             """);
@@ -278,7 +159,7 @@ public class CkSyntaxVisitorTests
     [Fact]
     public void Constructors_IsStatic_ReflectsTheStaticModifier()
     {
-        var visitor = Code.VisitCk("class C { static C() { } C() { } }");
+        var visitor = Code.VisitTypes("class C { static C() { } C() { } }");
 
         Assert.Equal([true, false], visitor.GetMethods().Select(m => m.IsStatic));
     }
@@ -286,7 +167,7 @@ public class CkSyntaxVisitorTests
     [Fact]
     public void Constructors_AreMarked_MethodsAreNot()
     {
-        var visitor = Code.VisitCk("class C { C() { } void M() { } }");
+        var visitor = Code.VisitTypes("class C { C() { } void M() { } }");
 
         Assert.True(visitor.GetMethods().Single(m => m.Name == "C").IsConstructor);
         Assert.False(visitor.GetMethods().Single(m => m.Name == "M").IsConstructor);
@@ -295,7 +176,7 @@ public class CkSyntaxVisitorTests
     [Fact]
     public void CyclomaticComplexity_IsTheVgOfEachMethodAndConstructor()
     {
-        var visitor = Code.VisitCk("""
+        var visitor = Code.VisitTypes("""
             abstract class C
             {
                 C(int x) { if (x > 0) { } }

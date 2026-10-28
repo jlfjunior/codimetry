@@ -20,18 +20,34 @@ public static class Code
         Single<MethodDeclarationSyntax>(code, m => m.Identifier.Text == name);
 
     /// <summary>
-    /// Runs <see cref="CkSyntaxVisitor"/> with a semantic model, the same way CkMetricsAnalysisService does.
+    /// Runs <see cref="TypeModelCollector"/> with a semantic model, the same way the analysis services do.
     /// </summary>
-    public static CkSyntaxVisitor VisitCk(string code)
+    public static TypeModelCollector VisitTypes(string code)
+    {
+        var (tree, model) = Compile(code);
+        var visitor = new TypeModelCollector(model);
+        visitor.Visit(tree.GetRoot());
+        return visitor;
+    }
+
+    /// <summary>
+    /// Runs <see cref="CouplingCollector"/> with a semantic model, the same way CkMetricsAnalysisService does.
+    /// </summary>
+    public static CouplingCollector VisitCoupling(string code)
+    {
+        var (tree, model) = Compile(code);
+        var visitor = new CouplingCollector(model);
+        visitor.Visit(tree.GetRoot());
+        return visitor;
+    }
+
+    private static (SyntaxTree Tree, SemanticModel Model) Compile(string code)
     {
         var tree = Parse(code);
         var compilation = CSharpCompilation.Create("Test")
             .AddSyntaxTrees(tree)
             .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
-
-        var visitor = new CkSyntaxVisitor(compilation.GetSemanticModel(tree));
-        visitor.Visit(tree.GetRoot());
-        return visitor;
+        return (tree, compilation.GetSemanticModel(tree));
     }
 
     public static MisraSyntaxVisitor VisitMisra(string code, bool additiveMc = false, bool acTypeWeights = false)

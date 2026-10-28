@@ -25,7 +25,7 @@ public class MisraMetricsCalculatorsTests
         ["Other"] = ["Guid"]
     };
 
-    private static CkMethodInfo Method(string name, string @class, params string[] calls) =>
+    private static MethodElement Method(string name, string @class, params string[] calls) =>
         new() { Name = name, Key = name, ContainingClass = @class, ContainingClassKey = @class, CalledMethods = [.. calls] };
 
     // ---------- MC ----------
@@ -96,10 +96,10 @@ public class MisraMetricsCalculatorsTests
 
     private static CallInfo ToLibrary(string method) => new(method, $"System.Console::{method}()", "System.Console");
 
-    private static CkMethodInfo Calling(string name, string @class, params CallInfo[] calls) =>
+    private static MethodElement Calling(string name, string @class, params CallInfo[] calls) =>
         new() { Name = name, Key = name, ContainingClass = @class, ContainingClassKey = @class, Calls = [.. calls] };
 
-    private static int Cwc(string @class, IReadOnlyList<CkMethodInfo> methods, int libraryWeight = 0,
+    private static int Cwc(string @class, IReadOnlyList<MethodElement> methods, int libraryWeight = 0,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? implementations = null) =>
         new CwcCalculator(libraryWeight).CalculateCwc(@class, methods, Bcs, Classes, implementations);
 
@@ -124,7 +124,7 @@ public class MisraMetricsCalculatorsTests
     [Fact]
     public void Cwc_LibraryCalls_AddTheLibraryWeight_ZeroByDefault()
     {
-        List<CkMethodInfo> methods = [Calling("A", "C", ToLibrary("WriteLine"), ToLibrary("Write"))];
+        List<MethodElement> methods = [Calling("A", "C", ToLibrary("WriteLine"), ToLibrary("Write"))];
 
         Assert.Equal(0, Cwc("C", methods));
         Assert.Equal(2 * 3, Cwc("C", methods, libraryWeight: 3));   // the legacy library rule
@@ -134,7 +134,7 @@ public class MisraMetricsCalculatorsTests
     public void Cwc_UnresolvedCalls_AreNotCounted_NorMatchedByName()
     {
         // Earlier versions matched "Ext" with the first method of that name in any class
-        List<CkMethodInfo> methods = [Method("A", "C", "Ext", "WriteLine")];
+        List<MethodElement> methods = [Method("A", "C", "Ext", "WriteLine")];
 
         Assert.Equal(0, Cwc("C", methods));
         Assert.Equal(2, CwcCalculator.UnresolvedCalls("C", methods));
@@ -144,7 +144,7 @@ public class MisraMetricsCalculatorsTests
     public void Cwc_AbstractCall_UsesTheOnlyImplementation_Else2Plus1()
     {
         var call = ToSystem("IRepo", "Save", isAbstract: true);
-        List<CkMethodInfo> methods = [Calling("A", "C", call)];
+        List<MethodElement> methods = [Calling("A", "C", call)];
 
         Assert.Equal(2 + 4, Cwc("C", methods, implementations: new Dictionary<string, IReadOnlyList<string>> { ["IRepo::Save"] = ["Other::Ext"] }));
         Assert.Equal(2 + 1, Cwc("C", methods, implementations: new Dictionary<string, IReadOnlyList<string>> { ["IRepo::Save"] = ["Other::Ext", "C::B"] }));
@@ -163,7 +163,7 @@ public class MisraMetricsCalculatorsTests
     [Fact]
     public void Cc_IsSumOfClcPlusHalfTheSumOfCwc()
     {
-        List<CkMethodInfo> methods = [Calling("A", "C", ToSystem("Other", "Ext"), ToLibrary("WriteLine")), Calling("B", "C")];
+        List<MethodElement> methods = [Calling("A", "C", ToSystem("Other", "Ext"), ToLibrary("WriteLine")), Calling("B", "C")];
 
         // CLC(C) = 4 + 3 + 5 = 12, CLC(Other) = 1 + 4 = 5; CWC(C) = 2 + 4 = 6, CWC(Other) = 0
         var cc = new CcCalculator().CalculateCc(["C", "Other"], Bcs, Attributes, AttributeTypes, methods, Classes);

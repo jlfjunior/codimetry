@@ -84,8 +84,8 @@ public class CkMetricsAnalysisService
 
         // Phase 1: Build class relationship graph
         _logger?.LogInformation("Phase 1: Building class relationship graph...");
-        var allClasses = new List<CkCodeElement>();
-        var allMethods = new List<CkMethodInfo>();
+        var allClasses = new List<TypeElement>();
+        var allMethods = new List<MethodElement>();
         var allDependencies = new List<ClassDependency>();
         var allInterfaces = new List<CouplingTarget>();
 
@@ -185,15 +185,17 @@ public class CkMetricsAnalysisService
     {
         try
         {
-            var visitor = new CkSyntaxVisitor(semanticModel, _cyclomaticOptions, _typeScope, _ditOptions, _cboOptions);
+            var visitor = new TypeModelCollector(semanticModel, _cyclomaticOptions, _typeScope, _ditOptions);
             visitor.Visit(syntaxTree.GetRoot());
+            var coupling = new CouplingCollector(semanticModel, _typeScope, _cboOptions);
+            coupling.Visit(syntaxTree.GetRoot());
 
             return new FileAnalysisData
             {
                 Classes = visitor.GetClasses().ToList(),
                 Methods = visitor.GetMethods().ToList(),
-                Dependencies = visitor.GetDependencies().ToList(),
-                Interfaces = visitor.GetInterfaces().ToList(),
+                Dependencies = coupling.GetDependencies().ToList(),
+                Interfaces = coupling.GetInterfaces().ToList(),
                 MethodsWithoutSemanticModel = visitor.MethodsWithoutSemanticModel,
                 AmbiguousAccesses = visitor.AmbiguousAccesses
             };
@@ -207,8 +209,8 @@ public class CkMetricsAnalysisService
 
     private class FileAnalysisData
     {
-        public List<CkCodeElement> Classes { get; set; } = new();
-        public List<CkMethodInfo> Methods { get; set; } = new();
+        public List<TypeElement> Classes { get; set; } = new();
+        public List<MethodElement> Methods { get; set; } = new();
         public List<ClassDependency> Dependencies { get; set; } = new();
         public List<CouplingTarget> Interfaces { get; set; } = new();
         public int MethodsWithoutSemanticModel { get; set; }

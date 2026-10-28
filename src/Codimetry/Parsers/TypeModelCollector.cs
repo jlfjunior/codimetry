@@ -17,9 +17,9 @@ public sealed record DitOptions(bool CountObject = false, bool ResolveFramework 
 }
 
 /// <summary>
-/// Extended code element information for CK metrics calculation.
+/// A measured type (class, record, struct or record struct) declaration.
 /// </summary>
-public class CkCodeElement
+public class TypeElement
 {
     public string Name { get; set; } = string.Empty;
     /// <summary>
@@ -82,9 +82,9 @@ public sealed record CallInfo(
 }
 
 /// <summary>
-/// Extended method information for CK metrics calculation.
+/// A method or constructor of a measured type.
 /// </summary>
-public class CkMethodInfo
+public class MethodElement
 {
     public string Name { get; set; } = string.Empty;
     /// <summary>
@@ -124,94 +124,33 @@ public class CkMethodInfo
 }
 
 /// <summary>
-/// A type of the analysed code that a class can be coupled to (CBO): a measured type or an interface.
+/// Collects the structure of the measured types that several suites share: the types with their base class,
+/// and the methods and constructors with their calls, attribute accesses and V(G).
 /// </summary>
-public sealed record CouplingTarget(string Key, string Name, string? Namespace);
-
-/// <summary>
-/// Class dependency information for CBO calculation.
-/// </summary>
-public class ClassDependency
+public class TypeModelCollector : CSharpSyntaxWalker
 {
-    public string ClassName { get; set; } = string.Empty;
-    public string ClassKey { get; set; } = string.Empty;
-    public string? Namespace { get; set; }
-    /// <summary>
-    /// Keys (see <see cref="TypeKeys"/>) of the types the class references, resolved by the semantic model;
-    /// generic arguments and array element types are included.
-    /// </summary>
-    public HashSet<string> DependentTypes { get; set; } = new();
-    /// <summary>
-    /// Simple names of the referenced types the semantic model could not resolve (or all of them, without a
-    /// model); CBO matches them by exact name.
-    /// </summary>
-    public HashSet<string> UnresolvedTypeNames { get; set; } = new();
-    public List<string> FieldTypes { get; set; } = new();
-    public List<string> PropertyTypes { get; set; } = new();
-    /// <summary>
-    /// Attributes of the class for LCOM (see <see cref="InstanceMemberIds"/>): instance fields, properties
-    /// and field-like events declared in the class, and the parameters of its primary constructor.
-    /// </summary>
-    public HashSet<string> InstanceMemberNames { get; set; } = new();
-
-    /// <summary>
-    /// One dependency per class key, joining the declarations of partial classes.
-    /// </summary>
-    public static List<ClassDependency> MergeByClass(IEnumerable<ClassDependency> dependencies) =>
-        dependencies
-            .GroupBy(d => d.ClassKey)
-            .Select(g => new ClassDependency
-            {
-                ClassName = g.First().ClassName,
-                ClassKey = g.Key,
-                Namespace = g.First().Namespace,
-                DependentTypes = g.SelectMany(d => d.DependentTypes).ToHashSet(),
-                UnresolvedTypeNames = g.SelectMany(d => d.UnresolvedTypeNames).ToHashSet(),
-                FieldTypes = g.SelectMany(d => d.FieldTypes).ToList(),
-                PropertyTypes = g.SelectMany(d => d.PropertyTypes).ToList(),
-                InstanceMemberNames = g.SelectMany(d => d.InstanceMemberNames).ToHashSet()
-            })
-            .ToList();
-}
-
-/// <summary>
-/// Enhanced syntax visitor that extracts information needed for CK metrics calculation.
-/// </summary>
-public class CkSyntaxVisitor : CSharpSyntaxWalker
-{
-    private readonly List<CkCodeElement> _classes = new();
-    private readonly List<CkMethodInfo> _methods = new();
+    private readonly List<TypeElement> _classes = new();
+    private readonly List<MethodElement> _methods = new();
     private readonly CyclomaticOptions _cyclomaticOptions;
     private readonly TypeScope _scope;
     private readonly DitOptions _ditOptions;
-    private readonly CboOptions _cboOptions;
-    private readonly List<ClassDependency> _dependencies = new();
-    private readonly List<CouplingTarget> _interfaces = new();
     private readonly SemanticModel? _semanticModel;
 
     /// <param name="cyclomaticOptions">Operator rule for the V(G) of each method (WMC with c_i = V(G)).</param>
     /// <param name="scope">Which types are measured (--classes-only).</param>
     /// <param name="ditOptions">Whether System.Object is recorded as a base class (--dit-count-object).</param>
-    /// <param name="cboOptions">Which type references CBO collects (--cbo-declared-types-only).</param>
-    public CkSyntaxVisitor(SemanticModel? semanticModel = null, CyclomaticOptions? cyclomaticOptions = null, TypeScope? scope = null,
-        DitOptions? ditOptions = null, CboOptions? cboOptions = null)
+    public TypeModelCollector(SemanticModel? semanticModel = null, CyclomaticOptions? cyclomaticOptions = null, TypeScope? scope = null,
+        DitOptions? ditOptions = null)
         : base(SyntaxWalkerDepth.Node)
     {
         _ditOptions = ditOptions ?? DitOptions.Default;
-        _cboOptions = cboOptions ?? CboOptions.Default;
         _scope = scope ?? TypeScope.Default;
         _cyclomaticOptions = cyclomaticOptions ?? CyclomaticOptions.Default;
         _semanticModel = semanticModel;
     }
 
-    public IReadOnlyList<CkCodeElement> GetClasses() => _classes;
-    public IReadOnlyList<CkMethodInfo> GetMethods() => _methods;
-    public IReadOnlyList<ClassDependency> GetDependencies() => _dependencies;
-
-    /// <summary>
-    /// Interfaces declared in the code: not measured, but coupling targets of CBO.
-    /// </summary>
-    public IReadOnlyList<CouplingTarget> GetInterfaces() => _interfaces;
+    public IReadOnlyList<TypeElement> GetClasses() => _classes;
+    public IReadOnlyList<MethodElement> GetMethods() => _methods;
 
     /// <summary>
     /// Methods whose attribute accesses were matched by name because there was no semantic model.
@@ -228,13 +167,6 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
     {
         CollectType(node);
         base.VisitClassDeclaration(node);
-    }
-
-    public override void VisitInterfaceDeclaration(InterfaceDeclarationSyntax node)
-    {
-        var namespaceName = node.Ancestors().OfType<NamespaceDeclarationSyntax>().FirstOrDefault()?.Name.ToString();
-        _interfaces.Add(new CouplingTarget(TypeKeys.Of(node, _semanticModel), node.Identifier.Text, namespaceName));
-        base.VisitInterfaceDeclaration(node);
     }
 
     public override void VisitRecordDeclaration(RecordDeclarationSyntax node)
@@ -309,7 +241,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             }
         }
 
-        _classes.Add(new CkCodeElement
+        _classes.Add(new TypeElement
         {
             Name = className,
             ClassKey = classKey,
@@ -325,100 +257,6 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
             Kind = TypeScope.KindOf(node),
             BaseAncestors = isValueType ? 0 : baseAncestors
         });
-
-        // Collect dependencies for this class
-        var dependency = new ClassDependency
-        {
-            ClassName = className,
-            ClassKey = classKey,
-            Namespace = namespaceName
-        };
-
-        // Collect field types
-        foreach (var field in node.Members.OfType<FieldDeclarationSyntax>())
-        {
-            var fieldType = field.Declaration.Type.ToString();
-            dependency.FieldTypes.Add(fieldType);
-            AddDeclaredType(dependency, field.Declaration.Type);
-
-            if (!IsStaticMember(field.Modifiers))
-            {
-                foreach (var variable in field.Declaration.Variables)
-                {
-                    dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Field, variable.Identifier.Text));
-                }
-            }
-        }
-
-        // Collect property types
-        foreach (var property in node.Members.OfType<PropertyDeclarationSyntax>())
-        {
-            var propertyType = property.Type.ToString();
-            dependency.PropertyTypes.Add(propertyType);
-            AddDeclaredType(dependency, property.Type);
-
-            if (!IsStaticMember(property.Modifiers))
-            {
-                dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Property, property.Identifier.Text));
-            }
-        }
-
-        foreach (var eventField in node.Members.OfType<EventFieldDeclarationSyntax>().Where(e => !IsStaticMember(e.Modifiers)))
-        {
-            foreach (var variable in eventField.Declaration.Variables)
-            {
-                dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Event, variable.Identifier.Text));
-            }
-        }
-
-        foreach (var parameter in node.ParameterList?.Parameters ?? default)
-        {
-            var name = parameter.Identifier.Text;
-            if (node is RecordDeclarationSyntax)
-            {
-                // A positional parameter of a record is a public property, unless a member with its name is declared
-                if (!TypeScope.DeclaresMember(node, name, _semanticModel))
-                {
-                    var parameterType = parameter.Type?.ToString() ?? string.Empty;
-                    dependency.PropertyTypes.Add(parameterType);
-                    AddDeclaredType(dependency, parameter.Type);
-                    dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.Property, name));
-                }
-            }
-            else
-            {
-                dependency.InstanceMemberNames.Add(MemberId(InstanceMemberIds.PrimaryConstructorParameter, name));
-            }
-        }
-
-        // Collect method parameter and return types
-        foreach (var method in node.Members.OfType<MethodDeclarationSyntax>())
-        {
-            AddDeclaredType(dependency, method.ReturnType);
-            foreach (var param in method.ParameterList.Parameters)
-            {
-                AddDeclaredType(dependency, param.Type);
-            }
-        }
-
-        if (!_cboOptions.DeclaredTypesOnly)
-        {
-            TypeReferenceCollector.Collect(node, _semanticModel, dependency);
-        }
-
-        _dependencies.Add(dependency);
-    }
-
-    /// <summary>
-    /// A type of the class's fields, properties and method signatures: the whole legacy CBO (--cbo-declared-types-only),
-    /// a subset of what <see cref="TypeReferenceCollector"/> collects otherwise.
-    /// </summary>
-    private void AddDeclaredType(ClassDependency dependency, TypeSyntax? type)
-    {
-        if (_cboOptions.DeclaredTypesOnly)
-        {
-            TypeReferenceCollector.Add(dependency, type, _semanticModel);
-        }
     }
 
     public override void VisitMethodDeclaration(MethodDeclarationSyntax node)
@@ -430,7 +268,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var containingClass = _scope.ContainingType(node);
         var className = containingClass?.Identifier.Text;
 
-        var methodInfo = new CkMethodInfo
+        var methodInfo = new MethodElement
         {
             Name = methodName,
             Key = TypeKeys.MethodKey(node),
@@ -470,7 +308,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         var containingClass = _scope.ContainingType(node);
         var className = containingClass?.Identifier.Text;
 
-        var methodInfo = new CkMethodInfo
+        var methodInfo = new MethodElement
         {
             Name = constructorName,
             Key = TypeKeys.MethodKey(node),
@@ -501,7 +339,7 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         base.VisitConstructorDeclaration(node);
     }
 
-    private void CollectBody(SyntaxNode? body, CkMethodInfo methodInfo, ConstructorInitializerSyntax? initializer = null)
+    private void CollectBody(SyntaxNode? body, MethodElement methodInfo, ConstructorInitializerSyntax? initializer = null)
     {
         if (body == null && initializer == null)
         {
@@ -559,10 +397,6 @@ public class CkSyntaxVisitor : CSharpSyntaxWalker
         return count;
     }
 
-    private string MemberId(string kind, string name) => InstanceMemberIds.Of(kind, name, _semanticModel != null);
-
-    private static bool IsStaticMember(SyntaxTokenList modifiers) =>
-        modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword));
 }
 
 /// <summary>

@@ -188,7 +188,7 @@ public class CwcCalculator
     /// </summary>
     /// <param name="implementations">Abstract or interface method key → keys of its implementations.</param>
     public int CalculateCwc(string classKey, 
-        IReadOnlyList<CkMethodInfo> allMethods,
+        IReadOnlyList<MethodElement> allMethods,
         IReadOnlyDictionary<string, BcsInfo> methodBcsInfo,
         IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? implementations = null)
@@ -235,7 +235,7 @@ public class CwcCalculator
     /// <summary>
     /// Calls of the class that the semantic model could not resolve; they do not enter CWC.
     /// </summary>
-    public static int UnresolvedCalls(string classKey, IReadOnlyList<CkMethodInfo> allMethods) =>
+    public static int UnresolvedCalls(string classKey, IReadOnlyList<MethodElement> allMethods) =>
         allMethods.Where(m => m.ContainingClassKey == classKey).SelectMany(m => m.Calls)
             .Count(c => !c.IsResolved && c.Kind != CallKind.Constructor);
 }
@@ -263,7 +263,7 @@ public class CcCalculator
         IReadOnlyDictionary<string, BcsInfo> methodBcsInfo,
         IReadOnlyDictionary<string, List<string>> classAttributes,
         IReadOnlyDictionary<string, List<string>> classAttributeTypes,
-        IReadOnlyList<CkMethodInfo> allMethods,
+        IReadOnlyList<MethodElement> allMethods,
         IReadOnlyDictionary<string, ClassRelationshipBuilder.ClassInfo> allClasses,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? implementations = null)
     {

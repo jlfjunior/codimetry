@@ -34,7 +34,7 @@ public class WmcCalculator
     /// Calculates WMC = Σ c_i over the methods and constructors declared in the class, static ones
     /// included unless excluded.
     /// </summary>
-    public int CalculateWmc(string classKey, IReadOnlyList<CkMethodInfo> allMethods)
+    public int CalculateWmc(string classKey, IReadOnlyList<MethodElement> allMethods)
     {
         return allMethods
             .Where(m => m.ContainingClassKey == classKey && !(_excludeStatic && m.IsStatic))
@@ -212,7 +212,7 @@ public class RfcCalculator
     /// <item>property accessors are attribute accesses and do not enter.</item>
     /// </list>
     /// </summary>
-    public int CalculateRfc(string classKey, IReadOnlyList<CkMethodInfo> allMethods)
+    public int CalculateRfc(string classKey, IReadOnlyList<MethodElement> allMethods)
     {
         var classMethods = allMethods.Where(m => m.ContainingClassKey == classKey).ToList();
         var m = classMethods.Count;
@@ -263,7 +263,7 @@ public class LcomCalculator
     /// <summary>
     /// The methods LCOM is computed over: the instance methods of the class, without constructors.
     /// </summary>
-    public static IEnumerable<CkMethodInfo> Methods(string classKey, IReadOnlyList<CkMethodInfo> allMethods) =>
+    public static IEnumerable<MethodElement> Methods(string classKey, IReadOnlyList<MethodElement> allMethods) =>
         allMethods.Where(m => m.ContainingClassKey == classKey && !m.IsStatic && !m.IsConstructor);
 
     /// <summary>
@@ -272,7 +272,7 @@ public class LcomCalculator
     /// P = number of method pairs that don't share instance variables
     /// Q = number of method pairs that share instance variables
     /// </summary>
-    public int CalculateLcom(string classKey, IReadOnlyList<CkMethodInfo> allMethods, IReadOnlyList<ClassDependency> dependencies)
+    public int CalculateLcom(string classKey, IReadOnlyList<MethodElement> allMethods, IReadOnlyList<ClassDependency> dependencies)
     {
         var classMethods = Methods(classKey, allMethods).ToList();
 

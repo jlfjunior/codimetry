@@ -5,7 +5,7 @@ namespace Codimetry.Tests.Services;
 
 public class CkMetricsCalculatorsTests
 {
-    private static CkMethodInfo Method(string name, string @class = "C", bool isStatic = false,
+    private static MethodElement Method(string name, string @class = "C", bool isStatic = false,
         string[]? calls = null, string[]? fields = null, bool isConstructor = false, int complexity = 1) => new()
     {
         Name = name,
@@ -31,7 +31,7 @@ public class CkMetricsCalculatorsTests
     [Fact]
     public void Wmc_CountsStaticAndInstanceMethodsOfTheClass()
     {
-        List<CkMethodInfo> methods = [Method("A"), Method("B"), Method("S", isStatic: true), Method("X", @class: "Other")];
+        List<MethodElement> methods = [Method("A"), Method("B"), Method("S", isStatic: true), Method("X", @class: "Other")];
 
         Assert.Equal(3, new WmcCalculator().CalculateWmc("C", methods));
     }
@@ -39,7 +39,7 @@ public class CkMetricsCalculatorsTests
     [Fact]
     public void Wmc_ExcludeStatic_LeavesStaticMethodsAndConstructorsOut()
     {
-        List<CkMethodInfo> methods =
+        List<MethodElement> methods =
         [
             Method("A"),
             Method("S", isStatic: true),
@@ -52,7 +52,7 @@ public class CkMetricsCalculatorsTests
     [Fact]
     public void Wmc_CyclomaticWeight_SumsTheVgOfTheMethods()
     {
-        List<CkMethodInfo> methods =
+        List<MethodElement> methods =
         [
             Method("C", isConstructor: true, complexity: 2),
             Method("A", complexity: 1),
@@ -69,7 +69,7 @@ public class CkMetricsCalculatorsTests
     [Fact]
     public void Rfc_IsMethodsPlusDistinctCalledNames()
     {
-        List<CkMethodInfo> methods =
+        List<MethodElement> methods =
         [
             Method("A", calls: ["Save", "Log"]),
             Method("B", calls: ["Save", "Send"]),
@@ -86,7 +86,7 @@ public class CkMetricsCalculatorsTests
     public void Lcom_IsPMinusQ_WhenPGreaterThanQ()
     {
         // (A,B) share x -> Q; (A,C), (B,C) share nothing -> P
-        List<CkMethodInfo> methods = [Method("A", fields: ["x"]), Method("B", fields: ["x", "y"]), Method("C")];
+        List<MethodElement> methods = [Method("A", fields: ["x"]), Method("B", fields: ["x", "y"]), Method("C")];
 
         Assert.Equal(2 - 1, new LcomCalculator().CalculateLcom("C", methods, [Dependency("C", "x", "y")]));
     }
@@ -94,7 +94,7 @@ public class CkMetricsCalculatorsTests
     [Fact]
     public void Lcom_IsZero_WhenQAtLeastP()
     {
-        List<CkMethodInfo> methods = [Method("A", fields: ["x"]), Method("B", fields: ["x"])];
+        List<MethodElement> methods = [Method("A", fields: ["x"]), Method("B", fields: ["x"])];
 
         Assert.Equal(0, new LcomCalculator().CalculateLcom("C", methods, [Dependency("C", "x")]));
     }
@@ -108,7 +108,7 @@ public class CkMetricsCalculatorsTests
     [Fact]
     public void Lcom_IgnoresStaticMethods()
     {
-        List<CkMethodInfo> methods = [Method("A", fields: ["x"]), Method("S", isStatic: true)];
+        List<MethodElement> methods = [Method("A", fields: ["x"]), Method("S", isStatic: true)];
 
         Assert.Equal(0, new LcomCalculator().CalculateLcom("C", methods, [Dependency("C", "x")]));
     }
@@ -117,7 +117,7 @@ public class CkMetricsCalculatorsTests
     public void Lcom_IgnoresConstructors()
     {
         // Without the constructor: (A,B) share nothing -> P = 1, Q = 0
-        List<CkMethodInfo> methods =
+        List<MethodElement> methods =
         [
             Method("C", isConstructor: true, fields: ["a", "b"]),
             Method("A", fields: ["a"]),
@@ -132,7 +132,7 @@ public class CkMetricsCalculatorsTests
     {
         // Regression: LCOM used to compare accessed names against field *types*.
         // Locals/parameters ("value") and type names ("string") must not create sharing.
-        List<CkMethodInfo> methods =
+        List<MethodElement> methods =
         [
             Method("A", fields: ["_name", "value", "string"]),
             Method("B", fields: ["_name"]),
@@ -150,7 +150,7 @@ public class CkMetricsCalculatorsTests
         var builder = new ClassRelationshipBuilder();
         foreach (var (ns, name) in new[] { ("N", "C"), ("N", "Repo"), ("N", "Logger"), ("N", "BackgroundTask"), ("M", "Item"), ("N", "Item") })
         {
-            builder.AddClass(new CkCodeElement { Name = name, ClassKey = $"App|{ns}.{name}", Namespace = ns }, "f.cs");
+            builder.AddClass(new TypeElement { Name = name, ClassKey = $"App|{ns}.{name}", Namespace = ns }, "f.cs");
         }
 
         return CboCalculator.Targets(builder.GetAllClasses(), interfaces);
@@ -225,11 +225,11 @@ public class CkMetricsCalculatorsTests
     private static ClassRelationshipBuilder Hierarchy()
     {
         var builder = new ClassRelationshipBuilder();
-        builder.AddClass(new CkCodeElement { Name = "Entity", FullyQualifiedName = "Entity", BaseClass = "object" }, "f.cs");
-        builder.AddClass(new CkCodeElement { Name = "Person", FullyQualifiedName = "Person", BaseClass = "Entity" }, "f.cs");
-        builder.AddClass(new CkCodeElement { Name = "Employee", FullyQualifiedName = "Employee", BaseClass = "Person" }, "f.cs");
-        builder.AddClass(new CkCodeElement { Name = "Customer", FullyQualifiedName = "Customer", BaseClass = "Person" }, "f.cs");
-        builder.AddClass(new CkCodeElement { Name = "Standalone", FullyQualifiedName = "Standalone" }, "f.cs");
+        builder.AddClass(new TypeElement { Name = "Entity", FullyQualifiedName = "Entity", BaseClass = "object" }, "f.cs");
+        builder.AddClass(new TypeElement { Name = "Person", FullyQualifiedName = "Person", BaseClass = "Entity" }, "f.cs");
+        builder.AddClass(new TypeElement { Name = "Employee", FullyQualifiedName = "Employee", BaseClass = "Person" }, "f.cs");
+        builder.AddClass(new TypeElement { Name = "Customer", FullyQualifiedName = "Customer", BaseClass = "Person" }, "f.cs");
+        builder.AddClass(new TypeElement { Name = "Standalone", FullyQualifiedName = "Standalone" }, "f.cs");
         return builder;
     }
 

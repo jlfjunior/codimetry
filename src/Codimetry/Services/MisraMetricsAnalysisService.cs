@@ -98,9 +98,8 @@ public class MisraMetricsAnalysisService
 
         // Phase 1: Build class relationship graph and collect BCS information
         _logger?.LogInformation("Phase 1: Building class relationship graph and collecting BCS information...");
-        var allClasses = new List<CkCodeElement>();
-        var allMethods = new List<CkMethodInfo>();
-        var allDependencies = new List<ClassDependency>();
+        var allClasses = new List<TypeElement>();
+        var allMethods = new List<MethodElement>();
         var allBcsInfo = new Dictionary<string, BcsInfo>();
         var allClassAttributes = new Dictionary<string, List<string>>();
         var allClassAttributeTypes = new Dictionary<string, List<string>>();
@@ -118,7 +117,6 @@ public class MisraMetricsAnalysisService
             {
                 allClasses.AddRange(fileData.Classes);
                 allMethods.AddRange(fileData.Methods);
-                allDependencies.AddRange(fileData.Dependencies);
 
                 // Merge BCS info
                 foreach (var kvp in fileData.BcsInfo)
@@ -311,9 +309,9 @@ public class MisraMetricsAnalysisService
             var syntaxTree = document.Tree;
             var semanticModel = document.SemanticModel;
 
-            // Use CK visitor for class/method/dependency info
-            var ckVisitor = new CkSyntaxVisitor(semanticModel, scope: _typeScope, ditOptions: _ditOptions);
-            ckVisitor.Visit(syntaxTree.GetRoot());
+            // Types and methods, with their calls
+            var typeModel = new TypeModelCollector(semanticModel, scope: _typeScope, ditOptions: _ditOptions);
+            typeModel.Visit(syntaxTree.GetRoot());
 
             // Use MISRA visitor for BCS info and attributes
             var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc, _acTypeWeights, _typeScope, mcGraph);
@@ -321,9 +319,8 @@ public class MisraMetricsAnalysisService
 
             return new FileMisraAnalysisData
             {
-                Classes = ckVisitor.GetClasses().ToList(),
-                Methods = ckVisitor.GetMethods().ToList(),
-                Dependencies = ckVisitor.GetDependencies().ToList(),
+                Classes = typeModel.GetClasses().ToList(),
+                Methods = typeModel.GetMethods().ToList(),
                 BcsInfo = misraVisitor.GetMethodBcsInfo().ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
                 ClassAttributes = misraVisitor.GetClassAttributes().ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
                 ClassAttributeTypes = misraVisitor.GetClassAttributeTypes().ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
@@ -338,9 +335,8 @@ public class MisraMetricsAnalysisService
 
     private class FileMisraAnalysisData
     {
-        public List<CkCodeElement> Classes { get; set; } = new();
-        public List<CkMethodInfo> Methods { get; set; } = new();
-        public List<ClassDependency> Dependencies { get; set; } = new();
+        public List<TypeElement> Classes { get; set; } = new();
+        public List<MethodElement> Methods { get; set; } = new();
         public Dictionary<string, BcsInfo> BcsInfo { get; set; } = new();
         public Dictionary<string, List<string>> ClassAttributes { get; set; } = new();
         public Dictionary<string, List<string>> ClassAttributeTypes { get; set; } = new();

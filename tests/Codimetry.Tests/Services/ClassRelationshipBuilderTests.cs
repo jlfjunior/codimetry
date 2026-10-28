@@ -5,7 +5,7 @@ namespace Codimetry.Tests.Services;
 
 public class ClassRelationshipBuilderTests
 {
-    private static CkCodeElement Class(string name, string? baseClass = null, string? ns = null, string? fqn = null) =>
+    private static TypeElement Class(string name, string? baseClass = null, string? ns = null, string? fqn = null) =>
         new() { Name = name, BaseClass = baseClass, Namespace = ns, FullyQualifiedName = fqn };
 
     [Fact]

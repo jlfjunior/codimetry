@@ -24,7 +24,7 @@ public class ClassRelationshipBuilder
         public bool IsAbstract { get; set; }
         public bool IsSealed { get; set; }
         /// <summary>
-        /// Ancestors of the base class above it, System.Object excluded (see <see cref="CkCodeElement.BaseAncestors"/>).
+        /// Ancestors of the base class above it, System.Object excluded (see <see cref="TypeElement.BaseAncestors"/>).
         /// </summary>
         public int BaseAncestors { get; set; }
     }
@@ -32,7 +32,7 @@ public class ClassRelationshipBuilder
     /// <summary>
     /// Adds a class to the relationship graph.
     /// </summary>
-    public void AddClass(CkCodeElement classElement, string filePath)
+    public void AddClass(TypeElement classElement, string filePath)
     {
         var key = GetClassKey(classElement);
         var classInfo = new ClassInfo
@@ -145,7 +145,7 @@ public class ClassRelationshipBuilder
         _childrenMap.Clear();
     }
 
-    private string GetClassKey(CkCodeElement classElement)
+    private string GetClassKey(TypeElement classElement)
     {
         if (!string.IsNullOrEmpty(classElement.ClassKey))
         {
