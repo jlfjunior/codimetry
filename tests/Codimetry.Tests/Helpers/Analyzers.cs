@@ -1,6 +1,11 @@
-using Codimetry.Core.Models;
-using Codimetry.Parsers;
-using Codimetry.Services;
+using Codimetry.Core.Cyclomatic;
+using Codimetry.Core.Loading;
+using Codimetry.Core.Model;
+using Codimetry.Metrics.Ck;
+using Codimetry.Metrics.Cyclomatic;
+using Codimetry.Metrics.Loc;
+using Codimetry.Metrics.Misra;
+
 
 namespace Codimetry.Tests.Helpers;
 
@@ -10,7 +15,7 @@ namespace Codimetry.Tests.Helpers;
 public static class Analyzers
 {
     public static Task<List<LocMetric>> Loc(string path, bool recursive = true, TypeScope? typeScope = null) =>
-        new MetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new LocCalculator(),
+        new LocAnalysisService(new FileDiscoveryService(), new RoslynParser(), new LocCalculator(),
                 new LogicalLocCalculator(), new PhysicalLocCalculator(), typeScope: typeScope)
             .AnalyzeAsync(path, recursive);
 

@@ -1,4 +1,4 @@
-using Codimetry.Services;
+using Codimetry.Metrics.Loc;
 using Codimetry.Tests.Helpers;
 using Microsoft.CodeAnalysis.Text;
 

@@ -1,17 +1,21 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
         <StartupObject>Codimetry.CLI.Program</StartupObject>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.9.2" />
-        <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
+        <PackageReference Include="System.CommandLine" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Codimetry.Core\Codimetry.Core.csproj" />
+        <ProjectReference Include="..\Codimetry.Metrics.Loc\Codimetry.Metrics.Loc.csproj" />
+        <ProjectReference Include="..\Codimetry.Metrics.Cyclomatic\Codimetry.Metrics.Cyclomatic.csproj" />
+        <ProjectReference Include="..\Codimetry.Metrics.Ck\Codimetry.Metrics.Ck.csproj" />
+        <ProjectReference Include="..\Codimetry.Metrics.Misra\Codimetry.Metrics.Misra.csproj" />
     </ItemGroup>
 
 </Project>

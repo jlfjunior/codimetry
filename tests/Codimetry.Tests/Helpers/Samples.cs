@@ -1,3 +1,5 @@
+using Codimetry.Metrics.Loc;
+
 namespace Codimetry.Tests.Helpers;
 
 /// <summary>

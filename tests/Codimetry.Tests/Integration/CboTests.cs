@@ -1,4 +1,4 @@
-using Codimetry.Parsers;
+using Codimetry.Metrics.Ck;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Integration;
@@ -112,14 +112,14 @@ public class CboTests : IDisposable
         }
         """;
 
-    private async Task<List<Core.Models.CkMetric>> Ck(string code = App, CboOptions? options = null)
+    private async Task<List<CkMetric>> Ck(string code = App, CboOptions? options = null)
     {
         _dir.WriteFile("App.csproj", """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>""");
         _dir.WriteFile("App.cs", code);
         return await Analyzers.Ck(_dir.Path, cboOptions: options);
     }
 
-    private static int Cbo(List<Core.Models.CkMetric> metrics, string className) =>
+    private static int Cbo(List<CkMetric> metrics, string className) =>
         metrics.Single(m => m.ClassName == className).CBO;
 
     [Fact]

@@ -1,4 +1,4 @@
-using Codimetry.Parsers;
+using Codimetry.Core.Loading;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Parsers;

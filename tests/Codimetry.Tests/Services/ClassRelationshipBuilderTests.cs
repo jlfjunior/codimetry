@@ -1,5 +1,5 @@
-using Codimetry.Parsers;
-using Codimetry.Services;
+using Codimetry.Core.Model;
+
 
 namespace Codimetry.Tests.Services;
 

@@ -1,5 +1,5 @@
-using Codimetry.Parsers;
-using Codimetry.Services;
+using Codimetry.Core.Cyclomatic;
+using Codimetry.Metrics.Cyclomatic;
 using Codimetry.Tests.Helpers;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 

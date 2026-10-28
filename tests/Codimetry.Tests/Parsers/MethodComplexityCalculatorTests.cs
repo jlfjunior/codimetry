@@ -1,4 +1,4 @@
-using Codimetry.Parsers;
+using Codimetry.Metrics.Misra;
 using Codimetry.Tests.Helpers;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 

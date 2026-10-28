@@ -1,3 +1,4 @@
+using Codimetry.Metrics.Cyclomatic;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Integration;
@@ -11,7 +12,7 @@ public class CyclomaticAggregationTests : IDisposable
 
     public void Dispose() => _dir.Dispose();
 
-    private static int ClassRow(List<Core.Models.CyclomaticComplexityMetric> metrics, string className) =>
+    private static int ClassRow(List<CyclomaticComplexityMetric> metrics, string className) =>
         Assert.Single(metrics, m => m.ClassName == className && m.MethodName == "").Complexity;
 
     [Fact]

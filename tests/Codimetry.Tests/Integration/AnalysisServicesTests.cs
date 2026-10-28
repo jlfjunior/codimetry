@@ -1,4 +1,4 @@
-using Codimetry.Parsers;
+using Codimetry.Core.Cyclomatic;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Integration;

@@ -1,5 +1,6 @@
-using Codimetry.Parsers;
-using Codimetry.Services;
+using Codimetry.Core.Loading;
+using Codimetry.Core.Model;
+using Codimetry.Metrics.Misra;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Integration;
@@ -79,7 +80,7 @@ public class CocTests : IDisposable
         Assert.Equal(1, calculator.Overflows);
     }
 
-    private async Task<(long CoC, IReadOnlyList<Core.Models.CocHierarchyMetric> Hierarchies, List<Core.Models.MisraMetric> Metrics)> Misra(
+    private async Task<(long CoC, IReadOnlyList<CocHierarchyMetric> Hierarchies, List<MisraMetric> Metrics)> Misra(
         string code, CocFormula formula = CocFormula.Tree, bool legacy = false)
     {
         _dir.WriteFile("App.csproj", """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>""");

@@ -1,7 +1,9 @@
-using Codimetry.Parsers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Codimetry.Core.Model;
+using Codimetry.Metrics.Ck;
+using Codimetry.Metrics.Misra;
 
 namespace Codimetry.Tests.Helpers;
 

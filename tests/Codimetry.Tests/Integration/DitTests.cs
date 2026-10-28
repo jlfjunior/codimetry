@@ -1,4 +1,5 @@
-using Codimetry.Parsers;
+using Codimetry.Core.Model;
+using Codimetry.Metrics.Ck;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Integration;
@@ -28,7 +29,7 @@ public class DitTests : IDisposable
         public class E : object { }
         """;
 
-    private async Task<Dictionary<string, Core.Models.CkMetric>> Ck(DitOptions? options = null)
+    private async Task<Dictionary<string, CkMetric>> Ck(DitOptions? options = null)
     {
         // Base classes from the .NET libraries are outside the analysed code, like those of a NuGet package
         _dir.WriteFile("App.csproj", """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>""");

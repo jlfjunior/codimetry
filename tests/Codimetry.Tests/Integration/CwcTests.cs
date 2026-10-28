@@ -1,3 +1,4 @@
+using Codimetry.Metrics.Misra;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Integration;
@@ -11,7 +12,7 @@ public class CwcTests : IDisposable
 
     public void Dispose() => _dir.Dispose();
 
-    private async Task<Dictionary<string, Core.Models.MisraMetric>> Classes(string code, int cwcLibraryCallWeight = 0)
+    private async Task<Dictionary<string, MisraMetric>> Classes(string code, int cwcLibraryCallWeight = 0)
     {
         _dir.WriteFile("Code.cs", "using System;\nusing System.Collections.Generic;\nusing System.Linq;\nusing System.Text;\n\n" + code);
         var metrics = await Analyzers.Misra(_dir.Path, cwcLibraryCallWeight: cwcLibraryCallWeight);

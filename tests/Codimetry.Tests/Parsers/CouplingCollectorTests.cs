@@ -1,5 +1,4 @@
-using Codimetry.Parsers;
-using Codimetry.Services;
+using Codimetry.Metrics.Ck;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Parsers;

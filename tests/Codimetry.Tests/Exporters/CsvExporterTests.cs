@@ -1,5 +1,7 @@
-using Codimetry.Core.Models;
-using Codimetry.Exporters;
+using Codimetry.Metrics.Ck;
+using Codimetry.Metrics.Cyclomatic;
+using Codimetry.Metrics.Loc;
+using Codimetry.Metrics.Misra;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Exporters;
@@ -7,7 +9,6 @@ namespace Codimetry.Tests.Exporters;
 public class CsvExporterTests : IDisposable
 {
     private readonly TempDirectory _dir = new();
-    private readonly CsvExporter _exporter = new();
 
     public void Dispose() => _dir.Dispose();
 
@@ -17,7 +18,7 @@ public class CsvExporterTests : IDisposable
     [Fact]
     public async Task Loc_WritesHeaderAndRows_PhysicalLocEmptyBelowFileLevel()
     {
-        await _exporter.ExportAsync(
+        await LocCsvExporter.ExportAsync(
             [
                 new LocMetric { FilePath = "a.cs", ClassName = "A", MethodName = "M", Loc = 5, Lloc = 3 },
                 new LocMetric { FilePath = "a.cs", Loc = 5, Lloc = 4, PhysicalLoc = 10 }
@@ -30,7 +31,7 @@ public class CsvExporterTests : IDisposable
     [Fact]
     public async Task Ck_WritesHeaderAndRows()
     {
-        await _exporter.ExportCkMetricsAsync(
+        await CkCsvExporter.ExportAsync(
             [new CkMetric { FilePath = "a.cs", ClassName = "A", WMC = 1, DIT = 2, NOC = 3, CBO = 4, RFC = 5, LCOM = 6, LcomMethods = 4, Kind = "record struct" }],
             _dir.Combine("metrics_ck.csv"));
 
@@ -40,7 +41,7 @@ public class CsvExporterTests : IDisposable
     [Fact]
     public async Task Misra_WritesHeaderAndRows()
     {
-        await _exporter.ExportMisraMetricsAsync(
+        await MisraCsvExporter.ExportAsync(
             [new MisraMetric { FilePath = "a.cs", ClassName = "A", MethodName = "M", MC = 1, AC = 2, CLC = 3, CWC = 4, CoC = 5, Kind = "record" }],
             _dir.Combine("metrics_misra.csv"));
 
@@ -51,7 +52,7 @@ public class CsvExporterTests : IDisposable
     [Fact]
     public async Task Cyclomatic_WritesHeaderAndRows()
     {
-        await _exporter.ExportCyclomaticComplexityAsync(
+        await CyclomaticCsvExporter.ExportAsync(
             [new CyclomaticComplexityMetric { FilePath = "a.cs", ClassName = "A", MethodName = "M", Complexity = 7, ClassKey = "App|N.A" }],
             _dir.Combine("metrics_cyclomatic.csv"));
 
@@ -61,7 +62,7 @@ public class CsvExporterTests : IDisposable
     [Fact]
     public async Task EscapesCommasQuotesAndEmptyFields()
     {
-        await _exporter.ExportAsync(
+        await LocCsvExporter.ExportAsync(
             [new LocMetric { FilePath = "dir, with comma/a.cs", ClassName = "Say\"Hi\"", MethodName = "", Loc = 1 }],
             _dir.Combine("metrics_loc.csv"));
 
@@ -73,7 +74,7 @@ public class CsvExporterTests : IDisposable
     {
         var output = _dir.Combine("nested", "out", "metrics_loc.csv");
 
-        await _exporter.ExportAsync([], output);
+        await LocCsvExporter.ExportAsync([], output);
 
         Assert.True(File.Exists(output));
     }

@@ -1,4 +1,4 @@
-using Codimetry.Services;
+using Codimetry.Core.Loading;
 using Codimetry.Tests.Helpers;
 
 namespace Codimetry.Tests.Services;

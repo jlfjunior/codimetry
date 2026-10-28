@@ -1,6 +1,8 @@
+using Codimetry.Core.Cyclomatic;
+using Codimetry.Core.Model;
+using Codimetry.Metrics.Ck;
+using Codimetry.Metrics.Loc;
 using Codimetry.Tests.Helpers;
-using Codimetry.Parsers;
-using Codimetry.Services;
 
 namespace Codimetry.Tests.Integration;
 

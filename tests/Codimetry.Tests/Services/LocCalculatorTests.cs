@@ -1,4 +1,5 @@
-using Codimetry.Services;
+using Codimetry.Metrics.Loc;
+
 
 namespace Codimetry.Tests.Services;
 
