@@ -1,7 +1,7 @@
 namespace Codimetry.Core.Model;
 
 /// <summary>
-/// Builds and maintains class relationship graphs for CK metrics calculation.
+/// Builds and maintains the inheritance graph of the measured types, read by DIT and NOC (CK) and by CoC (MISRA).
 /// </summary>
 public class ClassRelationshipBuilder
 {
