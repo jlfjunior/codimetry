@@ -3,8 +3,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Logging;
 using Codimetry.Core.Cyclomatic;
-using Codimetry.Core.Loading;
 using Codimetry.Core.Model;
+using Codimetry.Core.Suites;
 
 namespace Codimetry.Metrics.Cyclomatic;
 
@@ -20,26 +20,10 @@ namespace Codimetry.Metrics.Cyclomatic;
 /// </remarks>
 public class CyclomaticComplexityAnalysisService
 {
-    private readonly FileDiscoveryService _fileDiscoveryService;
-    private readonly RoslynParser _roslynParser;
-    private readonly CyclomaticOptions _options;
-    private readonly TypeScope _scope;
-    private readonly CodebaseLoader _codebaseLoader;
     private readonly ILogger<CyclomaticComplexityAnalysisService>? _logger;
 
-    public CyclomaticComplexityAnalysisService(
-        FileDiscoveryService fileDiscoveryService,
-        RoslynParser roslynParser,
-        ILogger<CyclomaticComplexityAnalysisService>? logger = null,
-        CyclomaticOptions? options = null,
-        TypeScope? scope = null,
-        CodebaseLoader? codebaseLoader = null)
+    public CyclomaticComplexityAnalysisService(ILogger<CyclomaticComplexityAnalysisService>? logger = null)
     {
-        _fileDiscoveryService = fileDiscoveryService;
-        _roslynParser = roslynParser;
-        _options = options ?? CyclomaticOptions.Default;
-        _scope = scope ?? TypeScope.Default;
-        _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _logger = logger;
     }
 
@@ -52,17 +36,17 @@ public class CyclomaticComplexityAnalysisService
     /// <summary>
     /// Analyzes code and calculates Cyclomatic Complexity metrics for all methods, classes, and files.
     /// </summary>
-    public Task<List<CyclomaticComplexityMetric>> AnalyzeAsync(string path, bool recursive = true)
+    public Task<List<CyclomaticComplexityMetric>> AnalyzeAsync(AnalysisContext context)
     {
-        var files = _fileDiscoveryService.DiscoverFiles(path, recursive).ToList();
+        var options = context.CyclomaticOptions;
+        var scope = context.TypeScope;
 
-        _logger?.LogInformation("Discovered {Count} C# files for cyclomatic complexity analysis", files.Count);
-        _logger?.LogInformation("Cyclomatic aggregation: {Rule}", _options.IncludeAutoAccessors
+        _logger?.LogInformation("Cyclomatic aggregation: {Rule}", options.IncludeAutoAccessors
             ? "automatic accessors included with V(G) = 1, legacy (--cc-include-auto-accessors)"
             : "methods, constructors, destructors, operators and accessors with a body");
 
         // The semantic model gives the class key (project + fully qualified name)
-        var codebase = _codebaseLoader.Load(files, Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path)));
+        var codebase = context.Codebase;
 
         var memberRows = new List<CyclomaticComplexityMetric>();
         var classes = new Dictionary<string, (string FilePath, string Name)>();
@@ -76,20 +60,20 @@ public class CyclomaticComplexityAnalysisService
                 var root = document.Tree.GetRoot();
 
                 // A class row is placed in the file of the first declaration, as in metrics_ck.csv
-                foreach (var type in root.DescendantNodes().OfType<TypeDeclarationSyntax>().Where(_scope.IsMeasured))
+                foreach (var type in root.DescendantNodes().OfType<TypeDeclarationSyntax>().Where(scope.IsMeasured))
                 {
                     classes.TryAdd(TypeKeys.Of(type, document.SemanticModel), (document.FilePath, type.Identifier.Text));
                 }
 
-                foreach (var member in Members(root, document.SemanticModel))
+                foreach (var member in Members(root, document.SemanticModel, options, scope))
                 {
-                    var type = _scope.ContainingType(member.Node);
+                    var type = scope.ContainingType(member.Node);
                     memberRows.Add(new CyclomaticComplexityMetric
                     {
                         FilePath = document.FilePath,
                         ClassName = type?.Identifier.Text ?? string.Empty,
                         MethodName = member.Name,
-                        Complexity = Complexity(member.Body),
+                        Complexity = Complexity(member.Body, options),
                         ClassKey = type != null ? TypeKeys.Of(type, document.SemanticModel) : string.Empty
                     });
                 }
@@ -125,9 +109,9 @@ public class CyclomaticComplexityAnalysisService
         return Task.FromResult(allMetrics);
     }
 
-    private int Complexity(SyntaxNode? body)
+    private static int Complexity(SyntaxNode? body, CyclomaticOptions options)
     {
-        var visitor = new CyclomaticComplexityVisitor(_options);
+        var visitor = new CyclomaticComplexityVisitor(options);
         if (body != null)
         {
             visitor.Visit(body);
@@ -140,7 +124,7 @@ public class CyclomaticComplexityAnalysisService
     /// The members measured, in source order. Abstract and interface members, and partial method
     /// definitions, have no body and are skipped.
     /// </summary>
-    private IEnumerable<Member> Members(SyntaxNode root, SemanticModel semanticModel)
+    private static IEnumerable<Member> Members(SyntaxNode root, SemanticModel semanticModel, CyclomaticOptions options, TypeScope scope)
     {
         foreach (var node in root.DescendantNodes())
         {
@@ -162,8 +146,8 @@ public class CyclomaticComplexityAnalysisService
                     var body = (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody;
                     var isAutoProperty = body == null && owner is PropertyDeclarationSyntax property &&
                         !property.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword) || m.IsKind(SyntaxKind.ExternKeyword)) &&
-                        _scope.ContainingType(property) != null;
-                    if (body != null || (isAutoProperty && _options.IncludeAutoAccessors))
+                        scope.ContainingType(property) != null;
+                    if (body != null || (isAutoProperty && options.IncludeAutoAccessors))
                     {
                         yield return new Member(accessor, $"{OwnerName(owner)}.{accessor.Keyword.Text}", body);
                     }

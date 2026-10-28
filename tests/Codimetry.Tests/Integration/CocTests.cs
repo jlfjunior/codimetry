@@ -1,5 +1,4 @@
-using Codimetry.Core.Loading;
-using Codimetry.Core.Model;
+using Codimetry.Core.Suites;
 using Codimetry.Metrics.Misra;
 using Codimetry.Tests.Helpers;
 
@@ -85,9 +84,8 @@ public class CocTests : IDisposable
     {
         _dir.WriteFile("App.csproj", """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>""");
         _dir.WriteFile("App.cs", code);
-        var service = new MisraMetricsAnalysisService(new FileDiscoveryService(), new RoslynParser(), new ClassRelationshipBuilder(),
-            cocFormula: formula, cocLegacy: legacy);
-        var metrics = await service.AnalyzeAsync(_dir.Path);
+        var service = new MisraMetricsAnalysisService(cocFormula: formula, cocLegacy: legacy);
+        var metrics = await service.AnalyzeAsync(AnalysisContext.Load(_dir.Path));
         return (metrics.Single(m => m.ClassName == "" && m.MethodName == "").CoC, service.Hierarchies, metrics);
     }
 

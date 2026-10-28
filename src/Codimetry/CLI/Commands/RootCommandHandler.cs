@@ -1,9 +1,10 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.CommandLine.Parsing;
 using Microsoft.Extensions.Logging;
 using Codimetry.Core.Cyclomatic;
-using Codimetry.Core.Loading;
 using Codimetry.Core.Model;
+using Codimetry.Core.Suites;
 using Codimetry.Metrics.Ck;
 using Codimetry.Metrics.Cyclomatic;
 using Codimetry.Metrics.Loc;
@@ -12,7 +13,7 @@ using Codimetry.Metrics.Misra;
 namespace Codimetry.CLI.Commands;
 
 /// <summary>
-/// Handles the root command and orchestrates the metrics export process.
+/// Handles the root command: loads the code once and runs the selected metric suites over it.
 /// </summary>
 public class RootCommandHandler
 {
@@ -45,45 +46,10 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "Enable verbose logging");
 
-        var locOption = new Option<bool>(
-            aliases: new[] { "--loc" },
+        var classesOnlyOption = new Option<bool>(
+            aliases: new[] { "--classes-only" },
             getDefaultValue: () => false,
-            description: "Calculate and export LOC (Lines of Code) metrics");
-
-        var ckOption = new Option<bool>(
-            aliases: new[] { "--ck" },
-            getDefaultValue: () => false,
-            description: "Calculate and export CK (Chidamber-Kemerer) object-oriented design metrics");
-
-        var misraOption = new Option<bool>(
-            aliases: new[] { "--misra" },
-            getDefaultValue: () => false,
-            description: "Calculate and export MISRA (Misra's Cognitive Complexity) metrics");
-
-        var cyclomaticOption = new Option<bool>(
-            aliases: new[] { "--cyclomatic", "--cc" },
-            getDefaultValue: () => false,
-            description: "Calculate and export Cyclomatic Complexity metrics");
-
-        var mcAdditiveOption = new Option<bool>(
-            aliases: new[] { "--mc-additive" },
-            getDefaultValue: () => false,
-            description: "MISRA: compute MC with the legacy additive rule (weights summed at any depth) instead of the composition rule of Eq. 23");
-
-        var acTypeWeightsOption = new Option<bool>(
-            aliases: new[] { "--ac-type-weights" },
-            getDefaultValue: () => false,
-            description: "MISRA: compute AC as earlier versions did, weighting attributes by type (simple = 1, other = 2) and counting static and const members");
-
-        var wmcWeightOption = new Option<WmcWeight>(
-            aliases: new[] { "--wmc-weight" },
-            getDefaultValue: () => WmcWeight.Unit,
-            description: "CK: weight of each method in WMC, unit (c_i = 1) or cyclomatic (c_i = V(G))");
-
-        var wmcExcludeStaticOption = new Option<bool>(
-            aliases: new[] { "--wmc-exclude-static" },
-            getDefaultValue: () => false,
-            description: "CK: leave static methods and constructors out of WMC, as earlier versions did");
+            description: "Measure only classes, as earlier versions did; by default records, structs and record structs are measured too");
 
         var ccNullOperatorsOption = new Option<bool>(
             aliases: new[] { "--cc-null-operators" },
@@ -100,21 +66,6 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "Cyclomatic: give automatic property accessors ({ get; set; }) a row with V(G) = 1 and add them to the class and file sums, as earlier versions did");
 
-        var mcLibraryCallWeightOption = new Option<int>(
-            aliases: new[] { "--mc-library-call-weight" },
-            getDefaultValue: () => 0,
-            description: "MISRA: weight of a call to a library method in MC (2 reproduces earlier versions for these calls); calls to the analysed code add 2 + MC of the called method");
-
-        var mcLambdasOption = new Option<McLambdaRule>(
-            aliases: new[] { "--mc-lambdas" },
-            getDefaultValue: () => McLambdaRule.Full,
-            description: "MISRA: code of lambdas and local functions in MC: full (a nested layer), calls (only their calls, as before), ignore");
-
-        var cwcLibraryWeightOption = new Option<int>(
-            aliases: new[] { "--cwc-library-weight" },
-            getDefaultValue: () => 0,
-            description: "MISRA: weight of a call to a library method or delegate in CWC (3 reproduces the legacy library rule); calls to other types of the analysed code add 2 + MC");
-
         var ditCountObjectOption = new Option<bool>(
             aliases: new[] { "--dit-count-object" },
             getDefaultValue: () => false,
@@ -125,35 +76,8 @@ public class RootCommandHandler
             getDefaultValue: () => false,
             description: "CK: count the ancestors of a base class from a library too (D : Controller = 2), except System.Object");
 
-        var cboDeclaredTypesOnlyOption = new Option<bool>(
-            aliases: new[] { "--cbo-declared-types-only" },
-            getDefaultValue: () => false,
-            description: "CK: CBO counts only the types of fields, properties and method signatures, and only classes, as earlier versions did (types still matched by symbol)");
-
-        var cboBidirectionalOption = new Option<bool>(
-            aliases: new[] { "--cbo-bidirectional" },
-            getDefaultValue: () => false,
-            description: "CK: CBO also counts the types that use the class (CK 1994), each coupled type once");
-
-        var rfcExcludeConstructorsOption = new Option<bool>(
-            aliases: new[] { "--rfc-exclude-constructors" },
-            getDefaultValue: () => false,
-            description: "CK: leave constructor calls (new, base(...)) out of RFC, as earlier versions did");
-
-        var cocFormulaOption = new Option<CocFormula>(
-            aliases: new[] { "--coc-formula" },
-            getDefaultValue: () => CocFormula.Tree,
-            description: "MISRA: how CoC combines the CLC of an inheritance hierarchy: tree (CLC of a class × Σ CoC of its subclasses, as in the example of Misra et al.) or levels (Π over levels of Σ CLC, Eq. 27 read literally)");
-
-        var cocLegacyOption = new Option<bool>(
-            aliases: new[] { "--coc-legacy" },
-            getDefaultValue: () => false,
-            description: "MISRA: compute CoC as earlier versions did, Σ CLC + Σ CWC / 2, without the inheritance hierarchy");
-
-        var classesOnlyOption = new Option<bool>(
-            aliases: new[] { "--classes-only" },
-            getDefaultValue: () => false,
-            description: "Measure only classes, as earlier versions did; by default records, structs and record structs are measured too");
+        // In this order they appear in --help and run
+        IMetricSuite[] suites = [new LocSuite(), new CkSuite(), new MisraSuite(), new CyclomaticSuite()];
 
         var rootCommand = new RootCommand("Codimetry - Extract LOC, CK, MISRA, and Cyclomatic Complexity metrics from .NET codebases")
         {
@@ -163,29 +87,22 @@ public class RootCommandHandler
             outputOption,
             noRecursiveOption,
             verboseOption,
-            locOption,
-            ckOption,
-            misraOption,
-            cyclomaticOption,
-            mcAdditiveOption,
-            acTypeWeightsOption,
-            wmcWeightOption,
-            wmcExcludeStaticOption,
+            classesOnlyOption,
             ccNullOperatorsOption,
             ccLegacyOperatorsOption,
-            classesOnlyOption,
             ccIncludeAutoAccessorsOption,
-            mcLibraryCallWeightOption,
-            mcLambdasOption,
-            cwcLibraryWeightOption,
             ditCountObjectOption,
-            ditResolveFrameworkOption,
-            cboDeclaredTypesOnlyOption,
-            cboBidirectionalOption,
-            rfcExcludeConstructorsOption,
-            cocFormulaOption,
-            cocLegacyOption
+            ditResolveFrameworkOption
         };
+
+        foreach (var suite in suites)
+        {
+            rootCommand.AddOption(suite.Selector);
+            foreach (var option in suite.Options)
+            {
+                rootCommand.AddOption(option);
+            }
+        }
 
         rootCommand.AddValidator(result =>
         {
@@ -211,45 +128,34 @@ public class RootCommandHandler
 
         rootCommand.SetHandler(async (InvocationContext context) =>
         {
-            var path = context.ParseResult.GetValueForOption(pathOption);
-            var solution = context.ParseResult.GetValueForOption(solutionOption);
-            var project = context.ParseResult.GetValueForOption(projectOption);
-            var output = context.ParseResult.GetValueForOption(outputOption);
-            var recursive = context.ParseResult.GetValueForOption(noRecursiveOption);
-            var verbose = context.ParseResult.GetValueForOption(verboseOption);
-            var loc = context.ParseResult.GetValueForOption(locOption);
-            var ck = context.ParseResult.GetValueForOption(ckOption);
-            var misra = context.ParseResult.GetValueForOption(misraOption);
-            var cyclomatic = context.ParseResult.GetValueForOption(cyclomaticOption);
-            var mcAdditive = context.ParseResult.GetValueForOption(mcAdditiveOption);
-            var acTypeWeights = context.ParseResult.GetValueForOption(acTypeWeightsOption);
-            var wmcWeight = context.ParseResult.GetValueForOption(wmcWeightOption);
-            var wmcExcludeStatic = context.ParseResult.GetValueForOption(wmcExcludeStaticOption);
+            var parseResult = context.ParseResult;
             var cyclomaticOptions = new CyclomaticOptions(
-                NullOperators: context.ParseResult.GetValueForOption(ccNullOperatorsOption),
-                LegacyOperators: context.ParseResult.GetValueForOption(ccLegacyOperatorsOption),
-                IncludeAutoAccessors: context.ParseResult.GetValueForOption(ccIncludeAutoAccessorsOption));
-            var mcLibraryCallWeight = context.ParseResult.GetValueForOption(mcLibraryCallWeightOption);
-            var mcLambdas = context.ParseResult.GetValueForOption(mcLambdasOption);
-            var cwcLibraryWeight = context.ParseResult.GetValueForOption(cwcLibraryWeightOption);
+                NullOperators: parseResult.GetValueForOption(ccNullOperatorsOption),
+                LegacyOperators: parseResult.GetValueForOption(ccLegacyOperatorsOption),
+                IncludeAutoAccessors: parseResult.GetValueForOption(ccIncludeAutoAccessorsOption));
             var ditOptions = new DitOptions(
-                CountObject: context.ParseResult.GetValueForOption(ditCountObjectOption),
-                ResolveFramework: context.ParseResult.GetValueForOption(ditResolveFrameworkOption));
-            var cboOptions = new CboOptions(
-                DeclaredTypesOnly: context.ParseResult.GetValueForOption(cboDeclaredTypesOnlyOption),
-                Bidirectional: context.ParseResult.GetValueForOption(cboBidirectionalOption));
-            var rfcExcludeConstructors = context.ParseResult.GetValueForOption(rfcExcludeConstructorsOption);
-            var cocFormula = context.ParseResult.GetValueForOption(cocFormulaOption);
-            var cocLegacy = context.ParseResult.GetValueForOption(cocLegacyOption);
-            var typeScope = new TypeScope(ClassesOnly: context.ParseResult.GetValueForOption(classesOnlyOption));
-            
-            context.ExitCode = await ExecuteAsync(path, solution, project, output ?? "./.metrics", recursive, verbose, loc, ck, misra, cyclomatic, mcAdditive, acTypeWeights, wmcWeight, wmcExcludeStatic, cyclomaticOptions, typeScope, mcLibraryCallWeight, mcLambdas, cwcLibraryWeight, ditOptions, cboOptions, rfcExcludeConstructors, cocFormula, cocLegacy);
+                CountObject: parseResult.GetValueForOption(ditCountObjectOption),
+                ResolveFramework: parseResult.GetValueForOption(ditResolveFrameworkOption));
+            var typeScope = new TypeScope(ClassesOnly: parseResult.GetValueForOption(classesOnlyOption));
+
+            context.ExitCode = await ExecuteAsync(
+                parseResult,
+                suites,
+                parseResult.GetValueForOption(pathOption),
+                parseResult.GetValueForOption(solutionOption),
+                parseResult.GetValueForOption(projectOption),
+                parseResult.GetValueForOption(outputOption) ?? "./.metrics",
+                parseResult.GetValueForOption(noRecursiveOption),
+                parseResult.GetValueForOption(verboseOption),
+                cyclomaticOptions,
+                ditOptions,
+                typeScope);
         });
 
         return rootCommand;
     }
 
-    private static async Task<int> ExecuteAsync(string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, bool loc, bool ck, bool misra, bool cyclomatic, bool mcAdditive, bool acTypeWeights, WmcWeight wmcWeight, bool wmcExcludeStatic, CyclomaticOptions cyclomaticOptions, TypeScope typeScope, int mcLibraryCallWeight, McLambdaRule mcLambdas, int cwcLibraryWeight, DitOptions ditOptions, CboOptions cboOptions, bool rfcExcludeConstructors, CocFormula cocFormula, bool cocLegacy)
+    private static async Task<int> ExecuteAsync(ParseResult parseResult, IReadOnlyList<IMetricSuite> suites, string? path, string? solution, string? project, string output, bool noRecursive, bool verbose, CyclomaticOptions cyclomaticOptions, DitOptions ditOptions, TypeScope typeScope)
     {
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
@@ -305,172 +211,20 @@ public class RootCommandHandler
                 ? "classes only, legacy (--classes-only)"
                 : "classes, records, structs and record structs");
 
-            // Determine which metrics to calculate
-            // If no metric flags are specified, calculate all (default behavior)
-            // If specific flags are specified, calculate only those
-            var hasAnyFlag = loc || ck || misra || cyclomatic;
-            
-            var calculateLoc = !hasAnyFlag || loc; // Calculate LOC if no flags (default) or if --loc is specified
-            var calculateCk = !hasAnyFlag || ck; // Calculate CK if no flags (default) or if --ck is specified
-            var calculateMisra = !hasAnyFlag || misra; // Calculate MISRA if no flags (default) or if --misra is specified
-            var calculateCyclomatic = !hasAnyFlag || cyclomatic; // Calculate Cyclomatic Complexity if no flags (default) or if --cyclomatic/--cc is specified
-
-            // Initialize services
-            var fileDiscovery = new FileDiscoveryService();
-            var roslynParser = new RoslynParser();
-
-            // Analyze and export LOC metrics if requested
-            if (calculateLoc)
+            // If no suite flag is specified, every suite runs; otherwise only the selected ones
+            var selected = suites.Where(s => parseResult.GetValueForOption(s.Selector)).ToList();
+            if (selected.Count == 0)
             {
-                logger.LogInformation("Calculating LOC metrics...");
-                
-                var locCalculator = new LocCalculator();
-                var analysisService = new LocAnalysisService(
-                    fileDiscovery,
-                    roslynParser,
-                    locCalculator,
-                    new LogicalLocCalculator(),
-                    new PhysicalLocCalculator(),
-                    loggerFactory.CreateLogger<LocAnalysisService>(),
-                    typeScope);
-
-                var metrics = await analysisService.AnalyzeAsync(inputPath, !noRecursive);
-
-                if (metrics.Count == 0)
-                {
-                    logger.LogWarning("No LOC metrics found. Check if the path contains valid .cs files.");
-                }
-                else
-                {
-                    logger.LogInformation("LOC analysis complete. Found {Count} metric entries.", metrics.Count);
-
-                    // Export LOC metrics to CSV
-                    var outputPath = Path.Combine(output, "metrics_loc.csv");
-                    await LocCsvExporter.ExportAsync(metrics, outputPath);
-
-                    logger.LogInformation("LOC metrics exported successfully to: {OutputPath}", outputPath);
-                    logger.LogInformation("Total LOC entries: {Count}", metrics.Count);
-                }
+                selected = suites.ToList();
             }
 
-            // Calculate and export CK metrics if requested
-            if (calculateCk)
+            // The code is loaded once and shared by the suites
+            var analysis = AnalysisContext.Load(inputPath, !noRecursive, typeScope, cyclomaticOptions, ditOptions,
+                loggerFactory.CreateLogger<AnalysisContext>());
+
+            foreach (var suite in selected)
             {
-                logger.LogInformation("Calculating CK metrics...");
-                
-                var relationshipBuilder = new ClassRelationshipBuilder();
-                var ckAnalysisService = new CkMetricsAnalysisService(
-                    fileDiscovery,
-                    roslynParser,
-                    relationshipBuilder,
-                    loggerFactory.CreateLogger<CkMetricsAnalysisService>(),
-                    wmcWeight: wmcWeight,
-                    wmcExcludeStatic: wmcExcludeStatic,
-                    cyclomaticOptions: cyclomaticOptions,
-                    typeScope: typeScope,
-                    ditOptions: ditOptions,
-                    cboOptions: cboOptions,
-                    rfcExcludeConstructors: rfcExcludeConstructors);
-
-                var ckMetricsResults = await ckAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
-
-                if (ckMetricsResults.Count > 0)
-                {
-                    var ckOutputPath = Path.Combine(output, "metrics_ck.csv");
-                    await CkCsvExporter.ExportAsync(ckMetricsResults, ckOutputPath);
-
-                    logger.LogInformation("CK metrics exported successfully to: {OutputPath}", ckOutputPath);
-                    logger.LogInformation("Total CK entries: {Count}", ckMetricsResults.Count);
-                }
-                else
-                {
-                    logger.LogWarning("No CK metrics found.");
-                }
-            }
-
-            // Calculate and export MISRA metrics if requested
-            if (calculateMisra)
-            {
-                logger.LogInformation("Calculating MISRA metrics...");
-                
-                var relationshipBuilder = new ClassRelationshipBuilder();
-                var misraAnalysisService = new MisraMetricsAnalysisService(
-                    fileDiscovery,
-                    roslynParser,
-                    relationshipBuilder,
-                    loggerFactory.CreateLogger<MisraMetricsAnalysisService>(),
-                    additiveMc: mcAdditive,
-                    acTypeWeights: acTypeWeights,
-                    typeScope: typeScope,
-                    libraryCallWeight: mcLibraryCallWeight,
-                    lambdaRule: mcLambdas,
-                    cwcLibraryCallWeight: cwcLibraryWeight,
-                    ditOptions: ditOptions,
-                    cocFormula: cocFormula,
-                    cocLegacy: cocLegacy);
-
-                var misraMetricsResults = await misraAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
-
-                if (misraMetricsResults.Count > 0)
-                {
-                    var misraOutputPath = Path.Combine(output, "metrics_misra.csv");
-                    await MisraCsvExporter.ExportAsync(misraMetricsResults, misraOutputPath);
-
-                    logger.LogInformation("MISRA metrics exported successfully to: {OutputPath}", misraOutputPath);
-                    logger.LogInformation("Total MISRA entries: {Count}", misraMetricsResults.Count);
-
-                    var cocOutputPath = Path.Combine(output, "metrics_coc.csv");
-                    await MisraCsvExporter.ExportHierarchiesAsync(misraAnalysisService.Hierarchies, cocOutputPath);
-                    logger.LogInformation("CoC per inheritance hierarchy exported to: {OutputPath}", cocOutputPath);
-                }
-                else
-                {
-                    logger.LogWarning("No MISRA metrics found.");
-                }
-            }
-
-            // Calculate and export Cyclomatic Complexity metrics if requested
-            if (calculateCyclomatic)
-            {
-                logger.LogInformation("Calculating Cyclomatic Complexity metrics...");
-                
-                var ccAnalysisService = new CyclomaticComplexityAnalysisService(
-                    fileDiscovery,
-                    roslynParser,
-                    loggerFactory.CreateLogger<CyclomaticComplexityAnalysisService>(),
-                    cyclomaticOptions,
-                    typeScope);
-
-                var ccMetricsResults = await ccAnalysisService.AnalyzeAsync(inputPath, !noRecursive);
-
-                if (ccMetricsResults.Count > 0)
-                {
-                    var ccOutputPath = Path.Combine(output, "metrics_cyclomatic.csv");
-                    await CyclomaticCsvExporter.ExportAsync(ccMetricsResults, ccOutputPath);
-
-                    logger.LogInformation("Cyclomatic Complexity metrics exported successfully to: {OutputPath}", ccOutputPath);
-                    logger.LogInformation("Total Cyclomatic Complexity entries: {Count}", ccMetricsResults.Count);
-                    
-                    // Log complexity statistics
-                    var methodMetrics = ccMetricsResults.Where(m => !string.IsNullOrEmpty(m.MethodName)).ToList();
-                    if (methodMetrics.Any())
-                    {
-                        var maxComplexity = methodMetrics.Max(m => m.Complexity);
-                        var avgComplexity = methodMetrics.Average(m => m.Complexity);
-                        var highComplexity = methodMetrics.Count(m => m.Complexity > 10);
-                        var veryHighComplexity = methodMetrics.Count(m => m.Complexity > 20);
-                        
-                        logger.LogInformation("Complexity Statistics:");
-                        logger.LogInformation("  Maximum complexity: {Max}", maxComplexity);
-                        logger.LogInformation("  Average complexity: {Avg:F2}", avgComplexity);
-                        logger.LogInformation("  Methods with complexity > 10: {High}", highComplexity);
-                        logger.LogInformation("  Methods with complexity > 20: {VeryHigh}", veryHighComplexity);
-                    }
-                }
-                else
-                {
-                    logger.LogWarning("No Cyclomatic Complexity metrics found.");
-                }
+                await suite.RunAsync(analysis, parseResult, output, loggerFactory);
             }
 
             return 0;

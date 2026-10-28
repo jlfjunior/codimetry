@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging;
 using Codimetry.Core.Loading;
 using Codimetry.Core.Model;
+using Codimetry.Core.Suites;
 
 namespace Codimetry.Metrics.Misra;
 
@@ -11,58 +12,40 @@ namespace Codimetry.Metrics.Misra;
 /// </summary>
 public class MisraMetricsAnalysisService
 {
-    private readonly FileDiscoveryService _fileDiscoveryService;
-    private readonly RoslynParser _roslynParser;
-    private readonly ClassRelationshipBuilder _relationshipBuilder;
     private readonly McCalculator _mcCalculator;
     private readonly AcCalculator _acCalculator;
     private readonly ClcCalculator _clcCalculator;
     private readonly CwcCalculator _cwcCalculator;
     private readonly CcCalculator _ccCalculator;
-    private readonly CodebaseLoader _codebaseLoader;
     private readonly bool _additiveMc;
     private readonly bool _acTypeWeights;
-    private readonly TypeScope? _typeScope;
     private readonly int _libraryCallWeight;
     private readonly McLambdaRule _lambdaRule;
     private readonly int _cwcLibraryCallWeight;
-    private readonly DitOptions? _ditOptions;
     private readonly CocFormula _cocFormula;
     private readonly bool _cocLegacy;
     private readonly ILogger<MisraMetricsAnalysisService>? _logger;
 
     public MisraMetricsAnalysisService(
-        FileDiscoveryService fileDiscoveryService,
-        RoslynParser roslynParser,
-        ClassRelationshipBuilder relationshipBuilder,
         ILogger<MisraMetricsAnalysisService>? logger = null,
-        CodebaseLoader? codebaseLoader = null,
         bool additiveMc = false,
         bool acTypeWeights = false,
-        TypeScope? typeScope = null,
         int libraryCallWeight = 0,
         McLambdaRule lambdaRule = McLambdaRule.Full,
         int cwcLibraryCallWeight = 0,
-        DitOptions? ditOptions = null,
         CocFormula cocFormula = CocFormula.Tree,
         bool cocLegacy = false)
     {
         _cocFormula = cocFormula;
         _cocLegacy = cocLegacy;
-        _fileDiscoveryService = fileDiscoveryService;
-        _roslynParser = roslynParser;
-        _relationshipBuilder = relationshipBuilder;
         _mcCalculator = new McCalculator();
         _acCalculator = new AcCalculator(acTypeWeights);
         _clcCalculator = new ClcCalculator(acTypeWeights);
         _cwcCalculator = new CwcCalculator(cwcLibraryCallWeight);
         _ccCalculator = new CcCalculator(acTypeWeights, cwcLibraryCallWeight);
         _cwcLibraryCallWeight = cwcLibraryCallWeight;
-        _ditOptions = ditOptions;
-        _codebaseLoader = codebaseLoader ?? new CodebaseLoader(roslynParser);
         _additiveMc = additiveMc;
         _acTypeWeights = acTypeWeights;
-        _typeScope = typeScope;
         _libraryCallWeight = libraryCallWeight;
         _lambdaRule = lambdaRule;
         _logger = logger;
@@ -76,12 +59,10 @@ public class MisraMetricsAnalysisService
     /// <summary>
     /// Analyzes code and calculates MISRA metrics for all classes and methods.
     /// </summary>
-    public async Task<List<MisraMetric>> AnalyzeAsync(string path, bool recursive = true)
+    public Task<List<MisraMetric>> AnalyzeAsync(AnalysisContext context)
     {
         var allMetrics = new List<MisraMetric>();
-        var files = _fileDiscoveryService.DiscoverFiles(path, recursive).ToList();
 
-        _logger?.LogInformation("Discovered {Count} C# files for MISRA metrics analysis", files.Count);
         _logger?.LogInformation("MC rule: {Rule}", _additiveMc
             ? "additive, legacy (--mc-additive)"
             : $"composition, Eq. 23 (sum per layer, product along nesting); a call to the analysed code adds 2 + MC, a library call adds {_libraryCallWeight}; lambdas and local functions: {_lambdaRule.ToString().ToLowerInvariant()}");
@@ -98,26 +79,23 @@ public class MisraMetricsAnalysisService
 
         // Phase 1: Build class relationship graph and collect BCS information
         _logger?.LogInformation("Phase 1: Building class relationship graph and collecting BCS information...");
-        var allClasses = new List<TypeElement>();
-        var allMethods = new List<MethodElement>();
+        var types = context.Types;
+        var allClasses = types.Classes;
+        var allMethods = types.Methods;
+        var relationships = types.Relationships;
         var allBcsInfo = new Dictionary<string, BcsInfo>();
         var allClassAttributes = new Dictionary<string, List<string>>();
         var allClassAttributeTypes = new Dictionary<string, List<string>>();
 
-        // One compilation per project, so that class keys match across files
-        var codebase = _codebaseLoader.Load(files, Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path)));
+        var codebase = context.Codebase;
         var implementations = codebase.AbstractImplementations();
         var mcGraph = _additiveMc ? null : new MethodComplexityGraph(codebase.Documents, implementations, _libraryCallWeight, _lambdaRule);
 
         foreach (var document in codebase.Documents)
         {
-            var filePath = document.FilePath;
-            var fileData = AnalyzeFileForMisraMetrics(document, mcGraph);
+            var fileData = AnalyzeFileForMisraMetrics(document, mcGraph, context.TypeScope);
             if (fileData != null)
             {
-                allClasses.AddRange(fileData.Classes);
-                allMethods.AddRange(fileData.Methods);
-
                 // Merge BCS info
                 foreach (var kvp in fileData.BcsInfo)
                 {
@@ -138,12 +116,6 @@ public class MisraMetricsAnalysisService
                         allClassAttributeTypes[kvp.Key] = new List<string>(fileData.ClassAttributeTypes[kvp.Key]);
                     }
                 }
-
-                // Add classes to relationship builder
-                foreach (var classElement in fileData.Classes)
-                {
-                    _relationshipBuilder.AddClass(classElement, filePath);
-                }
             }
         }
 
@@ -157,7 +129,7 @@ public class MisraMetricsAnalysisService
 
         // Phase 2: Calculate method-level metrics (MC)
         _logger?.LogInformation("Phase 2: Calculating method-level metrics (MC)...");
-        var allClassesMap = _relationshipBuilder.GetAllClasses();
+        var allClassesMap = relationships.GetAllClasses();
         var kinds = allClasses.GroupBy(c => c.ClassKey!).ToDictionary(g => g.Key, g => g.First().Kind);
         var methodMetrics = new List<MisraMetric>();
 
@@ -247,7 +219,7 @@ public class MisraMetricsAnalysisService
         var hierarchies = cocCalculator.Hierarchies(
             clcByClass,
             key => allClassesMap.TryGetValue(key, out var info) ? info.BaseClass : null,
-            _relationshipBuilder.GetChildren);
+            relationships.GetChildren);
         Hierarchies = hierarchies
             .Select(h => new CocHierarchyMetric
             {
@@ -298,10 +270,10 @@ public class MisraMetricsAnalysisService
 
         _logger?.LogInformation("MISRA metrics analysis complete. Total metrics: {Count}", allMetrics.Count);
 
-        return allMetrics;
+        return Task.FromResult(allMetrics);
     }
 
-    private FileMisraAnalysisData? AnalyzeFileForMisraMetrics(SourceDocument document, MethodComplexityGraph? mcGraph)
+    private FileMisraAnalysisData? AnalyzeFileForMisraMetrics(SourceDocument document, MethodComplexityGraph? mcGraph, TypeScope typeScope)
     {
         var filePath = document.FilePath;
         try
@@ -309,18 +281,12 @@ public class MisraMetricsAnalysisService
             var syntaxTree = document.Tree;
             var semanticModel = document.SemanticModel;
 
-            // Types and methods, with their calls
-            var typeModel = new TypeModelCollector(semanticModel, scope: _typeScope, ditOptions: _ditOptions);
-            typeModel.Visit(syntaxTree.GetRoot());
-
             // Use MISRA visitor for BCS info and attributes
-            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc, _acTypeWeights, _typeScope, mcGraph);
+            var misraVisitor = new MisraSyntaxVisitor(semanticModel, _additiveMc, _acTypeWeights, typeScope, mcGraph);
             misraVisitor.Visit(syntaxTree.GetRoot());
 
             return new FileMisraAnalysisData
             {
-                Classes = typeModel.GetClasses().ToList(),
-                Methods = typeModel.GetMethods().ToList(),
                 BcsInfo = misraVisitor.GetMethodBcsInfo().ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
                 ClassAttributes = misraVisitor.GetClassAttributes().ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
                 ClassAttributeTypes = misraVisitor.GetClassAttributeTypes().ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
@@ -335,8 +301,6 @@ public class MisraMetricsAnalysisService
 
     private class FileMisraAnalysisData
     {
-        public List<TypeElement> Classes { get; set; } = new();
-        public List<MethodElement> Methods { get; set; } = new();
         public Dictionary<string, BcsInfo> BcsInfo { get; set; } = new();
         public Dictionary<string, List<string>> ClassAttributes { get; set; } = new();
         public Dictionary<string, List<string>> ClassAttributeTypes { get; set; } = new();

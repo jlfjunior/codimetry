@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.Extensions.Logging;
-using Codimetry.Core.Loading;
 using Codimetry.Core.Model;
+using Codimetry.Core.Suites;
 
 namespace Codimetry.Metrics.Loc;
 
@@ -10,47 +10,35 @@ namespace Codimetry.Metrics.Loc;
 /// </summary>
 public class LocAnalysisService
 {
-    private readonly FileDiscoveryService _fileDiscoveryService;
-    private readonly RoslynParser _roslynParser;
     private readonly LocCalculator _locCalculator;
     private readonly LogicalLocCalculator _logicalLocCalculator;
     private readonly PhysicalLocCalculator _physicalLocCalculator;
     private readonly ILogger<LocAnalysisService>? _logger;
-    private readonly TypeScope? _typeScope;
 
     public LocAnalysisService(
-        FileDiscoveryService fileDiscoveryService,
-        RoslynParser roslynParser,
         LocCalculator locCalculator,
         LogicalLocCalculator logicalLocCalculator,
         PhysicalLocCalculator physicalLocCalculator,
-        ILogger<LocAnalysisService>? logger = null,
-        TypeScope? typeScope = null)
+        ILogger<LocAnalysisService>? logger = null)
     {
-        _typeScope = typeScope;
-        _fileDiscoveryService = fileDiscoveryService;
-        _roslynParser = roslynParser;
         _locCalculator = locCalculator;
         _logicalLocCalculator = logicalLocCalculator;
         _physicalLocCalculator = physicalLocCalculator;
         _logger = logger;
     }
 
-    public async Task<List<LocMetric>> AnalyzeAsync(string path, bool recursive = true)
+    public async Task<List<LocMetric>> AnalyzeAsync(AnalysisContext context)
     {
         var allMetrics = new List<LocMetric>();
-        var files = _fileDiscoveryService.DiscoverFiles(path, recursive).ToList();
-
-        _logger?.LogInformation("Discovered {Count} C# files", files.Count);
 
         // Process files in parallel for better performance
         var semaphore = new SemaphoreSlim(Environment.ProcessorCount);
-        var tasks = files.Select(async filePath =>
+        var tasks = context.Codebase.Documents.Select(async document =>
         {
             await semaphore.WaitAsync();
             try
             {
-                return await Task.Run(() => AnalyzeFile(filePath));
+                return await Task.Run(() => AnalyzeFile(document.FilePath, document.Tree, context.TypeScope));
             }
             finally
             {
@@ -71,21 +59,14 @@ public class LocAnalysisService
         return allMetrics;
     }
 
-    private List<LocMetric>? AnalyzeFile(string filePath)
+    private List<LocMetric>? AnalyzeFile(string filePath, SyntaxTree syntaxTree, TypeScope typeScope)
     {
         try
         {
             _logger?.LogDebug("Analyzing file: {FilePath}", filePath);
 
-            var syntaxTree = _roslynParser.ParseFile(filePath);
-            if (syntaxTree == null)
-            {
-                _logger?.LogWarning("Failed to parse file: {FilePath}", filePath);
-                return null;
-            }
-
             var sourceText = File.ReadAllText(filePath);
-            var visitor = new SyntaxVisitor(_typeScope);
+            var visitor = new SyntaxVisitor(typeScope);
             visitor.Visit(syntaxTree.GetRoot());
 
             var elements = visitor.GetElements();
