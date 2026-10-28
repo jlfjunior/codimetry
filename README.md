@@ -365,7 +365,7 @@ The tool's implementation differs from the textbook definitions in some places, 
 
 ## Running Tests
 
-The test suite lives in `tests/Codimetry.Tests` (xUnit). It covers the parsers, metric calculators, analysis services, CSV exporter, and CLI. It also checks every worked example in `docs/*.md`, so the documentation and the implementation cannot drift apart unnoticed.
+The tests (xUnit) mirror the source projects: `tests/Codimetry.Core.Tests` and `tests/Codimetry.Metrics.{Loc,Cyclomatic,Ck,Misra}.Tests` each test one project, and `tests/Codimetry.Tests` tests the CLI and what the suites must agree on, including every worked example in `docs/*.md`, so the documentation and the implementation cannot drift apart unnoticed. `tests/Codimetry.Tests.Shared` holds the helpers they share.
 
 ```bash
 dotnet test
@@ -376,13 +376,20 @@ dotnet test --collect:"XPlat Code Coverage"
 
 ## Architecture
 
-The project follows **Simple Layered Architecture** with the following structure:
+Each metric suite is a project of its own that depends only on the core:
 
-- **Core/Models**: Data models (LocMetric, CkMetric, MisraMetric, CyclomaticComplexityMetric)
-- **Services**: Business logic (file discovery, metrics analysis, LOC calculation, CK metrics calculation, MISRA metrics calculation, Cyclomatic Complexity calculation)
-- **Parsers**: File parsing (Roslyn, Solution, Project parsers, CK syntax analysis, MISRA BCS detection, Cyclomatic Complexity decision point detection)
-- **Exporters**: Output generation (CSV export for LOC, CK, MISRA, and Cyclomatic Complexity metrics)
-- **CLI**: Command-line interface
+```
+Codimetry (CLI) ──► Codimetry.Metrics.Loc ────────┐
+                ├─► Codimetry.Metrics.Cyclomatic ─┤
+                ├─► Codimetry.Metrics.Ck ─────────┼──► Codimetry.Core
+                └─► Codimetry.Metrics.Misra ──────┘
+```
+
+- **Codimetry.Core**: what the suites share. `Loading` finds the C# files of a directory, solution or project and compiles them, one compilation per project; `Model` holds the type keys, the measured types (`TypeScope`) and the `TypeModel` of types, methods and calls that CK and MISRA both read; `Cyclomatic` holds the V(G) rule used by the cyclomatic suite and by WMC; `Suites` defines `IMetricSuite` and the `AnalysisContext`; `Output` writes CSV.
+- **Codimetry.Metrics.\***: one suite each, with its calculators, analysis service, CSV rows and exporter, and an `IMetricSuite` that declares its selector (`--ck`...) and its own options.
+- **Codimetry**: the command line. It declares the options the suites share (input, output, `--classes-only`, `--cc-*`, `--dit-*`), loads the code once into an `AnalysisContext` and runs the selected suites over it.
+
+A new suite is a new `Codimetry.Metrics.*` project that implements `IMetricSuite` and is added to the list in `RootCommandHandler`.
 
 ## Requirements
 
@@ -392,6 +399,7 @@ The project follows **Simple Layered Architecture** with the following structure
 ## Performance
 
 The tool is optimized for performance:
+- The code is parsed and compiled once, and the selected suites share it
 - Parallel file processing
 - Efficient Roslyn syntax tree analysis
 - Memory-efficient processing
