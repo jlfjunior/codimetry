@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Codimetry.Core\Codimetry.Core.csproj" />
+        <ProjectReference Include="..\Codimetry.Tests.Shared\Codimetry.Tests.Shared.csproj" />
+    </ItemGroup>
+
+</Project>

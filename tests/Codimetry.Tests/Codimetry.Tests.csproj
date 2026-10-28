@@ -1,27 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="coverlet.collector" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Codimetry\Codimetry.csproj" />
-    <ProjectReference Include="..\..\src\Codimetry.Core\Codimetry.Core.csproj" />
-    <ProjectReference Include="..\..\src\Codimetry.Metrics.Loc\Codimetry.Metrics.Loc.csproj" />
-    <ProjectReference Include="..\..\src\Codimetry.Metrics.Cyclomatic\Codimetry.Metrics.Cyclomatic.csproj" />
-    <ProjectReference Include="..\..\src\Codimetry.Metrics.Ck\Codimetry.Metrics.Ck.csproj" />
-    <ProjectReference Include="..\..\src\Codimetry.Metrics.Misra\Codimetry.Metrics.Misra.csproj" />
-  </ItemGroup>
+    <!-- Tests of the executable and of what the suites must agree on -->
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Codimetry\Codimetry.csproj" />
+        <ProjectReference Include="..\Codimetry.Tests.Shared\Codimetry.Tests.Shared.csproj" />
+    </ItemGroup>
 
 </Project>
